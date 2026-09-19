@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>义体 · 唤醒词机制设计（Ghost 寻址）</title>
+<style>
+:root{
+  --bg:#0b0d14;--bg2:#12151f;--bg3:#181c29;--line:#252a3a;
+  --amber:#e8a33d;--amber-dim:#8a6224;
+  --teal:#4fd1c5;--teal-dim:#1f6b64;
+  --red:#d4685f;--red-dim:#5c3830;
+  --txt:#e8e6e1;--txt2:#9aa0ae;--txt3:#6b7180;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);font-size:15px;line-height:1.78;
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased}
+.wrap{max-width:900px;margin:0 auto;padding:0 28px 110px}
+.mono,code{font-family:ui-monospace,"SF Mono",Consolas,monospace}
+
+nav{position:sticky;top:0;z-index:9;background:rgba(11,13,20,.93);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+nav .in{max-width:900px;margin:0 auto;padding:12px 28px;display:flex;gap:17px;align-items:center;font-size:12px;overflow-x:auto}
+nav a{color:var(--txt2);text-decoration:none;white-space:nowrap}
+nav a:hover{color:var(--amber)}
+nav .sp{flex:1} nav .doc{color:var(--txt3);font-size:11px;letter-spacing:.12em;white-space:nowrap}
+
+.hero{padding:70px 0 48px;border-bottom:1px solid var(--line);position:relative;overflow:hidden}
+.hero:before{content:"";position:absolute;left:50%;top:-190px;transform:translateX(-50%);width:700px;height:360px;background:radial-gradient(ellipse at center,rgba(79,209,197,.10),transparent 68%);pointer-events:none}
+.tag{display:inline-block;font-size:11px;letter-spacing:.2em;color:var(--teal);border:1px solid var(--teal-dim);padding:5px 12px;border-radius:99px;margin-bottom:22px}
+h1{font-size:38px;line-height:1.2;font-weight:700;letter-spacing:-.02em}
+h1 span{display:block;font-size:13px;letter-spacing:.2em;color:var(--txt3);font-weight:400;margin-top:14px}
+.lede{margin-top:26px;font-size:15.5px;color:var(--txt2);max-width:790px}
+.lede b{color:var(--txt)}
+
+section{padding-top:58px}
+.sec-h{display:flex;align-items:baseline;gap:13px;margin-bottom:8px}
+.sec-num{font-family:ui-monospace,Consolas,monospace;font-size:12px;color:var(--amber);border:1px solid var(--amber-dim);border-radius:5px;padding:2px 8px;flex:none}
+h2{font-size:24px;font-weight:600;letter-spacing:-.01em}
+.sec-sub{color:var(--txt2);font-size:13.5px;margin-bottom:28px}
+h3{font-size:17px;font-weight:600;margin:32px 0 12px}
+h4{font-size:14.5px;font-weight:600;margin:22px 0 9px;color:var(--amber)}
+p{margin-bottom:13px;color:var(--txt2)}
+p strong,li strong,td strong{color:var(--txt);font-weight:600}
+ul,ol{margin:0 0 15px;padding-left:21px;color:var(--txt2)}
+li{margin-bottom:7px} li::marker{color:var(--amber-dim)}
+
+table{width:100%;border-collapse:collapse;margin:20px 0;font-size:13.5px}
+th,td{text-align:left;padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--amber);font-weight:600;font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;border-bottom:1px solid var(--amber-dim)}
+td{color:var(--txt2)}
+tbody tr:hover{background:rgba(255,255,255,.014)}
+
+.callout{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:21px;margin:22px 0}
+.callout .ct{font-weight:600;font-size:14.5px;margin-bottom:10px;display:flex;align-items:center;gap:9px}
+.callout.wow{border-color:var(--teal-dim);background:linear-gradient(180deg,rgba(79,209,197,.06),transparent)} .callout.wow .ct{color:var(--teal)}
+.callout.amber{border-color:var(--amber-dim);background:linear-gradient(180deg,rgba(232,163,61,.06),transparent)} .callout.amber .ct{color:var(--amber)}
+.callout.warn{border-color:var(--red-dim);background:rgba(212,104,95,.05)} .callout.warn .ct{color:var(--red)}
+.dot{width:7px;height:7px;border-radius:99px;flex:none;background:currentColor}
+
+.flow{display:grid;grid-template-columns:repeat(5,1fr);gap:9px;margin:22px 0}
+.fs{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:15px 12px}
+.fs .fn{font-family:ui-monospace,Consolas,monospace;font-size:10.5px;color:var(--txt3);margin-bottom:8px}
+.fs .ft{font-weight:600;font-size:14px;margin-bottom:6px}
+.fs .fd{font-size:12px;color:var(--txt2);line-height:1.55}
+.fs.t{border-color:var(--teal-dim)} .fs.t .ft{color:var(--teal)}
+.fs.a{border-color:var(--amber-dim)} .fs.a .ft{color:var(--amber)}
+
+.b{display:inline-block;font-size:11px;padding:2px 8px;border-radius:5px;font-weight:500;white-space:nowrap;font-family:ui-monospace,Consolas,monospace}
+.b.ok{background:rgba(79,209,197,.14);color:var(--teal);border:1px solid var(--teal-dim)}
+.b.warn{background:rgba(232,163,61,.14);color:var(--amber);border:1px solid var(--amber-dim)}
+.b.no{background:rgba(212,104,95,.13);color:var(--red);border:1px solid var(--red-dim)}
+.b.n{background:#1c2030;color:var(--txt2);border:1px solid #2c3145}
+
+.big-line{background:linear-gradient(180deg,rgba(79,209,197,.09),var(--bg2));border:1px solid var(--teal-dim);
+  border-radius:13px;padding:30px 26px;margin:26px 0;text-align:center}
+.big-line .l1{font-size:11px;letter-spacing:.24em;color:var(--teal);margin-bottom:18px;font-family:ui-monospace,Consolas,monospace}
+.big-line .l2{font-size:22px;line-height:1.65;color:var(--txt)}
+.big-line .l2 b{color:var(--teal)}
+.big-line .l3{font-size:12.5px;color:var(--txt3);font-style:italic;margin-top:14px}
+
+.sc{background:var(--bg3);border:1px solid var(--line);border-left:2px solid var(--teal);border-radius:0 10px 10px 0;padding:19px 21px;margin:16px 0}
+.sc p{color:var(--txt);font-size:14.5px;margin-bottom:11px} .sc p:last-child{margin-bottom:0}
+.sc .cue{color:var(--teal);font-size:12.5px;font-style:italic}
+
+.foot{margin-top:66px;padding-top:26px;border-top:1px solid var(--line);color:var(--txt3);font-size:12.5px;line-height:1.9}
+@media(max-width:740px){
+  h1{font-size:26px}.flow{grid-template-columns:1fr 1fr}
+  .wrap{padding:0 18px 80px} nav .in{padding:11px 16px;gap:13px;font-size:11px}
+}
+</style>
+</head>
+<body>
+
+<nav><div class="in">
+  <a href="#why">为什么这是升级</a>
+  <a href="#reframe">最重要的重构</a>
+  <a href="#demo">演示形态</a>
+  <a href="#problem">三个必须解决的问题</a>
+  <a href="#arch">谁负责什么</a>
+  <a href="#how">45 小时怎么做</a>
+  <a href="#talk">路演怎么说</a>
+  <span class="sp"></span><span class="doc">WAKE WORD · v1</span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <span class="tag">义体 SHELL · 机制升级</span>
+  <h1>唤醒词，是 Ghost 的地址<span>A WAKE WORD IS AN ADDRESS, NOT A COMMAND</span></h1>
+  <p class="lede">你的想法一句话就能概括：<b>喊一个词，机械臂就去 EvoMap 把对应的 Agent 拉进来。</b>这不是"再加一个功能"——它<b>替换掉了我原方案里最弱的一环</b>（靠一张入职牌上的随机码来认人，既取巧又没技术含量），而且顺手摸到了《攻壳机动队》最核心的设定。</p>
+</header>
+
+<!-- ============ 01 ============ -->
+<section id="why">
+  <div class="sec-h"><span class="sec-num">01</span><h2>为什么这是升级，而不是加法</h2></div>
+
+  <table>
+    <thead><tr><th style="width:24%"></th><th>原方案</th><th>你的方案</th></tr></thead>
+    <tbody>
+      <tr><td><strong>怎么认人</strong></td><td>扫入职牌上的一次性随机码</td><td><b>喊一个词</b>——不带任何东西</td></tr>
+      <tr><td><strong>麦阵的角色</strong></td><td>装饰。只是"入住的另一个入口"</td><td><b>核心机制</b>。没有麦阵，"召唤"不成立</td></tr>
+      <tr><td><strong>Agent 住在哪</strong></td><td>含糊。听起来像"配置被加载进机械臂"</td><td><b>明确住在 EvoMap 上</b>，机械臂只是它临时穿的衣服</td></tr>
+      <tr><td><strong>对 EvoMap 的用法</strong></td><td>"检索经验"——被动查询</td><td><b>"Agent 可寻址"</b>——把 Agent 本身存进网络，任何人可召唤</td></tr>
+      <tr><td><strong>科幻感</strong></td><td>中</td><td><b>高</b>。一声召唤，死寂的机械从网络里接回一个灵魂</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout wow">
+    <div class="ct"><span class="dot"></span>它命中了一个你没提但很关键的点</div>
+    <p style="margin-bottom:0">EvoMap 的命题是「让 Agent <b>搜索、继承并调用</b>网络中已经验证的经验」。你的机制是它的<b>加强版</b>——不只是"调用经验"，而是<b>"调用 Agent 本身"</b>。经验是被动数据，Agent 是主动的。这个差别在评委耳朵里是听得出来的。</p>
+  </div>
+</section>
+
+<!-- ============ 02 ============ -->
+<section id="reframe">
+  <div class="sec-h"><span class="sec-num">02</span><h2>最重要的重构：Ghost 根本不在壳里</h2></div>
+  <p class="sec-sub">这是你的 idea 里最有价值的一句话，但它需要被说出来、被架构支撑、被路演讲清楚。</p>
+
+  <div class="big-line">
+    <div class="l1">THE ONE LINE</div>
+    <div class="l2">「<b>Ghost 不住在这台机器里。<br>它住在网络上。这台机器，只是它今天穿的衣服。</b>」</div>
+    <div class="l3">GHOSTS LIVE ON THE NETWORK. THE SHELL IS JUST WHAT THEY WEAR TODAY.</div>
+  </div>
+
+  <p>之前"义体"的说法有个漏洞：如果 Ghost 进了壳里，那评委走了以后 Ghost 去哪了？"随时都能到"就成了空话。</p>
+  <p><strong>你的机制把这个漏洞补上了，而且是靠"承认它不在壳里"补上的。</strong></p>
+  <ul>
+    <li>Agent（Ghost）<strong>常驻在 EvoMap 上</strong>，有自己的地址——地址就是那个唤醒词</li>
+    <li>机械臂（Shell）<strong>只是一具公共义体</strong>，它自己不拥有任何 Ghost，它只是一个能装 Ghost 的身体</li>
+    <li>唤醒词生效的那一刻，不是"把 Ghost 搬进来"，而是<strong>给它俩建立了一条连接</strong></li>
+    <li>所以你离开会场之后，壳回到空的状态——<strong>但你的 Ghost 还在网上，明天喊同一个词，它还在</strong></li>
+  </ul>
+  <p>这就是《攻壳机动队》的原设定：<strong>Ghost 可以更换义体，义体是壳，Ghost 可以潜入网络</strong>。你不是在借用一个科幻外壳——你是把原作最标志性的机制做成了可运行的东西。</p>
+</section>
+
+<!-- ============ 03 ============ -->
+<section id="demo">
+  <div class="sec-h"><span class="sec-num">03</span><h2>演示形态：多台壳 + 声源定位 = 「Ghost 落地」</h2></div>
+  <p class="sec-sub">这是你这个机制真正炸的地方。单台壳只能做到"召唤"，多台壳能做出"Ghost 在网络里游荡，落到离你最近的那具身体里"。</p>
+
+  <div class="callout amber">
+    <div class="ct"><span class="dot"></span>Demo：三具壳，一声喊</div>
+    <p>展台上摆三具壳（一台 reBot Arm + 两台用<b>总线舵机驱动板 + 打印件</b>做的小体），分散在摊位左中右，全都低垂着头、全部待机。</p>
+    <p style="margin-bottom:0">评委站在摊位左侧，喊出他的唤醒词 → <strong>远场麦阵通过声源定位算出他在左边</strong> → <strong>最左边那具壳抬起头</strong>，另外两具纹丝不动。他的 Ghost 落在了离他最近的身体里。</p>
+  </div>
+
+  <div class="flow">
+    <div class="fs"><div class="fn">STEP 01</div><div class="ft">待机</div><div class="fd">三具壳都低垂着头。屏幕上写「3 具义体 · 在线」。</div></div>
+    <div class="fs a"><div class="fn">STEP 02</div><div class="ft">喊词</div><div class="fd">评委喊出他的唤醒词，比如「沙漠里的第九颗糖」。</div></div>
+    <div class="fs t"><div class="fn">STEP 03</div><div class="ft">定位</div><div class="fd">麦阵锁定声源：<strong>方位角 左侧 30°</strong>。判定"Ghost 应该落在最近的壳"。</div></div>
+    <div class="fs a"><div class="fn">STEP 04</div><div class="ft">寻址</div><div class="fd">拿这个词去 <strong>EvoMap 检索</strong>，命中一个 Agent。找到了。</div></div>
+    <div class="fs t"><div class="fn">STEP 05</div><div class="ft">落地</div><div class="fd">左侧那具壳<strong>抬头</strong>，另两具不动。Ghost 落进了离他最近的身体。</div></div>
+  </div>
+
+  <p><strong>为什么这个 demo 值钱</strong>：它同时展示了三件独立的技术，但观众只看到"一声喊，离我最近的那个醒了"——<b>零解释成本</b>。而且它是<b>可以被反复触发几十次</b>的（每个评委都喊一次自己的词），完全符合游园会流动评审的节奏。</p>
+  <p style="font-size:13px;color:var(--txt3)">降级：如果只抢到一台壳，就砍掉"落地路由"，只做"召唤"。故事仍然完整——<b>单台壳的版本已经比原方案强</b>。</p>
+</section>
+
+<!-- ============ 04 ============ -->
+<section id="problem">
+  <div class="sec-h"><span class="sec-num">04</span><h2>三个必须解决的问题（不解决会翻车）</h2></div>
+
+  <h3>问题一：唤醒词是公开的，别人听到了就能召唤你的 Agent</h3>
+  <p>这是你这套机制唯一致命的漏洞。但先别急着补——<strong>它其实是双面的</strong>。</p>
+  <table>
+    <thead><tr><th style="width:26%">解法</th><th>怎么做</th><th style="width:22%">代价</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>A · 一次性私密词</strong><span class="b ok">推荐主推</span></td>
+        <td>入住时系统随机生成一个短语（「沙漠里的第九颗糖」），<strong>只写在你自己的凭证卡上</strong>。别人不知道，就召唤不了。</td>
+        <td>零成本。而且短语本身很有仪式感</td>
+      </tr>
+      <tr>
+        <td><strong>B · 词 + 方位双因子</strong><span class="b ok">推荐叠加</span></td>
+        <td>不只是词对，<strong>还要你站在当初入住的那个位置</strong>（麦阵记得你从哪个方位来的）。</td>
+        <td>需要声源定位稳定，但正好复用"落地路由"的能力</td>
+      </tr>
+      <tr>
+        <td>C · 声纹</td>
+        <td>词 + 说话人声纹双因子。</td>
+        <td><span class="b no">不推荐</span> 45 小时里声纹识别的鲁棒性风险太高</td>
+      </tr>
+      <tr>
+        <td><strong>D · 公开客座 Ghost</strong><span class="b warn">保留一个</span></td>
+        <td>故意留<b>一个公开的唤醒词</b>（比如 EvoX 官方 Agent，或某位导师的 Agent），任何人都能召唤它。</td>
+        <td>把它做成"<strong>公共义体</strong>"的现场演示：网络里的 Ghost 可以被任何人调用</td>
+      </tr>
+    </tbody>
+  </table>
+  <p><strong>推荐组合：A + B 做主路径（专属感），D 留一个公开席位做概念演示。</strong>这样既保住了评委的"这是我的 Agent"的专属体验，又完整表达了"Ghost 在网络里可被任何人寻址"的开放语义——两边的好处都拿到了。</p>
+
+  <h3>问题二：语义必须自洽，不能自相矛盾</h3>
+  <p>一个很容易翻车的地方：如果你一会儿说"Ghost 住进了壳里"，一会儿又说"Ghost 在网上"，评委就会觉得你在含糊其辞。所以<strong>全程统一口径</strong>，只用一个说法：</p>
+  <ul>
+    <li>✅ 「它<strong>接上了</strong>你的 Ghost」／「你的 Ghost <strong>落进了</strong>这具壳」——连接/落地的语义</li>
+    <li>❌ 「它把你的 Agent <strong>下载</strong>进来了」／「Agent <strong>存在</strong>机械臂里」——搬运/存储的语义</li>
+  </ul>
+  <p>前者说得通：网络上有一个 Agent，壳是执行器，唤醒是建立连接。后者说不通：装不下、也留不住。</p>
+
+  <h3>问题三：45 小时做得完吗</h3>
+  <p><strong>做得完，而且比原方案更简单</strong>——因为你砍掉了"识别随机码"那一整套东西，换成了关键词匹配（更简单），而且关键词匹配正好是麦阵的原生能力。</p>
+  <table>
+    <thead><tr><th style="width:34%">模块</th><th>工时</th><th>难度</th></tr></thead>
+    <tbody>
+      <tr><td>麦阵关键词唤醒（唤醒词识别）</td><td>6–8h</td><td><span class="b ok">麦阵原生能力</span></td></tr>
+      <tr><td>声源定位 → 路由到最近的壳</td><td>6–10h</td><td><span class="b warn">中，需标定</span></td></tr>
+      <tr><td>EvoMap 按词检索 Agent + 建立连接</td><td>5h</td><td><span class="b ok">标准操作</span></td></tr>
+      <tr><td>唤醒词生成 + 凭证券（随机短语）</td><td>3h</td><td><span class="b ok">简单</span></td></tr>
+      <tr><td>姿态编排（低头 / 抬头 / 做一件事）</td><td>8h</td><td><span class="b warn">中</span></td></tr>
+      <tr><td>第二、三具自制壳（舵机板 + 打印）</td><td>10–14h</td><td><span class="b no">高风险，可砍</span></td></tr>
+    </tbody>
+  </table>
+  <p><strong>决策建议</strong>：Day2 24:00 前先跑通「<strong>单台壳 + 唤醒词 + EvoMap 寻址</strong>」这条最小路径。多台壳和声源路由是 <span class="b warn">P1</span>——有余力才做，因为它虽然最炸，但机械结构调试会吃光你的时间。</p>
+</section>
+
+<!-- ============ 05 ============ -->
+<section id="arch">
+  <div class="sec-h"><span class="sec-num">05</span><h2>谁负责什么（每个都不可替代）</h2></div>
+
+  <table>
+    <thead><tr><th style="width:22%">组件</th><th style="width:36%">职责</th><th>拿掉它会怎样</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>远场麦阵</strong><br><span style="font-size:12px;color:var(--txt3)">Seeed</span></td>
+        <td>在嘈杂巡展里隔数米识别唤醒词 + <b>算出说话人的方位</b></td>
+        <td>召唤机制直接不存在。普通麦克风在嘈杂环境拾不到远场关键词，也没有方位信息 → 无法做"落地路由"</td>
+      </tr>
+      <tr>
+        <td><strong>EvoMap</strong><br><span style="font-size:12px;color:var(--txt3)">主办方</span></td>
+        <td><b>Ghost 的家。</b>Agent 以唤醒词为地址存在这里，被召唤时从这里接出</td>
+        <td>没有地址簿，就没有"随时都能到"。产品退化成一个只会抬头的机械臂</td>
+      </tr>
+      <tr>
+        <td><strong>EvoX Agent</strong><br><span style="font-size:12px;color:var(--txt3)">主办方</span></td>
+        <td>扮演<b>被召唤的那个 Ghost</b>——它的运行环境</td>
+        <td>得自己搓一个 Agent 运行环境，多花 10 小时且不是主办方的东西</td>
+      </tr>
+      <tr>
+        <td><strong>reBot Arm</strong><br><span style="font-size:12px;color:var(--txt3)">Seeed</span></td>
+        <td><b>主壳。</b>6+1 DOF 才能做出"低头—抬头—为你做一件事"的完整姿态叙事</td>
+        <td>降级为舵机自制壳（仍然是壳，故事不变）</td>
+      </tr>
+      <tr>
+        <td><strong>总线舵机驱动板</strong><br><span style="font-size:12px;color:var(--txt3)">Seeed</span></td>
+        <td><b>第 2、3 具壳的命脉。</b>可自制非标准构型，多台壳不靠买成品</td>
+        <td>只能做单台。失去"落地路由"这个最炸的画面</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout amber">
+    <div class="ct"><span class="dot"></span>对赞助商的话术（因为这个机制，变得更硬了）</div>
+    <p><b>对 Seeed（潘昊）：</b>「你的麦阵和机械臂，在我们这里不是演示道具——<strong>麦阵是 Ghost 的耳朵，机械臂是 Ghost 的身体，方向盘是那台舵机驱动板</strong>。它今天被几十个人召唤过，是全场被喊名字最多的机器。」</p>
+    <p style="margin-bottom:0"><b>对 EvoMap：</b>「你的命题说『让 Agent 继承网络里已验证的经验』。我们多做了一步——<strong>我们让 Agent 本身变得可寻址。喊一个词，它就从你的网络里出来，落进一具身体。</strong>今天你的网络里会多出几十个带地址的活 Agent，而不是几十条记录。」</p>
+  </div>
+</section>
+
+<!-- ============ 06 ============ -->
+<section id="how">
+  <div class="sec-h"><span class="sec-num">06</span><h2>路演怎么讲（这段替掉原稿里的 C、D 两段）</h2></div>
+
+  <div class="sc">
+    <p>「它不是语音助手。<strong>那个词不是命令，是地址。</strong>」</p>
+    <p>「您的 Agent 从来不在这个机械臂里。<strong>它住在 EvoMap 上。</strong>这具壳只是它今天穿的衣服。」</p>
+    <p><span class="cue">（把入住牌递给他，上面印着一个随机短语）</span>「这是您的地址。您喊一声试试。」</p>
+    <p><span class="cue">（他喊出来 → 离他最近的那具壳抬头）</span></p>
+    <p>「<strong>它听见了。而且它知道您站在哪——所以是离您最近的那一具醒了。</strong>」</p>
+    <p>「这就是《攻壳机动队》：<strong>Ghost 在网上，壳是可以换的。</strong>您走出这个会场之后，这具壳会回到空的状态 —— <strong>但您的 Ghost 还在网上。明天喊同一个词，它还在。</strong>」</p>
+  </div>
+
+  <h4>新增的问答预判</h4>
+  <table>
+    <thead><tr><th style="width:34%">会问什么</th><th>怎么答</th></tr></thead>
+    <tbody>
+      <tr><td>唤醒词被别人听到了怎么办？</td><td>「词是一次性随机生成的，只写在他自己的凭证上；而且<strong>还要他站在当初入住的方位上</strong>，方位也是双因子的一部分。」</td></tr>
+      <tr><td>那你们的壳不就成了公共的了？</td><td>「对，<strong>这就是重点</strong>。壳是公共义体，Ghost 才是私有的。我们留了一个公开席位给官方 Agent，任何人都能召唤——你随时可以试。」</td></tr>
+      <tr><td>和语音助手有什么区别？</td><td>「语音助手的词是<strong>命令</strong>，执行完就没了。<strong>我们的词是地址，它指向一个持续存在的东西。</strong>区别是：明天喊同一个词，它记得你昨天来过。」</td></tr>
+      <tr><td>断网了呢？</td><td>诚实说：「<strong>断网它就真的是一具空载的义体</strong>——因为 Ghost 在网上。这既是它的设定，也是它的限制。」（这个诚实的回答反而会加分，因为它证明设定是自洽的）</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<div class="foot">
+  <p><strong>义体 SHELL</strong> · 唤醒词机制设计 v1 · 2026-09-19</p>
+  <p>本机制由用户提出（「给 Agent 设一个激活词，喊出来就让它从 EvoMap 住进机械臂」），本文做的是设计补全：<b>把它从"多一个功能"变成"替换最弱一环"的核心机制</b>，并补上滥用防护、语义自洽、声源路由与 45 小时落地路径。</p>
+  <p style="margin-top:12px">配套：<b>《方向集》</b>（主推方案与 7 个备选）· <b>《交互原型》</b>（已按本机制更新，可输入唤醒词）· <b>《路演作战手册》</b>（C、D 两段按本文替换）。</p>
+</div>
+
+</div>
+</body>
+</html>

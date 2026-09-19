@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>义体 SHELL · 路演作战手册</title>
+<style>
+:root{
+  --bg:#0b0d14;--bg2:#12151f;--bg3:#181c29;--line:#252a3a;
+  --amber:#e8a33d;--amber-dim:#8a6224;
+  --teal:#4fd1c5;--teal-dim:#1f6b64;
+  --red:#d4685f;--red-dim:#5c3830;
+  --txt:#e8e6e1;--txt2:#9aa0ae;--txt3:#6b7180;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);font-size:15px;line-height:1.78;
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased}
+.wrap{max-width:900px;margin:0 auto;padding:0 28px 110px}
+.mono,code{font-family:ui-monospace,"SF Mono",Consolas,monospace}
+
+nav{position:sticky;top:0;z-index:9;background:rgba(11,13,20,.93);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+nav .in{max-width:900px;margin:0 auto;padding:12px 28px;display:flex;gap:18px;align-items:center;font-size:12px;overflow-x:auto}
+nav a{color:var(--txt2);text-decoration:none;white-space:nowrap}
+nav a:hover{color:var(--amber)}
+nav .sp{flex:1} nav .doc{color:var(--txt3);font-size:11px;letter-spacing:.12em;white-space:nowrap}
+
+.hero{padding:70px 0 48px;border-bottom:1px solid var(--line)}
+.tag{display:inline-block;font-size:11px;letter-spacing:.2em;color:var(--amber);border:1px solid var(--amber-dim);padding:5px 12px;border-radius:99px;margin-bottom:22px}
+h1{font-size:38px;line-height:1.2;font-weight:700;letter-spacing:-.02em}
+.lede{margin-top:24px;font-size:15.5px;color:var(--txt2);max-width:780px}
+.lede b{color:var(--txt)}
+
+section{padding-top:60px}
+.sec-h{display:flex;align-items:baseline;gap:13px;margin-bottom:8px}
+.sec-num{font-family:ui-monospace,Consolas,monospace;font-size:12px;color:var(--amber);border:1px solid var(--amber-dim);border-radius:5px;padding:2px 8px;flex:none}
+h2{font-size:24px;font-weight:600;letter-spacing:-.01em}
+.sec-sub{color:var(--txt2);font-size:13.5px;margin-bottom:28px}
+h3{font-size:17px;font-weight:600;margin:34px 0 12px}
+h4{font-size:14.5px;font-weight:600;margin:22px 0 9px;color:var(--amber)}
+p{margin-bottom:13px;color:var(--txt2)}
+p strong,li strong,td strong{color:var(--txt);font-weight:600}
+ul,ol{margin:0 0 15px;padding-left:21px;color:var(--txt2)}
+li{margin-bottom:7px} li::marker{color:var(--amber-dim)}
+
+table{width:100%;border-collapse:collapse;margin:20px 0;font-size:13.5px}
+th,td{text-align:left;padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--amber);font-weight:600;font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;border-bottom:1px solid var(--amber-dim)}
+td{color:var(--txt2)}
+tbody tr:hover{background:rgba(255,255,255,.014)}
+
+.callout{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:21px;margin:22px 0}
+.callout .ct{font-weight:600;font-size:14.5px;margin-bottom:10px;display:flex;align-items:center;gap:9px}
+.callout.wow{border-color:var(--amber-dim);background:linear-gradient(180deg,rgba(232,163,61,.07),transparent)} .callout.wow .ct{color:var(--amber)}
+.callout.good{border-color:var(--teal-dim);background:rgba(79,209,197,.045)} .callout.good .ct{color:var(--teal)}
+.callout.warn{border-color:var(--red-dim);background:rgba(212,104,95,.05)} .callout.warn .ct{color:var(--red)}
+.dot{width:7px;height:7px;border-radius:99px;flex:none;background:currentColor}
+
+/* 逐字稿 */
+.sc{background:var(--bg3);border:1px solid var(--line);border-radius:11px;margin:16px 0;overflow:hidden}
+.sc-h{display:flex;justify-content:space-between;align-items:center;padding:11px 18px;border-bottom:1px solid var(--line);background:var(--bg2);
+  font-size:11px;letter-spacing:.12em;color:var(--txt3);font-family:ui-monospace,Consolas,monospace}
+.sc-h .tm{color:var(--amber)}
+.sc-b{padding:18px 20px}
+.sc-b p{color:var(--txt);font-size:15px;margin-bottom:12px;line-height:1.85}
+.sc-b p:last-child{margin-bottom:0}
+.sc-b .act{color:var(--txt3);font-size:13px;font-style:italic;display:block;margin:9px 0}
+.sc-b .key{color:var(--amber);font-weight:600}
+.sc-b .teal{color:var(--teal);font-weight:600}
+.pause{color:var(--txt3);font-size:12.5px}
+
+.b{display:inline-block;font-size:11px;padding:2px 8px;border-radius:5px;font-weight:500;white-space:nowrap;font-family:ui-monospace,Consolas,monospace}
+.b.ok{background:rgba(79,209,197,.14);color:var(--teal);border:1px solid var(--teal-dim)}
+.b.warn{background:rgba(232,163,61,.14);color:var(--amber);border:1px solid var(--amber-dim)}
+.b.no{background:rgba(212,104,95,.13);color:var(--red);border:1px solid var(--red-dim)}
+.b.n{background:#1c2030;color:var(--txt2);border:1px solid #2c3145}
+
+/* 三句卡片 */
+.card3{background:linear-gradient(180deg,rgba(232,163,61,.09),var(--bg2));border:1px solid var(--amber-dim);
+  border-radius:13px;padding:28px 26px;margin:24px 0;text-align:center}
+.card3 .ct{font-size:11px;letter-spacing:.24em;color:var(--amber);margin-bottom:20px;font-family:ui-monospace,Consolas,monospace}
+.card3 .l{font-size:19px;line-height:1.75;color:var(--txt);margin-bottom:13px}
+.card3 .l:last-child{margin-bottom:0}
+.card3 .l b{color:var(--amber)}
+
+.chk{list-style:none;padding-left:0}
+.chk li{padding-left:28px;position:relative;margin-bottom:8px;font-size:14px}
+.chk li:before{content:"";position:absolute;left:0;top:9px;width:14px;height:14px;border:1px solid var(--amber-dim);border-radius:4px}
+
+.foot{margin-top:68px;padding-top:26px;border-top:1px solid var(--line);color:var(--txt3);font-size:12.5px;line-height:1.9}
+@media(max-width:740px){
+  h1{font-size:27px}.wrap{padding:0 18px 80px}
+  nav .in{padding:11px 16px;gap:13px;font-size:11px}
+  .sc-b p{font-size:14.5px}
+}
+</style>
+</head>
+<body>
+
+<nav><div class="in">
+  <a href="#law">三条铁律</a>
+  <a href="#booth">展位即舞台</a>
+  <a href="#full">4 分钟正稿</a>
+  <a href="#short">90 秒 / 15 秒 / 回访</a>
+  <a href="#who">看人下菜</a>
+  <a href="#qa">问答预判</a>
+  <a href="#no">禁忌</a>
+  <span class="sp"></span><span class="doc">PITCH · v1.0</span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <span class="tag">义体 SHELL · 路演作战手册</span>
+  <h1>这个项目不能靠讲。<br>必须让他自己动手。</h1>
+  <p class="lede">赛制是残酷的：<b>30 位评委流动巡视，每位只在你摊位停约 7 分钟</b>（4 分钟讲 + 3 分钟问答），而且<b>每队至少要被 3 位评委看过才计分</b>。更麻烦的是——义体的核心体验是「你住进来它才活」，如果评委站着听你讲 4 分钟，他什么都没感受到。<br>所以这一版的整个结构是：<b>先让他动手，再开口讲。</b></p>
+</header>
+
+<!-- ============ 01 ============ -->
+<section id="law">
+  <div class="sec-h"><span class="sec-num">01</span><h2>三条铁律</h2></div>
+
+  <h4>铁律一：第一句话之前，先静默 3 秒</h4>
+  <p>评委走到你摊位时，第一眼看到的是<b>一台低着头的机械臂</b>和屏幕上「缺 1 名成员」。那个画面本身就是钩子。<strong>你一开口就把它毁掉了。</strong>所以：侧身让开 → 让他看 → 等他先问，或者你 3 秒后再开口。</p>
+
+  <h4>铁律二：能让他按的按钮，绝不代他按</h4>
+  <p>「要我演示给您看吗」是自杀句。改成「<strong>您要试吗？40 秒。</strong>」——把入职键推到他手边。<b>是他让义体抬起头，因果感是他的，不是你的。</b></p>
+
+  <h4>铁律三：机械臂要主动降权，不能主动炫耀</h4>
+  <p>现场会有几十支队做机械臂。你越把机械臂当卖点，越像他们。<strong>主动说「我可以现在把它换成 20 块的舵机，故事一个字都不用改」</strong>——这句话是整场路演的胜负手，它把你从「机械臂队」里摘了出来。</p>
+
+  <div class="callout wow">
+    <div class="ct"><span class="dot"></span>如果只让他记住一句话</div>
+    <p style="margin:0;font-size:18px;color:var(--amber)">「它没有灵魂。直到你住进来。」</p>
+  </div>
+</section>
+
+<!-- ============ 02 ============ -->
+<section id="booth">
+  <div class="sec-h"><span class="sec-num">02</span><h2>展位即舞台（7 分钟的战场不在嘴上）</h2></div>
+  <p class="sec-sub">流动巡视意味着：评委可能在你讲到一半时走过来，也可能一句话不说就先蹲下看。环境要在你不说话的时候也把话说清楚。</p>
+
+  <table>
+    <thead><tr><th style="width:24%">布置</th><th>为什么</th></tr></thead>
+    <tbody>
+      <tr><td><strong>义体始终处于「低垂待机」</strong></td><td>这是你的最强静态画面。别让它一直在动——动的东西不稀奇，<b>静止的低头才是钩子</b>。</td></tr>
+      <tr><td><strong>一块竖屏只写六个字</strong><br><span class="mono" style="font-size:12px">空位 · 缺 1 名成员</span></td><td>超过六个字就没人读了。不要放 logo、不要放技术栈、不要放团队照。</td></tr>
+      <tr><td><strong>入职位放在摊位侧面，不在正中</strong></td><td>让评委自然走到侧边、身体转向义体——他一旦移动了位置，就已经参与进来了。</td></tr>
+      <tr><td><strong>一张实体打印的「住客名册」</strong></td><td>名字一行行变多 = 社会证明。评委看到"已经有 40 个人住过"，会比听你说服得多。</td></tr>
+      <tr><td><strong>一叠已填写的入住凭证</strong></td><td>可以从别人手里"借"给你看。凭证能带走 = 传播点。</td></tr>
+      <tr><td><strong>不要打印技术架构图</strong></td><td>7 分钟里没人看得懂。架构图留在官网提交材料里。</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============ 03 ============ -->
+<section id="full">
+  <div class="sec-h"><span class="sec-num">03</span><h2>4 分钟正稿（逐字稿 · 初赛与复赛通用）</h2></div>
+  <p class="sec-sub">每个动作提示都要真做。括号里的字不要念出来。</p>
+
+  <div class="sc">
+    <div class="sc-h"><span>A · 静默钩子</span><span class="tm">0:00 – 0:20</span></div>
+    <div class="sc-b">
+      <span class="act">（不开口。侧身让开半步，让评委直接看到那台低着头的机械臂。等他看 3 秒。）</span>
+      <span class="act">（如果他先问「这是什么」——直接跳到下面那句。如果他没说话，你再说：）</span>
+      <p>「它不是坏的。<span class="key">它是一具空载的义体 —— 里面没有 Ghost。</span>」</p>
+    </div>
+  </div>
+
+  <div class="sc">
+    <div class="sc-h"><span>B · 一句话定位</span><span class="tm">0:20 – 0:50</span></div>
+    <div class="sc-b">
+      <p>「赛道一的命题，是给 Ghost 一副身体。」</p>
+      <p>「我们做的是它的反面：<span class="key">先造一具身体，然后等一个 Ghost 住进来。</span>」</p>
+      <p>「我们试过给它写一个灵魂 —— 写不出来。所以换了个办法：<strong>让它等一个愿意住进来的人。</strong>」</p>
+    </div>
+  </div>
+
+  <div class="sc">
+    <div class="sc-h"><span>C · 让他动手</span><span class="tm">0:50 – 1:40</span></div>
+    <div class="sc-b">
+      <p>「<span class="key">您要试吗？40 秒。</span>」</p>
+      <span class="act">（把入职牌递给他，或引他到麦阵前。然后闭嘴。让他自己按。）</span>
+      <span class="act">（他一按下，设备开始响应——）</span>
+      <p>「听 —— <strong>远场麦阵在 2 米外听到了您</strong>。现在您的 Ghost 正在进这具壳。」</p>
+      <span class="act">（机械臂抬头，亮起）</span>
+      <p>「<span class="key">它抬头了。因为您来了。</span>」</p>
+      <span class="pause">（停顿 2 秒，别急着往下说。让他看着。）</span>
+      <p>「它刚才去 EvoMap 查了前面 4 位入住者留下的经验，然后决定替您写一笔。」</p>
+      <p>「<span class="teal">这一笔，是您的。</span>」</p>
+    </div>
+  </div>
+
+  <div class="sc">
+    <div class="sc-h"><span>D · 内核（真正的重点在这里）</span><span class="tm">1:40 – 2:50</span></div>
+    <div class="sc-b">
+      <p>「但抬头不是重点。真正的重点是——」</p>
+      <span class="act">（指屏幕上的日志）</span>
+      <p>「<strong>您的这次入住，已经被写进 EvoMap 了。</strong>」</p>
+      <p>「所以有两件事现在成立：」</p>
+      <p>「第一，<span class="key">下一分钟来的那个人，会继承您的经验。</span>」</p>
+      <p>「第二，<strong>如果您待会儿再走回这个摊位，它会认出您。</strong>」</p>
+      <span class="pause">（停一下。）</span>
+      <p>「我们做的事很简单：<strong>给「义体」装上记忆。</strong>」</p>
+      <p>「<span class="teal">EvoMap 是它的记忆。EvoX 是壳里跑的那个 Ghost。这台臂，只是它的身体。</span>」</p>
+    </div>
+  </div>
+
+  <div class="sc">
+    <div class="sc-h"><span>E · 主动降权（胜负手）</span><span class="tm">2:50 – 3:30</span></div>
+    <div class="sc-b">
+      <p>「您可能会想：这不就是机械臂做几个动作吗。」</p>
+      <p>「<span class="key">我可以现在就把这台机械臂换成一个 20 块的舵机 —— 故事一个字都不用改。</span>」</p>
+      <p>「因为壳不是重点。<strong>「它认得出你」才是。</strong>」</p>
+      <p>「<strong>今天现场几十支队在让机械臂抓东西。我们让它记住人。</strong>」</p>
+    </div>
+  </div>
+
+  <div class="sc">
+    <div class="sc-h"><span>F · 利他收尾</span><span class="tm">3:30 – 4:00</span></div>
+    <div class="sc-b">
+      <p>「不管您今天住不住进来，这个思路您可以带走 ——」</p>
+      <p>「<span class="key">做 AI 产品的时候，别急着给它的灵魂下定义。先给它一具身体，然后看谁会来。</span>」</p>
+      <span class="act">（说完退开一步，把入职位让给下一位。不要再补充。让他自己对义体说一句。）</span>
+    </div>
+  </div>
+
+  <div class="callout good">
+    <div class="ct"><span class="dot"></span>为什么这个结构是倒过来的</div>
+    <p style="margin-bottom:0">常规路演是「钩子 → 痛点 → 方案 → 演示 → 收尾」。这个项目把<b>演示提到第二位</b>，因为它的价值无法通过描述传递——<strong>「你让它抬头了」这件事，只有发生在他手指下才算发生。</strong>你能用嘴说的所有话，都不如他自己按那一下。</p>
+  </div>
+</section>
+
+<!-- ============ 04 ============ -->
+<section id="short">
+  <div class="sec-h"><span class="sec-num">04</span><h2>三个短版本（流动巡视真正会用到）</h2></div>
+  <p class="sec-sub">实际上，一天里大部分评委不会给你完整 4 分钟。这三个版本比正稿更常用。</p>
+
+  <div class="sc">
+    <div class="sc-h"><span>90 秒版 · 他在赶路</span><span class="tm">最多三句话</span></div>
+    <div class="sc-b">
+      <p>「不耽误您，三句话。」</p>
+      <p>「<strong>它是一具空载的义体，没有 Ghost，在等一个人住进来。</strong>」</p>
+      <span class="act">（指屏幕上的一条记录）</span>
+      <p>「这一笔是 20 分钟前一位选手留下的 —— <strong>那个人的 Ghost 现在还在壳里。</strong>我们用 EvoMap 给它装了记忆，所以谁住过，它都记得。」</p>
+      <p>「<span class="key">您有空回来，它也会记得您。</span>」</p>
+      <span class="act">（递一张住客名册，不要再说话）</span>
+    </div>
+  </div>
+
+  <div class="sc">
+    <div class="sc-h"><span>15 秒版 · 他只是路过看了一眼</span><span class="tm">只说一句</span></div>
+    <div class="sc-b">
+      <p>「<span class="key">它没有灵魂。直到你住进来。</span>」</p>
+      <span class="act">（指屏幕上的「缺 1 名成员」，然后闭嘴。让他带着这个画面走。）</span>
+    </div>
+  </div>
+
+  <div class="sc">
+    <div class="sc-h"><span>回访版 · 他第二次路过（杀手锏）</span><span class="tm">两句，不要多说</span></div>
+    <div class="sc-b">
+      <span class="act">（提前把设备调到「认出他」的状态，或在他走近时手动触发）</span>
+      <p>「<span class="teal">欢迎回来。</span>」</p>
+      <p>「<strong>您上次让它写的那一笔，现在正在教第 7 个人。</strong>」</p>
+      <span class="act">（停在这里。不要解释，不要加卖点。这 5 秒是全场最值钱的 5 秒。）</span>
+    </div>
+  </div>
+
+  <div class="callout wow">
+    <div class="ct"><span class="dot"></span>提前布局：请一位有分量的人先住进来</div>
+    <p>30 位评委一天会路过你好几次。<strong>如果你能在 Day3 导师巡场或 Day2 嘉宾分享后，请到一位有分量的导师/评委先住一次</strong>——之后每来一位评委，你都可以说：</p>
+    <p style="margin-bottom:0">「您看这一笔，是 <strong>XX 老师</strong>刚才留下的。他的 Ghost 现在还在壳里，正在帮下一个人。」</p>
+    <p style="margin-top:11px;margin-bottom:0;color:var(--txt3);font-size:13px">这是用产品本身做的信任状，比任何口头背书都有力。而且——那位老师自己也会记得这件事。</p>
+  </div>
+</section>
+
+<!-- ============ 05 ============ -->
+<section id="who">
+  <div class="sec-h"><span class="sec-num">05</span><h2>看人下菜：3 秒判断面前是谁</h2></div>
+  <p class="sec-sub">不要对所有人说同一句话。看胸牌颜色 + 他站姿 + 他第一个问题，快速切话术。<b>一场最多用 2 条，多了显得刻意。</b></p>
+
+  <table>
+    <thead><tr><th style="width:26%">面前是谁</th><th>切入的那一句</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>潘昊 · Seeed Studio 创始人</strong><br><span style="font-size:12px;color:var(--txt3)">看到自家机械臂的人</span></td>
+        <td>「这是你们的臂。它从今天早上到现在已经被 <strong>XX 个陌生人</strong>住过了——它是全场最忙的一具壳。」</td>
+      </tr>
+      <tr>
+        <td><strong>EvoMap 团队</strong><br><span style="font-size:12px;color:var(--txt3)">主办方</span></td>
+        <td>「它不会因为装了电机就记得人。<strong>是你命题里那句『经验留下来，让后来接手的人少走一段弯路』让它记得的。</strong>今天你的网络会多出几十条来自真实陌生人的经验。」</td>
+      </tr>
+      <tr>
+        <td><strong>陈悦天 · 火凤资本</strong><br><span style="font-size:12px;color:var(--txt3)">投资人</span></td>
+        <td>「展厅里的互动装置最贵的问题不是不炫，是<strong>它不记得人</strong>。所以每个游客都是新游客。我们解决的是这个。」</td>
+      </tr>
+      <tr>
+        <td><strong>曾泓炳 · Hypershell</strong><br><span style="font-size:12px;color:var(--txt3)">外骨骼工程师</span></td>
+        <td>「你们做的是 Ghost 进壳。<strong>我们做的是 Ghost 进人</strong>——同一件事的两个方向。」<br><span style="font-size:12px;color:var(--txt3)">※ 不要说今天已接入外骨骼。</span></td>
+      </tr>
+      <tr>
+        <td><strong>谭欣 · Google Cloud</strong><br><span style="font-size:12px;color:var(--txt3)">云架构师</span></td>
+        <td>「记忆必须跨会话存活——<strong>所以状态不在壳里，在网络里</strong>。壳可以坏、可以换，Ghost 不会丢。」</td>
+      </tr>
+      <tr>
+        <td><strong>巴芮 · 36氪 / 杨明慧</strong><br><span style="font-size:12px;color:var(--txt3)">媒体</span></td>
+        <td>「今天有一台机器，被几十个陌生人轮流住过。每个人都留下了一点东西。<strong>它现在像谁？</strong>」</td>
+      </tr>
+      <tr>
+        <td><strong>蔡欣 · 中信书店 / 信睿Lab</strong><br><span style="font-size:12px;color:var(--txt3)">内容与公共空间</span></td>
+        <td>「这个东西放在书店、博物馆、美术馆都成立——<strong>它是一台会记住来客的装置</strong>。不同的人来，它会长得不一样。」</td>
+      </tr>
+      <tr>
+        <td><strong>延君晨 · 前 Dify 联创</strong><br><span style="font-size:12px;color:var(--txt3)">Agent 产品</span></td>
+        <td>「我们没做一个更聪明的 Agent。<strong>我们做了一个记得住人的 Agent。</strong>」</td>
+      </tr>
+      <tr>
+        <td><strong>观众（Day3 Open Hour / Day4）</strong></td>
+        <td>不要讲技术。<strong>直接邀请他住进来</strong>，然后说「它会记得你」。让他拍凭证发小红书。</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============ 06 ============ -->
+<section id="qa">
+  <div class="sec-h"><span class="sec-num">06</span><h2>问答预判（3 分钟问答，12 个必背）</h2></div>
+  <p class="sec-sub">每个答案控制在 25 秒内。前面 4 个是真正的杀招，必须练到脱口而出。</p>
+
+  <table>
+    <thead><tr><th style="width:32%">问题</th><th>25 秒答案要点</th></tr></thead>
+    <tbody>
+      <tr><td><strong>① 这不就是机械臂做动作吗？</strong><span class="b no">最可能问</span></td><td>「我可以现在把它换成 20 块的舵机，故事一个字不用改。<strong>壳不是重点，认得出人才是。</strong>现场的臂都在抓东西，我们让它记人。」</td></tr>
+      <tr><td><strong>② 商业价值在哪？</strong><span class="b no">投资人必问</span></td><td>「内核是<b>可跨会话存活的具身身份系统</b>。展厅、门店、博物馆、养老院都缺这个——现在的互动装置不记得人，所以复访率是零。<strong>我们让同一个装置对老客人和新客人不一样</strong>。今天这个摊位就是它跑通的第 1 个场景。」</td></tr>
+      <tr><td><strong>③ EvoMap 是真用了还是贴牌？</strong><span class="b no">主办方会验</span></td><td>「现场可以看写入日志。」<strong>然后诚实补一句</strong>：「演示库里有一部分是我们预置的种子经验，用来保证演示稳定；<strong>但真实写入和读取是真跑的</strong>。」<span style="color:var(--txt3)">（诚实回答比漂亮回答得分高——这条来自 PrizeOps 里养令复盘的血泪教训。）</span></td></tr>
+      <tr><td><strong>④ 你怎么知道是我？采集了什么？</strong><span class="b no">涉及隐私</span></td><td>「<strong>不采人脸、不录音留存、不存个人信息。</strong>入住牌上有一次性随机码，壳只记住『这个随机码住过』。您不愿意，我们就不留。」<span style="color:var(--txt3)">（这个问题答得好是加分，答不好是事故。）</span></td></tr>
+      <tr><td>⑤ 和展厅的互动装置有什么区别？</td><td>「那些装置不记得人。所以每个游客都是新游客。<strong>我们的装置会因为你来过而改变。</strong>」</td></tr>
+      <tr><td>⑥ 技术难点在哪？</td><td>三点：「跨会话的身份持久化」「把一次动作蒸馏成可被继承的结构化经验」「在嘈杂展厅里做远场拾音与声源定位」。</td></tr>
+      <tr><td>⑦ 用什么模型？为什么不用大模型自己做？</td><td>「跑在 <strong>EvoX</strong> 上，经验网络用 <strong>EvoMap</strong>。我们不重造壳，我们给它装记忆。」</td></tr>
+      <tr><td>⑧ 96 小时做到什么程度？</td><td>诚实列清单：<strong>已跑通</strong>（入住 → 抬头 → 交付 → 写回 → 认出）；<strong>没做</strong>（多人并发排队、移动端、多台义体）。不要说「还在开发中」。</td></tr>
+      <tr><td>⑨ 很多人排队怎么办？</td><td>「现在是一轮 40 秒串行。下一步做并发队列——大屏能同时显示多个 Ghost 在壳里的状态。」</td></tr>
+      <tr><td>⑩ 有人教它坏东西怎么办？</td><td>「经验入网前要过<strong>复核</strong>：另一条 Agent 用不同方法验证过才算数。这是赛道四命题要求的，我们也照做了。」</td></tr>
+      <tr><td>⑪ 拿不到机械臂呢？</td><td>「我们用<strong>总线舵机驱动板 + 打印件</strong>做自制非标义体。而且这更符合赛道一说的『尚未被定义的消费电子』。」</td></tr>
+      <tr><td>⑫ 为什么是你们做？</td><td><strong>这一条必须自己准备一个真实的个人动机</strong>——不要背模板。想一个你真的被打动过的瞬间。</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============ 07 ============ -->
+<section id="no">
+  <div class="sec-h"><span class="sec-num">07</span><h2>禁忌清单 &amp; 上台前检查</h2></div>
+
+  <h4>绝对不要说</h4>
+  <table>
+    <thead><tr><th style="width:38%">禁忌</th><th>改成</th></tr></thead>
+    <tbody>
+      <tr><td>「希望评委老师多多支持」「请投我们一票」</td><td>给一个能带走的东西（见正稿 F）</td></tr>
+      <tr><td>「这个功能我们还在开发中」</td><td>只讲已经跑通的，或者干脆不提</td></tr>
+      <tr><td>「我们用了 XX 大模型技术」</td><td>「这里用了【厂商】【产品名】，负责【步骤】，帮用户【收益】」</td></tr>
+      <tr><td>「要我演示给您看吗」</td><td>「您要试吗？40 秒。」</td></tr>
+      <tr><td>念 PPT、念架构图、念技术栈</td><td>7 分钟里没人听得进去，让产品说话</td></tr>
+      <tr><td>吹机械臂的精度 / 自由度</td><td>主动降权：「换成舵机故事不变」</td></tr>
+      <tr><td>「我们对比了市面上其他方案……」</td><td>直接讲你比别人多做了什么</td></tr>
+    </tbody>
+  </table>
+
+  <h4>上台 / 开摊前检查</h4>
+  <ul class="chk">
+    <li>义体是否处于<b>低垂待机</b>姿态？（不要让它一直在动）</li>
+    <li>竖屏是否只有六个字「空位 · 缺 1 名成员」？</li>
+    <li>入职牌够不够 60 张？笔够不够？住客名册打印了没？</li>
+    <li>「认出回访者」这条路径是否 100% 可靠？（彩排时反复走 10 次）</li>
+    <li>EvoMap 写入失败时的降级路径是否测过？（本地镜像能不能无缝切）</li>
+    <li>网络断了怎么办？—— 有没有一段明确标注为「录屏」的备份</li>
+    <li>全队是否都知道：<b>谁讲、谁操作设备、谁负责盯排队</b>？</li>
+    <li>能否在 4 分钟内讲完？——<b>录音回放一次，实际计时</b></li>
+    <li>90 秒版和 15 秒版是否背熟？（比正稿更常用）</li>
+    <li>是否已经邀请过一位有分量的导师先住进来？</li>
+  </ul>
+
+  <div class="card3">
+    <div class="ct">如果大脑一片空白，只背这三句</div>
+    <div class="l">「它不是坏的。<b>它是一具空载的义体，在等人。</b>」</div>
+    <div class="l">「<b>您要试吗？40 秒。</b>」</div>
+    <div class="l">「<b>它没有灵魂。直到你住进来。</b>」</div>
+  </div>
+</section>
+
+<div class="foot">
+  <p><strong>义体 SHELL</strong> · 路演作战手册 v1.0 · 2026-09-19</p>
+  <p>依据赛制：Day4 11:00 封板 · 13:00–16:00 游园评审（约 30 位评委流动巡展，每队至少 3 位评委看过才计分，每位约 7 分钟）· 17:00–18:00 复赛路演（每赛道 Top 2，7 分钟 = 4 分钟讲 + 3 分钟问答）</p>
+  <p style="margin-top:12px">方法框架来自 PrizeOps《利他路演法》（L1 普适利他 / L2 身份钩子 / L3 即时体验 / 利他收尾）与《最小可演示闭环》。<br>其中「不要声称用了没真用的赞助商产品」这条纪律，来自 PrizeOps 收录的养令二等奖复盘。</p>
+</div>
+
+</div>
+</body>
+</html>
