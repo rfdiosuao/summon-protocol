@@ -1,0 +1,62 @@
+{
+  "description": "版本冲突或保存失败不发布成功，旧版本不变。",
+  "checks": [
+    {
+      "schema": "Message",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "message_id": "message_34",
+        "sent_at": "2026-09-23T06:00:00Z",
+        "type": "memory.update",
+        "payload": {
+          "session_id": "session_a",
+          "update_id": "update_fail",
+          "expected_version": 0,
+          "patch": {
+            "response_style": "brief"
+          }
+        }
+      }
+    },
+    {
+      "schema": "Message",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "message_id": "message_35",
+        "sent_at": "2026-09-23T06:00:00Z",
+        "type": "memory.failed",
+        "payload": {
+          "session_id": "session_a",
+          "update_id": "update_fail",
+          "current_version": 0,
+          "error": {
+            "error": {
+              "code": "MEMORY_WRITE_FAILED",
+              "message": "MEMORY_WRITE_FAILED",
+              "retryable": false,
+              "request_id": "request_1"
+            }
+          }
+        }
+      }
+    },
+    {
+      "schema": "Memory",
+      "valid": true,
+      "note": "",
+      "data": {
+        "operator_id": "operator_demo",
+        "agent_id": "agent_seagull",
+        "memory_version": 0,
+        "preferences": {
+          "response_style": "detailed"
+        },
+        "updated_at": "2026-09-23T06:00:00Z"
+      }
+    }
+  ]
+}

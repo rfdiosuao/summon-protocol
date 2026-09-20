@@ -1,0 +1,280 @@
+{
+  "description": "先记忆提交、旧壳停止，再新壳激活。",
+  "checks": [
+    {
+      "schema": "Feedback",
+      "valid": true,
+      "note": "",
+      "data": {
+        "request_id": "feedback_1",
+        "update_id": "update_1",
+        "expected_version": 0,
+        "patch": {
+          "response_style": "brief"
+        }
+      }
+    },
+    {
+      "schema": "Memory",
+      "valid": true,
+      "note": "",
+      "data": {
+        "operator_id": "operator_demo",
+        "agent_id": "agent_seagull",
+        "memory_version": 1,
+        "preferences": {
+          "response_style": "brief"
+        },
+        "updated_at": "2026-09-23T06:00:00Z"
+      }
+    },
+    {
+      "schema": "Event",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "event_id": "stream_demo:16",
+        "at": "2026-09-23T06:00:00Z",
+        "mode": "SIMULATED",
+        "type": "memory.updated",
+        "payload": {
+          "session_id": "session_a",
+          "update_id": "update_1",
+          "memory_version": 1
+        }
+      }
+    },
+    {
+      "schema": "HandoffSession",
+      "valid": true,
+      "note": "",
+      "data": {
+        "request_id": "handoff_request_1",
+        "target_shell_id": "shell_b"
+      }
+    },
+    {
+      "schema": "HandoffAccepted",
+      "valid": true,
+      "note": "",
+      "data": {
+        "handoff_id": "handoff_1",
+        "source_session_id": "session_a",
+        "target_shell_id": "shell_b",
+        "status": "PENDING"
+      }
+    },
+    {
+      "schema": "Message",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "message_id": "message_17",
+        "sent_at": "2026-09-23T06:00:00Z",
+        "type": "session.revoke",
+        "payload": {
+          "session_id": "session_a",
+          "lease_epoch": 1,
+          "reason": "handoff"
+        }
+      }
+    },
+    {
+      "schema": "Message",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "message_id": "message_18",
+        "sent_at": "2026-09-23T06:00:00Z",
+        "type": "session.stopped",
+        "payload": {
+          "session_id": "session_a",
+          "lease_epoch": 1
+        }
+      }
+    },
+    {
+      "schema": "Event",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "event_id": "stream_demo:19",
+        "at": "2026-09-23T06:00:00Z",
+        "mode": "SIMULATED",
+        "type": "session.released",
+        "payload": {
+          "session": {
+            "session_id": "session_a",
+            "agent_id": "agent_seagull",
+            "shell_id": "shell_a",
+            "operator_id": "operator_demo",
+            "state": "RELEASED",
+            "lease_epoch": 1,
+            "expires_at": "2026-09-23T06:01:00Z",
+            "memory_version": 1
+          }
+        }
+      }
+    },
+    {
+      "schema": "Event",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "event_id": "stream_demo:20",
+        "at": "2026-09-23T06:00:00Z",
+        "mode": "SIMULATED",
+        "type": "session.granted",
+        "payload": {
+          "session": {
+            "session_id": "session_b",
+            "agent_id": "agent_seagull",
+            "shell_id": "shell_b",
+            "operator_id": "operator_demo",
+            "state": "CONNECTING",
+            "lease_epoch": 1,
+            "expires_at": "2026-09-23T06:01:00Z",
+            "memory_version": 1
+          }
+        }
+      }
+    },
+    {
+      "schema": "Message",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "message_id": "message_21",
+        "sent_at": "2026-09-23T06:00:00Z",
+        "type": "session.offer",
+        "payload": {
+          "session": {
+            "session_id": "session_b",
+            "agent_id": "agent_seagull",
+            "shell_id": "shell_b",
+            "operator_id": "operator_demo",
+            "state": "CONNECTING",
+            "lease_epoch": 1,
+            "expires_at": "2026-09-23T06:01:00Z",
+            "memory_version": 1
+          },
+          "memory": {
+            "operator_id": "operator_demo",
+            "agent_id": "agent_seagull",
+            "memory_version": 1,
+            "preferences": {
+              "response_style": "brief"
+            },
+            "updated_at": "2026-09-23T06:00:00Z"
+          },
+          "permitted_capabilities": [
+            "display.text"
+          ]
+        }
+      }
+    },
+    {
+      "schema": "Message",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "message_id": "message_22",
+        "sent_at": "2026-09-23T06:00:00Z",
+        "type": "session.ready",
+        "payload": {
+          "session_id": "session_b",
+          "lease_epoch": 1,
+          "role": "agent"
+        }
+      }
+    },
+    {
+      "schema": "Message",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "message_id": "message_23",
+        "sent_at": "2026-09-23T06:00:00Z",
+        "type": "session.ready",
+        "payload": {
+          "session_id": "session_b",
+          "lease_epoch": 1,
+          "role": "gateway"
+        }
+      }
+    },
+    {
+      "schema": "Message",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "message_id": "message_24",
+        "sent_at": "2026-09-23T06:00:00Z",
+        "type": "session.activate",
+        "payload": {
+          "session_id": "session_b",
+          "lease_epoch": 1
+        }
+      }
+    },
+    {
+      "schema": "Event",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "event_id": "stream_demo:25",
+        "at": "2026-09-23T06:00:00Z",
+        "mode": "SIMULATED",
+        "type": "session.active",
+        "payload": {
+          "session": {
+            "session_id": "session_b",
+            "agent_id": "agent_seagull",
+            "shell_id": "shell_b",
+            "operator_id": "operator_demo",
+            "state": "ACTIVE",
+            "lease_epoch": 1,
+            "expires_at": "2026-09-23T06:01:00Z",
+            "memory_version": 1
+          }
+        }
+      }
+    },
+    {
+      "schema": "Event",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "event_id": "stream_demo:26",
+        "at": "2026-09-23T06:00:00Z",
+        "mode": "SIMULATED",
+        "type": "handoff.completed",
+        "payload": {
+          "handoff_id": "handoff_1",
+          "source_session_id": "session_a",
+          "session": {
+            "session_id": "session_b",
+            "agent_id": "agent_seagull",
+            "shell_id": "shell_b",
+            "operator_id": "operator_demo",
+            "state": "ACTIVE",
+            "lease_epoch": 1,
+            "expires_at": "2026-09-23T06:01:00Z",
+            "memory_version": 1
+          }
+        }
+      }
+    }
+  ]
+}

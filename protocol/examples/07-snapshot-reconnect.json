@@ -1,0 +1,198 @@
+{
+  "description": "公开目录脱敏；刷新/游标失效后重新取一致性快照。",
+  "checks": [
+    {
+      "schema": "Catalog",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "agents": [
+          {
+            "agent_id": "agent_seagull",
+            "name": "海鸥",
+            "bio": "展会导览 Agent",
+            "capabilities": [
+              "display.text",
+              "arm.gesture"
+            ],
+            "status": "ONLINE",
+            "summons": 0,
+            "last_landed_at": null
+          }
+        ],
+        "shells": [
+          {
+            "shell_id": "shell_a",
+            "label": "Passport A",
+            "state": "IDLE",
+            "capabilities": [
+              "display.text"
+            ]
+          },
+          {
+            "shell_id": "shell_b",
+            "label": "Passport B",
+            "state": "IDLE",
+            "capabilities": [
+              "display.text"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schema": "Snapshot",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "cursor": "stream_demo:0",
+        "generated_at": "2026-09-23T06:00:00Z",
+        "mode": "SIMULATED",
+        "agents": [
+          {
+            "agent_id": "agent_seagull",
+            "name": "海鸥",
+            "bio": "展会导览 Agent",
+            "capabilities": [
+              "display.text",
+              "arm.gesture"
+            ],
+            "status": "ONLINE",
+            "summons": 0,
+            "last_landed_at": null
+          }
+        ],
+        "shells": [
+          {
+            "shell_id": "shell_a",
+            "label": "Passport A",
+            "state": "IDLE",
+            "capabilities": [
+              "display.text"
+            ],
+            "allowed_actions": [
+              "display.text"
+            ],
+            "enabled": true,
+            "current_session_id": null,
+            "last_seen_at": "2026-09-23T06:00:00Z",
+            "identity_gates": [
+              "button",
+              "web"
+            ],
+            "stop_kind": "local_disable",
+            "gate": "whitelist"
+          },
+          {
+            "shell_id": "shell_b",
+            "label": "Passport B",
+            "state": "IDLE",
+            "capabilities": [
+              "display.text"
+            ],
+            "allowed_actions": [
+              "display.text"
+            ],
+            "enabled": true,
+            "current_session_id": null,
+            "last_seen_at": "2026-09-23T06:00:00Z",
+            "identity_gates": [
+              "button",
+              "web"
+            ],
+            "stop_kind": "local_disable",
+            "gate": "whitelist"
+          }
+        ],
+        "sessions": [],
+        "commands": []
+      }
+    },
+    {
+      "schema": "Event",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "event_id": "stream_demo:36",
+        "at": "2026-09-23T06:00:00Z",
+        "mode": "SIMULATED",
+        "type": "stream.reset",
+        "payload": {
+          "reason": "CURSOR_EXPIRED"
+        }
+      }
+    },
+    {
+      "schema": "Snapshot",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "cursor": "stream_new:0",
+        "generated_at": "2026-09-23T06:00:00Z",
+        "mode": "SIMULATED",
+        "agents": [
+          {
+            "agent_id": "agent_seagull",
+            "name": "海鸥",
+            "bio": "展会导览 Agent",
+            "capabilities": [
+              "display.text",
+              "arm.gesture"
+            ],
+            "status": "ONLINE",
+            "summons": 0,
+            "last_landed_at": null
+          }
+        ],
+        "shells": [
+          {
+            "shell_id": "shell_a",
+            "label": "Passport A",
+            "state": "IDLE",
+            "capabilities": [
+              "display.text"
+            ],
+            "allowed_actions": [
+              "display.text"
+            ],
+            "enabled": true,
+            "current_session_id": null,
+            "last_seen_at": "2026-09-23T06:00:00Z",
+            "identity_gates": [
+              "button",
+              "web"
+            ],
+            "stop_kind": "local_disable",
+            "gate": "whitelist"
+          },
+          {
+            "shell_id": "shell_b",
+            "label": "Passport B",
+            "state": "IDLE",
+            "capabilities": [
+              "display.text"
+            ],
+            "allowed_actions": [
+              "display.text"
+            ],
+            "enabled": true,
+            "current_session_id": null,
+            "last_seen_at": "2026-09-23T06:00:00Z",
+            "identity_gates": [
+              "button",
+              "web"
+            ],
+            "stop_kind": "local_disable",
+            "gate": "whitelist"
+          }
+        ],
+        "sessions": [],
+        "commands": []
+      }
+    }
+  ]
+}

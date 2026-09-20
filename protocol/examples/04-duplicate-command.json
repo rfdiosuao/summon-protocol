@@ -1,0 +1,136 @@
+{
+  "description": "同 command_id 重试只返回已知结果，不能再次运动。",
+  "checks": [
+    {
+      "schema": "Message",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "message_id": "message_27",
+        "sent_at": "2026-09-23T06:00:00Z",
+        "type": "action.request",
+        "payload": {
+          "session_id": "session_a",
+          "input_id": "input_1",
+          "lease_epoch": 1,
+          "command_id": "command_1",
+          "seq": 1,
+          "expires_at": "2026-09-23T06:00:05Z",
+          "action": {
+            "capability": "display.text",
+            "args": {
+              "text": "这是第一个展品。"
+            }
+          }
+        }
+      }
+    },
+    {
+      "schema": "Event",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "event_id": "stream_demo:28",
+        "at": "2026-09-23T06:00:00Z",
+        "mode": "SIMULATED",
+        "type": "action.accepted",
+        "payload": {
+          "session_id": "session_a",
+          "command_id": "command_1",
+          "status": "ACCEPTED"
+        }
+      }
+    },
+    {
+      "schema": "Event",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "event_id": "stream_demo:29",
+        "at": "2026-09-23T06:00:00Z",
+        "mode": "SIMULATED",
+        "type": "action.started",
+        "payload": {
+          "session_id": "session_a",
+          "command_id": "command_1",
+          "status": "EXECUTING"
+        }
+      }
+    },
+    {
+      "schema": "Event",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "event_id": "stream_demo:30",
+        "at": "2026-09-23T06:00:00Z",
+        "mode": "SIMULATED",
+        "type": "action.completed",
+        "payload": {
+          "session_id": "session_a",
+          "command_id": "command_1",
+          "status": "COMPLETED",
+          "evidence": "device_ack",
+          "result": "一次渲染"
+        }
+      }
+    },
+    {
+      "schema": "Message",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "message_id": "message_31",
+        "sent_at": "2026-09-23T06:00:00Z",
+        "type": "action.request",
+        "payload": {
+          "session_id": "session_a",
+          "input_id": "input_1",
+          "lease_epoch": 1,
+          "command_id": "command_1",
+          "seq": 1,
+          "expires_at": "2026-09-23T06:00:05Z",
+          "action": {
+            "capability": "display.text",
+            "args": {
+              "text": "这是第一个展品。"
+            }
+          }
+        }
+      }
+    },
+    {
+      "schema": "ActionRecord",
+      "valid": true,
+      "note": "",
+      "data": {
+        "request": {
+          "session_id": "session_a",
+          "input_id": "input_1",
+          "lease_epoch": 1,
+          "command_id": "command_1",
+          "seq": 1,
+          "expires_at": "2026-09-23T06:00:05Z",
+          "action": {
+            "capability": "display.text",
+            "args": {
+              "text": "这是第一个展品。"
+            }
+          }
+        },
+        "outcome": {
+          "session_id": "session_a",
+          "command_id": "command_1",
+          "status": "COMPLETED",
+          "evidence": "device_ack",
+          "result": "一次渲染"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,69 @@
+{
+  "description": "Schema 合法不等于允许执行：环境明确拒绝旧 epoch / 过期命令。",
+  "checks": [
+    {
+      "schema": "ActionRequest",
+      "valid": true,
+      "note": "Gateway 当前 epoch=2",
+      "data": {
+        "session_id": "session_a",
+        "input_id": "input_1",
+        "lease_epoch": 1,
+        "command_id": "command_1",
+        "seq": 1,
+        "expires_at": "2026-09-23T06:00:05Z",
+        "action": {
+          "capability": "display.text",
+          "args": {
+            "text": "这是第一个展品。"
+          }
+        }
+      }
+    },
+    {
+      "schema": "ErrorResponse",
+      "valid": true,
+      "note": "",
+      "data": {
+        "error": {
+          "code": "STALE_LEASE",
+          "message": "STALE_LEASE",
+          "retryable": false,
+          "request_id": "request_1"
+        }
+      }
+    },
+    {
+      "schema": "ActionRequest",
+      "valid": true,
+      "note": "Gateway 当前时间=2026-09-23T06:00:00Z",
+      "data": {
+        "session_id": "session_a",
+        "input_id": "input_1",
+        "lease_epoch": 1,
+        "command_id": "command_1",
+        "seq": 1,
+        "expires_at": "2026-09-23T05:59:59Z",
+        "action": {
+          "capability": "display.text",
+          "args": {
+            "text": "这是第一个展品。"
+          }
+        }
+      }
+    },
+    {
+      "schema": "ErrorResponse",
+      "valid": true,
+      "note": "",
+      "data": {
+        "error": {
+          "code": "EXPIRED",
+          "message": "EXPIRED",
+          "retryable": false,
+          "request_id": "request_1"
+        }
+      }
+    }
+  ]
+}

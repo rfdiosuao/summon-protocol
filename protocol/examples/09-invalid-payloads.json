@@ -1,0 +1,164 @@
+{
+  "description": "必须被 Schema 拒绝；不向硬件发送。",
+  "checks": [
+    {
+      "schema": "ActionRequest",
+      "valid": false,
+      "note": "缺租约代次",
+      "data": {
+        "session_id": "session_a",
+        "input_id": "input_1",
+        "command_id": "command_1",
+        "seq": 1,
+        "expires_at": "2026-09-23T06:00:05Z",
+        "action": {
+          "capability": "display.text",
+          "args": {
+            "text": "这是第一个展品。"
+          }
+        }
+      }
+    },
+    {
+      "schema": "ActionRequest",
+      "valid": false,
+      "note": "重复次数越界",
+      "data": {
+        "session_id": "session_a",
+        "input_id": "input_1",
+        "lease_epoch": 1,
+        "command_id": "command_1",
+        "seq": 1,
+        "expires_at": "2026-09-23T06:00:05Z",
+        "action": {
+          "capability": "arm.gesture",
+          "args": {
+            "name": "wave",
+            "repeat": 99
+          }
+        }
+      }
+    },
+    {
+      "schema": "ActionRequest",
+      "valid": false,
+      "note": "时间格式错误",
+      "data": {
+        "session_id": "session_a",
+        "input_id": "input_1",
+        "lease_epoch": 1,
+        "command_id": "command_1",
+        "seq": 1,
+        "expires_at": "tomorrow",
+        "action": {
+          "capability": "display.text",
+          "args": {
+            "text": "这是第一个展品。"
+          }
+        }
+      }
+    },
+    {
+      "schema": "ActionRequest",
+      "valid": false,
+      "note": "任意代码不是允许动作",
+      "data": {
+        "session_id": "session_a",
+        "input_id": "input_1",
+        "lease_epoch": 1,
+        "command_id": "command_1",
+        "seq": 1,
+        "expires_at": "2026-09-23T06:00:05Z",
+        "action": {
+          "capability": "exec.python",
+          "args": {
+            "code": "print(1)"
+          }
+        }
+      }
+    },
+    {
+      "schema": "Message",
+      "valid": false,
+      "note": "未知 wire 版本",
+      "data": {
+        "v": 2,
+        "message_id": "message_43",
+        "sent_at": "2026-09-23T06:00:00Z",
+        "type": "action.request",
+        "payload": {
+          "session_id": "session_a",
+          "input_id": "input_1",
+          "lease_epoch": 1,
+          "command_id": "command_1",
+          "seq": 1,
+          "expires_at": "2026-09-23T06:00:05Z",
+          "action": {
+            "capability": "display.text",
+            "args": {
+              "text": "这是第一个展品。"
+            }
+          }
+        }
+      }
+    },
+    {
+      "schema": "ActionRequest",
+      "valid": false,
+      "note": "Agent 不能下发设备策略",
+      "data": {
+        "session_id": "session_a",
+        "input_id": "input_1",
+        "lease_epoch": 1,
+        "command_id": "command_1",
+        "seq": 1,
+        "expires_at": "2026-09-23T06:00:05Z",
+        "action": {
+          "capability": "display.text",
+          "args": {
+            "text": "这是第一个展品。"
+          }
+        },
+        "policy": {
+          "maxAmplitude": 99
+        }
+      }
+    },
+    {
+      "schema": "ActionCompleted",
+      "valid": false,
+      "note": "完成缺真实反馈证据",
+      "data": {
+        "session_id": "session_a",
+        "command_id": "command_1",
+        "status": "COMPLETED",
+        "result": "sent"
+      }
+    },
+    {
+      "schema": "Shell",
+      "valid": false,
+      "note": "状态枚举错误",
+      "data": {
+        "shell_id": "shell_a",
+        "label": "Passport A",
+        "state": "idle",
+        "capabilities": [
+          "display.text"
+        ],
+        "allowed_actions": [
+          "display.text"
+        ],
+        "enabled": true,
+        "current_session_id": null,
+        "last_seen_at": "2026-09-23T06:00:00Z",
+        "identity_gates": [
+          "button",
+          "web"
+        ],
+        "stop_kind": "local_disable",
+        "gate": "whitelist"
+      }
+    }
+  ]
+}

@@ -1,0 +1,388 @@
+{
+  "description": "完整拟定流程；样例 mode=SIMULATED，不代表真实执行。",
+  "checks": [
+    {
+      "schema": "Message",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "message_id": "message_44",
+        "sent_at": "2026-09-23T06:00:00Z",
+        "type": "shell.report",
+        "payload": {
+          "shell_id": "shell_a",
+          "physical_state": "READY",
+          "enabled": true,
+          "detail": "现场核验就绪"
+        }
+      }
+    },
+    {
+      "schema": "RegisterAgent",
+      "valid": true,
+      "note": "",
+      "data": {
+        "request_id": "register_1",
+        "name": "海鸥",
+        "bio": "展会导览 Agent",
+        "capabilities": [
+          "display.text",
+          "arm.gesture"
+        ]
+      }
+    },
+    {
+      "schema": "RegisteredAgent",
+      "valid": true,
+      "note": "",
+      "data": {
+        "agent": {
+          "agent_id": "agent_seagull",
+          "name": "海鸥",
+          "bio": "展会导览 Agent",
+          "capabilities": [
+            "display.text",
+            "arm.gesture"
+          ],
+          "status": "OFFLINE",
+          "summons": 0,
+          "last_landed_at": null
+        },
+        "agent_token": "EXAMPLE_ONLY_NOT_A_REAL_TOKEN",
+        "address": "summon://agent_seagull?v=1"
+      }
+    },
+    {
+      "schema": "Message",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "message_id": "message_1",
+        "sent_at": "2026-09-23T06:00:00Z",
+        "type": "hello",
+        "payload": {
+          "role": "agent",
+          "id": "agent_seagull"
+        }
+      }
+    },
+    {
+      "schema": "Message",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "message_id": "message_2",
+        "sent_at": "2026-09-23T06:00:00Z",
+        "type": "welcome",
+        "payload": {
+          "connection_id": "connection_a",
+          "heartbeat_interval_ms": 1000
+        }
+      }
+    },
+    {
+      "schema": "Message",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "message_id": "message_3",
+        "sent_at": "2026-09-23T06:00:00Z",
+        "type": "heartbeat",
+        "payload": {
+          "connection_id": "connection_a"
+        }
+      }
+    },
+    {
+      "schema": "CreateSession",
+      "valid": true,
+      "note": "",
+      "data": {
+        "request_id": "summon_1",
+        "agent_id": "agent_seagull",
+        "shell_id": "shell_a"
+      }
+    },
+    {
+      "schema": "SessionResult",
+      "valid": true,
+      "note": "",
+      "data": {
+        "session": {
+          "session_id": "session_a",
+          "agent_id": "agent_seagull",
+          "shell_id": "shell_a",
+          "operator_id": "operator_demo",
+          "state": "CONNECTING",
+          "lease_epoch": 1,
+          "expires_at": "2026-09-23T06:01:00Z",
+          "memory_version": 0
+        }
+      }
+    },
+    {
+      "schema": "Event",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "event_id": "stream_demo:4",
+        "at": "2026-09-23T06:00:00Z",
+        "mode": "SIMULATED",
+        "type": "session.granted",
+        "payload": {
+          "session": {
+            "session_id": "session_a",
+            "agent_id": "agent_seagull",
+            "shell_id": "shell_a",
+            "operator_id": "operator_demo",
+            "state": "CONNECTING",
+            "lease_epoch": 1,
+            "expires_at": "2026-09-23T06:01:00Z",
+            "memory_version": 0
+          }
+        }
+      }
+    },
+    {
+      "schema": "Message",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "message_id": "message_5",
+        "sent_at": "2026-09-23T06:00:00Z",
+        "type": "session.offer",
+        "payload": {
+          "session": {
+            "session_id": "session_a",
+            "agent_id": "agent_seagull",
+            "shell_id": "shell_a",
+            "operator_id": "operator_demo",
+            "state": "CONNECTING",
+            "lease_epoch": 1,
+            "expires_at": "2026-09-23T06:01:00Z",
+            "memory_version": 0
+          },
+          "memory": {
+            "operator_id": "operator_demo",
+            "agent_id": "agent_seagull",
+            "memory_version": 0,
+            "preferences": {
+              "response_style": "detailed"
+            },
+            "updated_at": "2026-09-23T06:00:00Z"
+          },
+          "permitted_capabilities": [
+            "display.text"
+          ]
+        }
+      }
+    },
+    {
+      "schema": "Message",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "message_id": "message_6",
+        "sent_at": "2026-09-23T06:00:00Z",
+        "type": "session.ready",
+        "payload": {
+          "session_id": "session_a",
+          "lease_epoch": 1,
+          "role": "agent"
+        }
+      }
+    },
+    {
+      "schema": "Message",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "message_id": "message_7",
+        "sent_at": "2026-09-23T06:00:00Z",
+        "type": "session.ready",
+        "payload": {
+          "session_id": "session_a",
+          "lease_epoch": 1,
+          "role": "gateway"
+        }
+      }
+    },
+    {
+      "schema": "Message",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "message_id": "message_8",
+        "sent_at": "2026-09-23T06:00:00Z",
+        "type": "session.activate",
+        "payload": {
+          "session_id": "session_a",
+          "lease_epoch": 1
+        }
+      }
+    },
+    {
+      "schema": "Event",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "event_id": "stream_demo:9",
+        "at": "2026-09-23T06:00:00Z",
+        "mode": "SIMULATED",
+        "type": "session.active",
+        "payload": {
+          "session": {
+            "session_id": "session_a",
+            "agent_id": "agent_seagull",
+            "shell_id": "shell_a",
+            "operator_id": "operator_demo",
+            "state": "ACTIVE",
+            "lease_epoch": 1,
+            "expires_at": "2026-09-23T06:01:00Z",
+            "memory_version": 0
+          }
+        }
+      }
+    },
+    {
+      "schema": "SubmitInput",
+      "valid": true,
+      "note": "",
+      "data": {
+        "request_id": "input_request_1",
+        "text": "介绍第一个展品"
+      }
+    },
+    {
+      "schema": "InputAccepted",
+      "valid": true,
+      "note": "",
+      "data": {
+        "input_id": "input_1",
+        "session_id": "session_a",
+        "status": "ACCEPTED"
+      }
+    },
+    {
+      "schema": "Message",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "message_id": "message_10",
+        "sent_at": "2026-09-23T06:00:00Z",
+        "type": "input.text",
+        "payload": {
+          "session_id": "session_a",
+          "input_id": "input_1",
+          "text": "介绍第一个展品",
+          "memory_version": 0
+        }
+      }
+    },
+    {
+      "schema": "Message",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "message_id": "message_11",
+        "sent_at": "2026-09-23T06:00:00Z",
+        "type": "action.request",
+        "payload": {
+          "session_id": "session_a",
+          "input_id": "input_1",
+          "lease_epoch": 1,
+          "command_id": "command_1",
+          "seq": 1,
+          "expires_at": "2026-09-23T06:00:05Z",
+          "action": {
+            "capability": "display.text",
+            "args": {
+              "text": "这是第一个展品。"
+            }
+          }
+        }
+      }
+    },
+    {
+      "schema": "Event",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "event_id": "stream_demo:12",
+        "at": "2026-09-23T06:00:00Z",
+        "mode": "SIMULATED",
+        "type": "action.accepted",
+        "payload": {
+          "session_id": "session_a",
+          "command_id": "command_1",
+          "status": "ACCEPTED"
+        }
+      }
+    },
+    {
+      "schema": "Event",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "event_id": "stream_demo:13",
+        "at": "2026-09-23T06:00:00Z",
+        "mode": "SIMULATED",
+        "type": "action.started",
+        "payload": {
+          "session_id": "session_a",
+          "command_id": "command_1",
+          "status": "EXECUTING"
+        }
+      }
+    },
+    {
+      "schema": "Event",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "event_id": "stream_demo:14",
+        "at": "2026-09-23T06:00:00Z",
+        "mode": "SIMULATED",
+        "type": "action.completed",
+        "payload": {
+          "session_id": "session_a",
+          "command_id": "command_1",
+          "status": "COMPLETED",
+          "evidence": "device_ack",
+          "result": "Passport A 已完成渲染"
+        }
+      }
+    },
+    {
+      "schema": "Message",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "message_id": "message_15",
+        "sent_at": "2026-09-23T06:00:00Z",
+        "type": "input.finished",
+        "payload": {
+          "session_id": "session_a",
+          "input_id": "input_1",
+          "status": "COMPLETED"
+        }
+      }
+    }
+  ]
+}

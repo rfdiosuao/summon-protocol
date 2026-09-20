@@ -1,0 +1,57 @@
+{
+  "description": "旧壳无停止确认：不得激活新壳。",
+  "checks": [
+    {
+      "schema": "HandoffAccepted",
+      "valid": true,
+      "note": "",
+      "data": {
+        "handoff_id": "handoff_2",
+        "source_session_id": "session_a",
+        "target_shell_id": "shell_b",
+        "status": "PENDING"
+      }
+    },
+    {
+      "schema": "Message",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "message_id": "message_32",
+        "sent_at": "2026-09-23T06:00:00Z",
+        "type": "session.revoke",
+        "payload": {
+          "session_id": "session_a",
+          "lease_epoch": 1,
+          "reason": "handoff"
+        }
+      }
+    },
+    {
+      "schema": "Event",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "event_id": "stream_demo:33",
+        "at": "2026-09-23T06:00:00Z",
+        "mode": "SIMULATED",
+        "type": "handoff.failed",
+        "payload": {
+          "handoff_id": "handoff_2",
+          "source_session_id": "session_a",
+          "target_shell_id": "shell_b",
+          "error": {
+            "error": {
+              "code": "HANDOFF_BLOCKED",
+              "message": "HANDOFF_BLOCKED",
+              "retryable": false,
+              "request_id": "request_1"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

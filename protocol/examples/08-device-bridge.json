@@ -1,0 +1,105 @@
+{
+  "description": "板侧显示和停止回执，不代表已刷固件。",
+  "checks": [
+    {
+      "schema": "BridgeMessage",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "message_id": "message_37",
+        "sent_at": "2026-09-23T06:00:00Z",
+        "type": "device.hello",
+        "payload": {
+          "device_id": "passport_a",
+          "shell_id": "shell_a"
+        }
+      }
+    },
+    {
+      "schema": "BridgeMessage",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "message_id": "message_38",
+        "sent_at": "2026-09-23T06:00:00Z",
+        "type": "device.heartbeat",
+        "payload": {
+          "device_id": "passport_a"
+        }
+      }
+    },
+    {
+      "schema": "BridgeMessage",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "message_id": "message_39",
+        "sent_at": "2026-09-23T06:00:00Z",
+        "type": "device.command",
+        "payload": {
+          "command_id": "command_1",
+          "session_id": "session_a",
+          "lease_epoch": 1,
+          "expires_at": "2026-09-23T06:00:05Z",
+          "action": {
+            "capability": "display.text",
+            "args": {
+              "text": "这是第一个展品。"
+            }
+          }
+        }
+      }
+    },
+    {
+      "schema": "BridgeMessage",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "message_id": "message_40",
+        "sent_at": "2026-09-23T06:00:00Z",
+        "type": "device.result",
+        "payload": {
+          "device_id": "passport_a",
+          "command_id": "command_1",
+          "status": "COMPLETED",
+          "detail": "rendered"
+        }
+      }
+    },
+    {
+      "schema": "BridgeMessage",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "message_id": "message_41",
+        "sent_at": "2026-09-23T06:00:00Z",
+        "type": "device.stop",
+        "payload": {
+          "session_id": "session_a",
+          "lease_epoch": 1
+        }
+      }
+    },
+    {
+      "schema": "BridgeMessage",
+      "valid": true,
+      "note": "",
+      "data": {
+        "v": 1,
+        "message_id": "message_42",
+        "sent_at": "2026-09-23T06:00:00Z",
+        "type": "device.stopped",
+        "payload": {
+          "device_id": "passport_a",
+          "session_id": "session_a",
+          "lease_epoch": 1
+        }
+      }
+    }
+  ]
+}

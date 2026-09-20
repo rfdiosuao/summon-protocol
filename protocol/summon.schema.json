@@ -1,0 +1,3218 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:summon:contract:0.1.0",
+  "title": "SUMMON contract 0.1.0",
+  "description": "Wire format only; ordering and authorization require PROTOCOL.md.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/Message"
+    },
+    {
+      "$ref": "#/$defs/Event"
+    },
+    {
+      "$ref": "#/$defs/Snapshot"
+    },
+    {
+      "$ref": "#/$defs/BridgeMessage"
+    }
+  ],
+  "$defs": {
+    "ErrorResponse": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "INVALID_MESSAGE",
+                "UNSUPPORTED_VERSION",
+                "UNAUTHORIZED",
+                "FORBIDDEN",
+                "SHELL_DISABLED",
+                "NOT_FOUND",
+                "NAME_TAKEN",
+                "AGENT_BUSY",
+                "SHELL_BUSY",
+                "TASK_BUSY",
+                "COMMAND_BUSY",
+                "CONNECTION_EXISTS",
+                "IDEMPOTENCY_CONFLICT",
+                "OUT_OF_ORDER",
+                "STALE_LEASE",
+                "SESSION_NOT_ACTIVE",
+                "MEMORY_CONFLICT",
+                "MEMORY_WRITE_FAILED",
+                "HANDOFF_BLOCKED",
+                "CAPABILITY_UNSUPPORTED",
+                "ACTION_NOT_ALLOWED",
+                "CLOCK_SKEW",
+                "RATE_LIMITED",
+                "AGENT_OFFLINE",
+                "SHELL_OFFLINE",
+                "CONNECT_TIMEOUT",
+                "EXPIRED",
+                "ESTOP",
+                "DRIVER_ERROR",
+                "UNVERIFIED",
+                "UNKNOWN"
+              ]
+            },
+            "message": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "retryable": {
+              "type": "boolean"
+            },
+            "request_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,80}$"
+            }
+          },
+          "required": [
+            "code",
+            "message",
+            "retryable",
+            "request_id"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "error"
+      ],
+      "additionalProperties": false
+    },
+    "Preferences": {
+      "type": "object",
+      "properties": {
+        "response_style": {
+          "type": "string",
+          "enum": [
+            "brief",
+            "detailed"
+          ]
+        }
+      },
+      "required": [
+        "response_style"
+      ],
+      "additionalProperties": false
+    },
+    "Memory": {
+      "type": "object",
+      "properties": {
+        "operator_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,80}$"
+        },
+        "agent_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,80}$"
+        },
+        "memory_version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "preferences": {
+          "$ref": "#/$defs/Preferences"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z$"
+        }
+      },
+      "required": [
+        "operator_id",
+        "agent_id",
+        "memory_version",
+        "preferences",
+        "updated_at"
+      ],
+      "additionalProperties": false
+    },
+    "Agent": {
+      "type": "object",
+      "properties": {
+        "agent_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,80}$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "bio": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 60
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "display.text",
+              "speech.say",
+              "arm.gesture"
+            ]
+          },
+          "maxItems": 3,
+          "uniqueItems": true,
+          "minItems": 1
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "OFFLINE",
+            "ONLINE",
+            "BUSY"
+          ]
+        },
+        "summons": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "last_landed_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "agent_id",
+        "name",
+        "bio",
+        "capabilities",
+        "status",
+        "summons",
+        "last_landed_at"
+      ],
+      "additionalProperties": false
+    },
+    "Shell": {
+      "type": "object",
+      "properties": {
+        "shell_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,80}$"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "OFFLINE",
+            "IDLE",
+            "CONNECTING",
+            "ACTIVE",
+            "RELEASING",
+            "FAULT",
+            "ESTOP"
+          ]
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "display.text",
+              "speech.say",
+              "arm.gesture"
+            ]
+          },
+          "maxItems": 3,
+          "uniqueItems": true,
+          "minItems": 1
+        },
+        "allowed_actions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "display.text",
+              "speech.say",
+              "arm.gesture"
+            ]
+          },
+          "maxItems": 3,
+          "uniqueItems": true,
+          "minItems": 1
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "current_session_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,80}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "last_seen_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "identity_gates": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "button",
+              "web",
+              "nfc",
+              "qr",
+              "voice"
+            ]
+          },
+          "maxItems": 5,
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "stop_kind": {
+          "type": "string",
+          "enum": [
+            "local_disable",
+            "physical_estop"
+          ]
+        },
+        "gate": {
+          "type": "string",
+          "enum": [
+            "whitelist",
+            "open",
+            "readonly"
+          ]
+        }
+      },
+      "required": [
+        "shell_id",
+        "label",
+        "state",
+        "capabilities",
+        "allowed_actions",
+        "enabled",
+        "current_session_id",
+        "last_seen_at",
+        "identity_gates",
+        "stop_kind",
+        "gate"
+      ],
+      "additionalProperties": false
+    },
+    "Session": {
+      "type": "object",
+      "properties": {
+        "session_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,80}$"
+        },
+        "agent_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,80}$"
+        },
+        "shell_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,80}$"
+        },
+        "operator_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,80}$"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "CONNECTING",
+            "ACTIVE",
+            "RELEASING",
+            "RELEASED",
+            "FAILED"
+          ]
+        },
+        "lease_epoch": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z$"
+        },
+        "memory_version": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "session_id",
+        "agent_id",
+        "shell_id",
+        "operator_id",
+        "state",
+        "lease_epoch",
+        "expires_at",
+        "memory_version"
+      ],
+      "additionalProperties": false
+    },
+    "Action": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "capability": {
+              "const": "display.text"
+            },
+            "args": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 500
+                }
+              },
+              "required": [
+                "text"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "capability",
+            "args"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "capability": {
+              "const": "speech.say"
+            },
+            "args": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 500
+                }
+              },
+              "required": [
+                "text"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "capability",
+            "args"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "capability": {
+              "const": "arm.gesture"
+            },
+            "args": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "enum": [
+                    "nod",
+                    "wave",
+                    "point_left",
+                    "point_center",
+                    "point_right"
+                  ]
+                },
+                "repeat": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 3
+                }
+              },
+              "required": [
+                "name",
+                "repeat"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "capability",
+            "args"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "ActionRequest": {
+      "type": "object",
+      "properties": {
+        "session_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,80}$"
+        },
+        "input_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,80}$"
+        },
+        "lease_epoch": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "command_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,80}$"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z$"
+        },
+        "action": {
+          "$ref": "#/$defs/Action"
+        }
+      },
+      "required": [
+        "session_id",
+        "input_id",
+        "lease_epoch",
+        "command_id",
+        "seq",
+        "expires_at",
+        "action"
+      ],
+      "additionalProperties": false
+    },
+    "ActionAccepted": {
+      "type": "object",
+      "properties": {
+        "session_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,80}$"
+        },
+        "command_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,80}$"
+        },
+        "status": {
+          "const": "ACCEPTED"
+        }
+      },
+      "required": [
+        "session_id",
+        "command_id",
+        "status"
+      ],
+      "additionalProperties": false
+    },
+    "ActionStarted": {
+      "type": "object",
+      "properties": {
+        "session_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,80}$"
+        },
+        "command_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,80}$"
+        },
+        "status": {
+          "const": "EXECUTING"
+        }
+      },
+      "required": [
+        "session_id",
+        "command_id",
+        "status"
+      ],
+      "additionalProperties": false
+    },
+    "ActionCompleted": {
+      "type": "object",
+      "properties": {
+        "session_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,80}$"
+        },
+        "command_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,80}$"
+        },
+        "status": {
+          "const": "COMPLETED"
+        },
+        "evidence": {
+          "type": "string",
+          "enum": [
+            "device_ack",
+            "controller_feedback"
+          ]
+        },
+        "result": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        }
+      },
+      "required": [
+        "session_id",
+        "command_id",
+        "status",
+        "evidence",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "ActionFailed": {
+      "type": "object",
+      "properties": {
+        "session_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,80}$"
+        },
+        "command_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,80}$"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "FAILED",
+            "UNKNOWN"
+          ]
+        },
+        "error": {
+          "$ref": "#/$defs/ErrorResponse"
+        }
+      },
+      "required": [
+        "session_id",
+        "command_id",
+        "status",
+        "error"
+      ],
+      "additionalProperties": false
+    },
+    "ActionRecord": {
+      "type": "object",
+      "properties": {
+        "request": {
+          "$ref": "#/$defs/ActionRequest"
+        },
+        "outcome": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/ActionAccepted"
+            },
+            {
+              "$ref": "#/$defs/ActionStarted"
+            },
+            {
+              "$ref": "#/$defs/ActionCompleted"
+            },
+            {
+              "$ref": "#/$defs/ActionFailed"
+            }
+          ]
+        }
+      },
+      "required": [
+        "request",
+        "outcome"
+      ],
+      "additionalProperties": false
+    },
+    "OperatorLogin": {
+      "type": "object",
+      "properties": {
+        "access_code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "required": [
+        "access_code"
+      ],
+      "additionalProperties": false
+    },
+    "OperatorLoginResult": {
+      "type": "object",
+      "properties": {
+        "operator_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,80}$"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z$"
+        }
+      },
+      "required": [
+        "operator_id",
+        "expires_at"
+      ],
+      "additionalProperties": false
+    },
+    "RegisterAgent": {
+      "type": "object",
+      "properties": {
+        "request_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,80}$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "bio": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 60
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "display.text",
+              "speech.say",
+              "arm.gesture"
+            ]
+          },
+          "maxItems": 3,
+          "uniqueItems": true,
+          "minItems": 1
+        }
+      },
+      "required": [
+        "request_id",
+        "name",
+        "bio",
+        "capabilities"
+      ],
+      "additionalProperties": false
+    },
+    "RegisteredAgent": {
+      "type": "object",
+      "properties": {
+        "agent": {
+          "$ref": "#/$defs/Agent"
+        },
+        "agent_token": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "address": {
+          "type": "string",
+          "pattern": "^summon://[A-Za-z0-9_-]{1,80}\\?v=1$"
+        }
+      },
+      "required": [
+        "agent",
+        "agent_token",
+        "address"
+      ],
+      "additionalProperties": false
+    },
+    "Catalog": {
+      "type": "object",
+      "properties": {
+        "v": {
+          "const": 1
+        },
+        "agents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Agent"
+          },
+          "maxItems": 100
+        },
+        "shells": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "shell_id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{1,80}$"
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "OFFLINE",
+                  "IDLE",
+                  "CONNECTING",
+                  "ACTIVE",
+                  "RELEASING",
+                  "FAULT",
+                  "ESTOP"
+                ]
+              },
+              "capabilities": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "display.text",
+                    "speech.say",
+                    "arm.gesture"
+                  ]
+                },
+                "maxItems": 3,
+                "uniqueItems": true,
+                "minItems": 1
+              }
+            },
+            "required": [
+              "shell_id",
+              "label",
+              "state",
+              "capabilities"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 100
+        }
+      },
+      "required": [
+        "v",
+        "agents",
+        "shells"
+      ],
+      "additionalProperties": false
+    },
+    "Snapshot": {
+      "type": "object",
+      "properties": {
+        "v": {
+          "const": 1
+        },
+        "cursor": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]+:[0-9]+$"
+        },
+        "generated_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z$"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "LIVE",
+            "SIMULATED",
+            "LOCAL_SHADOW",
+            "REPLAY"
+          ]
+        },
+        "agents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Agent"
+          },
+          "maxItems": 100
+        },
+        "shells": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Shell"
+          },
+          "maxItems": 100
+        },
+        "sessions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Session"
+          },
+          "maxItems": 100
+        },
+        "commands": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ActionRecord"
+          },
+          "maxItems": 100
+        }
+      },
+      "required": [
+        "v",
+        "cursor",
+        "generated_at",
+        "mode",
+        "agents",
+        "shells",
+        "sessions",
+        "commands"
+      ],
+      "additionalProperties": false
+    },
+    "CreateSession": {
+      "type": "object",
+      "properties": {
+        "request_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,80}$"
+        },
+        "agent_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,80}$"
+        },
+        "shell_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,80}$"
+        }
+      },
+      "required": [
+        "request_id",
+        "agent_id",
+        "shell_id"
+      ],
+      "additionalProperties": false
+    },
+    "SessionResult": {
+      "type": "object",
+      "properties": {
+        "session": {
+          "$ref": "#/$defs/Session"
+        }
+      },
+      "required": [
+        "session"
+      ],
+      "additionalProperties": false
+    },
+    "SubmitInput": {
+      "type": "object",
+      "properties": {
+        "request_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,80}$"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        }
+      },
+      "required": [
+        "request_id",
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "InputAccepted": {
+      "type": "object",
+      "properties": {
+        "input_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,80}$"
+        },
+        "session_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,80}$"
+        },
+        "status": {
+          "const": "ACCEPTED"
+        }
+      },
+      "required": [
+        "input_id",
+        "session_id",
+        "status"
+      ],
+      "additionalProperties": false
+    },
+    "ReleaseSession": {
+      "type": "object",
+      "properties": {
+        "request_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,80}$"
+        }
+      },
+      "required": [
+        "request_id"
+      ],
+      "additionalProperties": false
+    },
+    "HandoffSession": {
+      "type": "object",
+      "properties": {
+        "request_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,80}$"
+        },
+        "target_shell_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,80}$"
+        }
+      },
+      "required": [
+        "request_id",
+        "target_shell_id"
+      ],
+      "additionalProperties": false
+    },
+    "HandoffAccepted": {
+      "type": "object",
+      "properties": {
+        "handoff_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,80}$"
+        },
+        "source_session_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,80}$"
+        },
+        "target_shell_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,80}$"
+        },
+        "status": {
+          "const": "PENDING"
+        }
+      },
+      "required": [
+        "handoff_id",
+        "source_session_id",
+        "target_shell_id",
+        "status"
+      ],
+      "additionalProperties": false
+    },
+    "Feedback": {
+      "type": "object",
+      "properties": {
+        "request_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,80}$"
+        },
+        "update_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,80}$"
+        },
+        "expected_version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "patch": {
+          "$ref": "#/$defs/Preferences"
+        }
+      },
+      "required": [
+        "request_id",
+        "update_id",
+        "expected_version",
+        "patch"
+      ],
+      "additionalProperties": false
+    },
+    "Message": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "message_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,80}$"
+            },
+            "sent_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "type": {
+              "const": "hello"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "role": {
+                  "type": "string",
+                  "enum": [
+                    "agent",
+                    "gateway"
+                  ]
+                },
+                "id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                }
+              },
+              "required": [
+                "role",
+                "id"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "v",
+            "message_id",
+            "sent_at",
+            "type",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "message_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,80}$"
+            },
+            "sent_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "type": {
+              "const": "welcome"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "connection_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                },
+                "heartbeat_interval_ms": {
+                  "type": "integer",
+                  "minimum": 100,
+                  "maximum": 5000
+                }
+              },
+              "required": [
+                "connection_id",
+                "heartbeat_interval_ms"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "v",
+            "message_id",
+            "sent_at",
+            "type",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "message_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,80}$"
+            },
+            "sent_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "type": {
+              "const": "heartbeat"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "connection_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                }
+              },
+              "required": [
+                "connection_id"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "v",
+            "message_id",
+            "sent_at",
+            "type",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "message_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,80}$"
+            },
+            "sent_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "type": {
+              "const": "shell.report"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "shell_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                },
+                "physical_state": {
+                  "type": "string",
+                  "enum": [
+                    "READY",
+                    "FAULT",
+                    "ESTOP"
+                  ]
+                },
+                "enabled": {
+                  "type": "boolean"
+                },
+                "detail": {
+                  "type": "string",
+                  "minLength": 0,
+                  "maxLength": 500
+                }
+              },
+              "required": [
+                "shell_id",
+                "physical_state",
+                "enabled",
+                "detail"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "v",
+            "message_id",
+            "sent_at",
+            "type",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "message_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,80}$"
+            },
+            "sent_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "type": {
+              "const": "session.offer"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "session": {
+                  "$ref": "#/$defs/Session"
+                },
+                "memory": {
+                  "$ref": "#/$defs/Memory"
+                },
+                "permitted_capabilities": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "display.text",
+                      "speech.say",
+                      "arm.gesture"
+                    ]
+                  },
+                  "maxItems": 3,
+                  "uniqueItems": true,
+                  "minItems": 1
+                }
+              },
+              "required": [
+                "session",
+                "permitted_capabilities"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "v",
+            "message_id",
+            "sent_at",
+            "type",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "message_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,80}$"
+            },
+            "sent_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "type": {
+              "const": "session.ready"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "session_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                },
+                "lease_epoch": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "role": {
+                  "type": "string",
+                  "enum": [
+                    "agent",
+                    "gateway"
+                  ]
+                }
+              },
+              "required": [
+                "session_id",
+                "lease_epoch",
+                "role"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "v",
+            "message_id",
+            "sent_at",
+            "type",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "message_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,80}$"
+            },
+            "sent_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "type": {
+              "const": "session.activate"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "session_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                },
+                "lease_epoch": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              },
+              "required": [
+                "session_id",
+                "lease_epoch"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "v",
+            "message_id",
+            "sent_at",
+            "type",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "message_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,80}$"
+            },
+            "sent_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "type": {
+              "const": "session.revoke"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "session_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                },
+                "lease_epoch": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                }
+              },
+              "required": [
+                "session_id",
+                "lease_epoch",
+                "reason"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "v",
+            "message_id",
+            "sent_at",
+            "type",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "message_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,80}$"
+            },
+            "sent_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "type": {
+              "const": "session.stopped"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "session_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                },
+                "lease_epoch": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              },
+              "required": [
+                "session_id",
+                "lease_epoch"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "v",
+            "message_id",
+            "sent_at",
+            "type",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "message_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,80}$"
+            },
+            "sent_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "type": {
+              "const": "input.submit"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "session_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                },
+                "request_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                },
+                "text": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2000
+                }
+              },
+              "required": [
+                "session_id",
+                "request_id",
+                "text"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "v",
+            "message_id",
+            "sent_at",
+            "type",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "message_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,80}$"
+            },
+            "sent_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "type": {
+              "const": "input.text"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "session_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                },
+                "input_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                },
+                "text": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2000
+                },
+                "memory_version": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "session_id",
+                "input_id",
+                "text",
+                "memory_version"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "v",
+            "message_id",
+            "sent_at",
+            "type",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "message_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,80}$"
+            },
+            "sent_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "type": {
+              "const": "input.finished"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "session_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                },
+                "input_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "COMPLETED",
+                    "FAILED"
+                  ]
+                }
+              },
+              "required": [
+                "session_id",
+                "input_id",
+                "status"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "v",
+            "message_id",
+            "sent_at",
+            "type",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "message_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,80}$"
+            },
+            "sent_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "type": {
+              "const": "action.request"
+            },
+            "payload": {
+              "$ref": "#/$defs/ActionRequest"
+            }
+          },
+          "required": [
+            "v",
+            "message_id",
+            "sent_at",
+            "type",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "message_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,80}$"
+            },
+            "sent_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "type": {
+              "const": "action.accepted"
+            },
+            "payload": {
+              "$ref": "#/$defs/ActionAccepted"
+            }
+          },
+          "required": [
+            "v",
+            "message_id",
+            "sent_at",
+            "type",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "message_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,80}$"
+            },
+            "sent_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "type": {
+              "const": "action.started"
+            },
+            "payload": {
+              "$ref": "#/$defs/ActionStarted"
+            }
+          },
+          "required": [
+            "v",
+            "message_id",
+            "sent_at",
+            "type",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "message_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,80}$"
+            },
+            "sent_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "type": {
+              "const": "action.completed"
+            },
+            "payload": {
+              "$ref": "#/$defs/ActionCompleted"
+            }
+          },
+          "required": [
+            "v",
+            "message_id",
+            "sent_at",
+            "type",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "message_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,80}$"
+            },
+            "sent_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "type": {
+              "const": "action.failed"
+            },
+            "payload": {
+              "$ref": "#/$defs/ActionFailed"
+            }
+          },
+          "required": [
+            "v",
+            "message_id",
+            "sent_at",
+            "type",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "message_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,80}$"
+            },
+            "sent_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "type": {
+              "const": "memory.update"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "session_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                },
+                "update_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                },
+                "expected_version": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "patch": {
+                  "$ref": "#/$defs/Preferences"
+                }
+              },
+              "required": [
+                "session_id",
+                "update_id",
+                "expected_version",
+                "patch"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "v",
+            "message_id",
+            "sent_at",
+            "type",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "message_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,80}$"
+            },
+            "sent_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "type": {
+              "const": "memory.updated"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "session_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                },
+                "update_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                },
+                "memory": {
+                  "$ref": "#/$defs/Memory"
+                }
+              },
+              "required": [
+                "session_id",
+                "update_id",
+                "memory"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "v",
+            "message_id",
+            "sent_at",
+            "type",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "message_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,80}$"
+            },
+            "sent_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "type": {
+              "const": "memory.failed"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "session_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                },
+                "update_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                },
+                "current_version": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "error": {
+                  "$ref": "#/$defs/ErrorResponse"
+                }
+              },
+              "required": [
+                "session_id",
+                "update_id",
+                "current_version",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "v",
+            "message_id",
+            "sent_at",
+            "type",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "message_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,80}$"
+            },
+            "sent_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "type": {
+              "const": "error"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "reply_to": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                },
+                "error": {
+                  "$ref": "#/$defs/ErrorResponse"
+                }
+              },
+              "required": [
+                "reply_to",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "v",
+            "message_id",
+            "sent_at",
+            "type",
+            "payload"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "Event": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "event_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]+:[0-9]+$"
+            },
+            "at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "LIVE",
+                "SIMULATED",
+                "LOCAL_SHADOW",
+                "REPLAY"
+              ]
+            },
+            "type": {
+              "const": "agent.state"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "agent": {
+                  "$ref": "#/$defs/Agent"
+                }
+              },
+              "required": [
+                "agent"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "v",
+            "event_id",
+            "at",
+            "mode",
+            "type",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "event_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]+:[0-9]+$"
+            },
+            "at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "LIVE",
+                "SIMULATED",
+                "LOCAL_SHADOW",
+                "REPLAY"
+              ]
+            },
+            "type": {
+              "const": "shell.state"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "shell": {
+                  "$ref": "#/$defs/Shell"
+                }
+              },
+              "required": [
+                "shell"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "v",
+            "event_id",
+            "at",
+            "mode",
+            "type",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "event_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]+:[0-9]+$"
+            },
+            "at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "LIVE",
+                "SIMULATED",
+                "LOCAL_SHADOW",
+                "REPLAY"
+              ]
+            },
+            "type": {
+              "const": "session.granted"
+            },
+            "payload": {
+              "$ref": "#/$defs/SessionResult"
+            }
+          },
+          "required": [
+            "v",
+            "event_id",
+            "at",
+            "mode",
+            "type",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "event_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]+:[0-9]+$"
+            },
+            "at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "LIVE",
+                "SIMULATED",
+                "LOCAL_SHADOW",
+                "REPLAY"
+              ]
+            },
+            "type": {
+              "const": "session.active"
+            },
+            "payload": {
+              "$ref": "#/$defs/SessionResult"
+            }
+          },
+          "required": [
+            "v",
+            "event_id",
+            "at",
+            "mode",
+            "type",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "event_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]+:[0-9]+$"
+            },
+            "at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "LIVE",
+                "SIMULATED",
+                "LOCAL_SHADOW",
+                "REPLAY"
+              ]
+            },
+            "type": {
+              "const": "session.released"
+            },
+            "payload": {
+              "$ref": "#/$defs/SessionResult"
+            }
+          },
+          "required": [
+            "v",
+            "event_id",
+            "at",
+            "mode",
+            "type",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "event_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]+:[0-9]+$"
+            },
+            "at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "LIVE",
+                "SIMULATED",
+                "LOCAL_SHADOW",
+                "REPLAY"
+              ]
+            },
+            "type": {
+              "const": "session.failed"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "session": {
+                  "$ref": "#/$defs/Session"
+                },
+                "error": {
+                  "$ref": "#/$defs/ErrorResponse"
+                }
+              },
+              "required": [
+                "session",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "v",
+            "event_id",
+            "at",
+            "mode",
+            "type",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "event_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]+:[0-9]+$"
+            },
+            "at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "LIVE",
+                "SIMULATED",
+                "LOCAL_SHADOW",
+                "REPLAY"
+              ]
+            },
+            "type": {
+              "const": "handoff.completed"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "handoff_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                },
+                "source_session_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                },
+                "session": {
+                  "$ref": "#/$defs/Session"
+                }
+              },
+              "required": [
+                "handoff_id",
+                "source_session_id",
+                "session"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "v",
+            "event_id",
+            "at",
+            "mode",
+            "type",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "event_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]+:[0-9]+$"
+            },
+            "at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "LIVE",
+                "SIMULATED",
+                "LOCAL_SHADOW",
+                "REPLAY"
+              ]
+            },
+            "type": {
+              "const": "handoff.failed"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "handoff_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                },
+                "source_session_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                },
+                "target_shell_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                },
+                "error": {
+                  "$ref": "#/$defs/ErrorResponse"
+                }
+              },
+              "required": [
+                "handoff_id",
+                "source_session_id",
+                "target_shell_id",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "v",
+            "event_id",
+            "at",
+            "mode",
+            "type",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "event_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]+:[0-9]+$"
+            },
+            "at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "LIVE",
+                "SIMULATED",
+                "LOCAL_SHADOW",
+                "REPLAY"
+              ]
+            },
+            "type": {
+              "const": "action.accepted"
+            },
+            "payload": {
+              "$ref": "#/$defs/ActionAccepted"
+            }
+          },
+          "required": [
+            "v",
+            "event_id",
+            "at",
+            "mode",
+            "type",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "event_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]+:[0-9]+$"
+            },
+            "at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "LIVE",
+                "SIMULATED",
+                "LOCAL_SHADOW",
+                "REPLAY"
+              ]
+            },
+            "type": {
+              "const": "action.started"
+            },
+            "payload": {
+              "$ref": "#/$defs/ActionStarted"
+            }
+          },
+          "required": [
+            "v",
+            "event_id",
+            "at",
+            "mode",
+            "type",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "event_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]+:[0-9]+$"
+            },
+            "at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "LIVE",
+                "SIMULATED",
+                "LOCAL_SHADOW",
+                "REPLAY"
+              ]
+            },
+            "type": {
+              "const": "action.completed"
+            },
+            "payload": {
+              "$ref": "#/$defs/ActionCompleted"
+            }
+          },
+          "required": [
+            "v",
+            "event_id",
+            "at",
+            "mode",
+            "type",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "event_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]+:[0-9]+$"
+            },
+            "at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "LIVE",
+                "SIMULATED",
+                "LOCAL_SHADOW",
+                "REPLAY"
+              ]
+            },
+            "type": {
+              "const": "action.failed"
+            },
+            "payload": {
+              "$ref": "#/$defs/ActionFailed"
+            }
+          },
+          "required": [
+            "v",
+            "event_id",
+            "at",
+            "mode",
+            "type",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "event_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]+:[0-9]+$"
+            },
+            "at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "LIVE",
+                "SIMULATED",
+                "LOCAL_SHADOW",
+                "REPLAY"
+              ]
+            },
+            "type": {
+              "const": "input.finished"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "session_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                },
+                "input_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "COMPLETED",
+                    "FAILED"
+                  ]
+                }
+              },
+              "required": [
+                "session_id",
+                "input_id",
+                "status"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "v",
+            "event_id",
+            "at",
+            "mode",
+            "type",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "event_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]+:[0-9]+$"
+            },
+            "at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "LIVE",
+                "SIMULATED",
+                "LOCAL_SHADOW",
+                "REPLAY"
+              ]
+            },
+            "type": {
+              "const": "memory.updated"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "session_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                },
+                "update_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                },
+                "memory_version": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              },
+              "required": [
+                "session_id",
+                "update_id",
+                "memory_version"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "v",
+            "event_id",
+            "at",
+            "mode",
+            "type",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "event_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]+:[0-9]+$"
+            },
+            "at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "LIVE",
+                "SIMULATED",
+                "LOCAL_SHADOW",
+                "REPLAY"
+              ]
+            },
+            "type": {
+              "const": "memory.failed"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "session_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                },
+                "update_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                },
+                "current_version": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "error": {
+                  "$ref": "#/$defs/ErrorResponse"
+                }
+              },
+              "required": [
+                "session_id",
+                "update_id",
+                "current_version",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "v",
+            "event_id",
+            "at",
+            "mode",
+            "type",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "event_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]+:[0-9]+$"
+            },
+            "at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "LIVE",
+                "SIMULATED",
+                "LOCAL_SHADOW",
+                "REPLAY"
+              ]
+            },
+            "type": {
+              "const": "stream.reset"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "reason": {
+                  "type": "string",
+                  "enum": [
+                    "CURSOR_EXPIRED",
+                    "SERVER_RESTART"
+                  ]
+                }
+              },
+              "required": [
+                "reason"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "v",
+            "event_id",
+            "at",
+            "mode",
+            "type",
+            "payload"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "BridgeMessage": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "message_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,80}$"
+            },
+            "sent_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "type": {
+              "const": "device.hello"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "device_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                },
+                "shell_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                }
+              },
+              "required": [
+                "device_id",
+                "shell_id"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "v",
+            "message_id",
+            "sent_at",
+            "type",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "message_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,80}$"
+            },
+            "sent_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "type": {
+              "const": "device.heartbeat"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "device_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                }
+              },
+              "required": [
+                "device_id"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "v",
+            "message_id",
+            "sent_at",
+            "type",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "message_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,80}$"
+            },
+            "sent_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "type": {
+              "const": "device.command"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "command_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                },
+                "session_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                },
+                "lease_epoch": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "expires_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "Z$"
+                },
+                "action": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "capability": {
+                          "const": "display.text"
+                        },
+                        "args": {
+                          "type": "object",
+                          "properties": {
+                            "text": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 500
+                            }
+                          },
+                          "required": [
+                            "text"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "capability",
+                        "args"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "capability": {
+                          "const": "speech.say"
+                        },
+                        "args": {
+                          "type": "object",
+                          "properties": {
+                            "text": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 500
+                            }
+                          },
+                          "required": [
+                            "text"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "capability",
+                        "args"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "command_id",
+                "session_id",
+                "lease_epoch",
+                "expires_at",
+                "action"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "v",
+            "message_id",
+            "sent_at",
+            "type",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "message_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,80}$"
+            },
+            "sent_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "type": {
+              "const": "device.result"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "device_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                },
+                "command_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "COMPLETED",
+                    "FAILED",
+                    "UNKNOWN"
+                  ]
+                },
+                "detail": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 500
+                }
+              },
+              "required": [
+                "device_id",
+                "command_id",
+                "status",
+                "detail"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "v",
+            "message_id",
+            "sent_at",
+            "type",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "message_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,80}$"
+            },
+            "sent_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "type": {
+              "const": "device.stop"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "session_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                },
+                "lease_epoch": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              },
+              "required": [
+                "session_id",
+                "lease_epoch"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "v",
+            "message_id",
+            "sent_at",
+            "type",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "message_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,80}$"
+            },
+            "sent_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "type": {
+              "const": "device.stopped"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "device_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                },
+                "session_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                },
+                "lease_epoch": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              },
+              "required": [
+                "device_id",
+                "session_id",
+                "lease_epoch"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "v",
+            "message_id",
+            "sent_at",
+            "type",
+            "payload"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

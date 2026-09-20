@@ -1,0 +1,408 @@
+{
+  "description": "结构合法的拒绝响应；运行端必须实际实现这些拒绝条件。",
+  "checks": [
+    {
+      "schema": "ErrorResponse",
+      "valid": true,
+      "note": "",
+      "data": {
+        "error": {
+          "code": "INVALID_MESSAGE",
+          "message": "INVALID_MESSAGE",
+          "retryable": false,
+          "request_id": "request_1"
+        }
+      }
+    },
+    {
+      "schema": "ErrorResponse",
+      "valid": true,
+      "note": "",
+      "data": {
+        "error": {
+          "code": "UNSUPPORTED_VERSION",
+          "message": "UNSUPPORTED_VERSION",
+          "retryable": false,
+          "request_id": "request_1"
+        }
+      }
+    },
+    {
+      "schema": "ErrorResponse",
+      "valid": true,
+      "note": "",
+      "data": {
+        "error": {
+          "code": "UNAUTHORIZED",
+          "message": "UNAUTHORIZED",
+          "retryable": false,
+          "request_id": "request_1"
+        }
+      }
+    },
+    {
+      "schema": "ErrorResponse",
+      "valid": true,
+      "note": "",
+      "data": {
+        "error": {
+          "code": "FORBIDDEN",
+          "message": "FORBIDDEN",
+          "retryable": false,
+          "request_id": "request_1"
+        }
+      }
+    },
+    {
+      "schema": "ErrorResponse",
+      "valid": true,
+      "note": "",
+      "data": {
+        "error": {
+          "code": "SHELL_DISABLED",
+          "message": "SHELL_DISABLED",
+          "retryable": false,
+          "request_id": "request_1"
+        }
+      }
+    },
+    {
+      "schema": "ErrorResponse",
+      "valid": true,
+      "note": "",
+      "data": {
+        "error": {
+          "code": "NOT_FOUND",
+          "message": "NOT_FOUND",
+          "retryable": false,
+          "request_id": "request_1"
+        }
+      }
+    },
+    {
+      "schema": "ErrorResponse",
+      "valid": true,
+      "note": "",
+      "data": {
+        "error": {
+          "code": "NAME_TAKEN",
+          "message": "NAME_TAKEN",
+          "retryable": false,
+          "request_id": "request_1"
+        }
+      }
+    },
+    {
+      "schema": "ErrorResponse",
+      "valid": true,
+      "note": "",
+      "data": {
+        "error": {
+          "code": "AGENT_BUSY",
+          "message": "AGENT_BUSY",
+          "retryable": false,
+          "request_id": "request_1"
+        }
+      }
+    },
+    {
+      "schema": "ErrorResponse",
+      "valid": true,
+      "note": "",
+      "data": {
+        "error": {
+          "code": "SHELL_BUSY",
+          "message": "SHELL_BUSY",
+          "retryable": false,
+          "request_id": "request_1"
+        }
+      }
+    },
+    {
+      "schema": "ErrorResponse",
+      "valid": true,
+      "note": "",
+      "data": {
+        "error": {
+          "code": "TASK_BUSY",
+          "message": "TASK_BUSY",
+          "retryable": false,
+          "request_id": "request_1"
+        }
+      }
+    },
+    {
+      "schema": "ErrorResponse",
+      "valid": true,
+      "note": "",
+      "data": {
+        "error": {
+          "code": "COMMAND_BUSY",
+          "message": "COMMAND_BUSY",
+          "retryable": false,
+          "request_id": "request_1"
+        }
+      }
+    },
+    {
+      "schema": "ErrorResponse",
+      "valid": true,
+      "note": "",
+      "data": {
+        "error": {
+          "code": "CONNECTION_EXISTS",
+          "message": "CONNECTION_EXISTS",
+          "retryable": false,
+          "request_id": "request_1"
+        }
+      }
+    },
+    {
+      "schema": "ErrorResponse",
+      "valid": true,
+      "note": "",
+      "data": {
+        "error": {
+          "code": "IDEMPOTENCY_CONFLICT",
+          "message": "IDEMPOTENCY_CONFLICT",
+          "retryable": false,
+          "request_id": "request_1"
+        }
+      }
+    },
+    {
+      "schema": "ErrorResponse",
+      "valid": true,
+      "note": "",
+      "data": {
+        "error": {
+          "code": "OUT_OF_ORDER",
+          "message": "OUT_OF_ORDER",
+          "retryable": false,
+          "request_id": "request_1"
+        }
+      }
+    },
+    {
+      "schema": "ErrorResponse",
+      "valid": true,
+      "note": "",
+      "data": {
+        "error": {
+          "code": "STALE_LEASE",
+          "message": "STALE_LEASE",
+          "retryable": false,
+          "request_id": "request_1"
+        }
+      }
+    },
+    {
+      "schema": "ErrorResponse",
+      "valid": true,
+      "note": "",
+      "data": {
+        "error": {
+          "code": "SESSION_NOT_ACTIVE",
+          "message": "SESSION_NOT_ACTIVE",
+          "retryable": false,
+          "request_id": "request_1"
+        }
+      }
+    },
+    {
+      "schema": "ErrorResponse",
+      "valid": true,
+      "note": "",
+      "data": {
+        "error": {
+          "code": "MEMORY_CONFLICT",
+          "message": "MEMORY_CONFLICT",
+          "retryable": false,
+          "request_id": "request_1"
+        }
+      }
+    },
+    {
+      "schema": "ErrorResponse",
+      "valid": true,
+      "note": "",
+      "data": {
+        "error": {
+          "code": "MEMORY_WRITE_FAILED",
+          "message": "MEMORY_WRITE_FAILED",
+          "retryable": false,
+          "request_id": "request_1"
+        }
+      }
+    },
+    {
+      "schema": "ErrorResponse",
+      "valid": true,
+      "note": "",
+      "data": {
+        "error": {
+          "code": "HANDOFF_BLOCKED",
+          "message": "HANDOFF_BLOCKED",
+          "retryable": false,
+          "request_id": "request_1"
+        }
+      }
+    },
+    {
+      "schema": "ErrorResponse",
+      "valid": true,
+      "note": "",
+      "data": {
+        "error": {
+          "code": "CAPABILITY_UNSUPPORTED",
+          "message": "CAPABILITY_UNSUPPORTED",
+          "retryable": false,
+          "request_id": "request_1"
+        }
+      }
+    },
+    {
+      "schema": "ErrorResponse",
+      "valid": true,
+      "note": "",
+      "data": {
+        "error": {
+          "code": "ACTION_NOT_ALLOWED",
+          "message": "ACTION_NOT_ALLOWED",
+          "retryable": false,
+          "request_id": "request_1"
+        }
+      }
+    },
+    {
+      "schema": "ErrorResponse",
+      "valid": true,
+      "note": "",
+      "data": {
+        "error": {
+          "code": "CLOCK_SKEW",
+          "message": "CLOCK_SKEW",
+          "retryable": false,
+          "request_id": "request_1"
+        }
+      }
+    },
+    {
+      "schema": "ErrorResponse",
+      "valid": true,
+      "note": "",
+      "data": {
+        "error": {
+          "code": "RATE_LIMITED",
+          "message": "RATE_LIMITED",
+          "retryable": false,
+          "request_id": "request_1"
+        }
+      }
+    },
+    {
+      "schema": "ErrorResponse",
+      "valid": true,
+      "note": "",
+      "data": {
+        "error": {
+          "code": "AGENT_OFFLINE",
+          "message": "AGENT_OFFLINE",
+          "retryable": false,
+          "request_id": "request_1"
+        }
+      }
+    },
+    {
+      "schema": "ErrorResponse",
+      "valid": true,
+      "note": "",
+      "data": {
+        "error": {
+          "code": "SHELL_OFFLINE",
+          "message": "SHELL_OFFLINE",
+          "retryable": false,
+          "request_id": "request_1"
+        }
+      }
+    },
+    {
+      "schema": "ErrorResponse",
+      "valid": true,
+      "note": "",
+      "data": {
+        "error": {
+          "code": "CONNECT_TIMEOUT",
+          "message": "CONNECT_TIMEOUT",
+          "retryable": false,
+          "request_id": "request_1"
+        }
+      }
+    },
+    {
+      "schema": "ErrorResponse",
+      "valid": true,
+      "note": "",
+      "data": {
+        "error": {
+          "code": "EXPIRED",
+          "message": "EXPIRED",
+          "retryable": false,
+          "request_id": "request_1"
+        }
+      }
+    },
+    {
+      "schema": "ErrorResponse",
+      "valid": true,
+      "note": "",
+      "data": {
+        "error": {
+          "code": "ESTOP",
+          "message": "ESTOP",
+          "retryable": false,
+          "request_id": "request_1"
+        }
+      }
+    },
+    {
+      "schema": "ErrorResponse",
+      "valid": true,
+      "note": "",
+      "data": {
+        "error": {
+          "code": "DRIVER_ERROR",
+          "message": "DRIVER_ERROR",
+          "retryable": false,
+          "request_id": "request_1"
+        }
+      }
+    },
+    {
+      "schema": "ErrorResponse",
+      "valid": true,
+      "note": "",
+      "data": {
+        "error": {
+          "code": "UNVERIFIED",
+          "message": "UNVERIFIED",
+          "retryable": false,
+          "request_id": "request_1"
+        }
+      }
+    },
+    {
+      "schema": "ErrorResponse",
+      "valid": true,
+      "note": "",
+      "data": {
+        "error": {
+          "code": "UNKNOWN",
+          "message": "UNKNOWN",
+          "retryable": false,
+          "request_id": "request_1"
+        }
+      }
+    }
+  ]
+}
