@@ -1,69 +1,73 @@
 # 唤名 SUMMON
 
-**Ghost 住在网络上，身体可以更换。**
+**唤一个名字，让熟悉的 Agent 来到身边。**
 
-SUMMON 是正在实现的 Agent 与设备接驳协议：按名字找到远端 Agent，让它接入授权设备，继续使用同一份记忆完成任务，再释放或交接控制权。
+*Ghost lives on the network. Bodies can change.*
 
-> 2026-09-20 · 契约 0.1.0 · EvoTavern 深圳站，主赛道 01 CYBERBODY。
-> **当前只有文档、JSON Schema、消息样例与契约校验工具。后端、前端、Agent 适配器、固件和实物联调尚未实现。** 样例不代表真实接入数量或硬件测试结果。
+SUMMON 探索一种跨设备的 Agent 体验：让运行在远端的智能体接入身边的设备，带着已保存的偏好继续与你互动。从一块随身屏幕到展台上的机械臂，交互的形态可以改变，陪你完成任务的仍是同一个 Agent。
 
-## 从这里开始
+[协议文档](docs/PROTOCOL.md) · [接入指南](docs/ADAPTER.md) · [消息样例](protocol/examples/README.md)
 
-| 材料 | 用途 | 谁先读 |
-|---|---|---|
-| [公共契约](docs/PROTOCOL.md) | 身份、接口、会话、动作、记忆、错误与恢复 | 全员 |
-| [JSON Schema](protocol/summon.schema.json) | 跨语言消息格式 | 全员 |
-| [场景样例](protocol/examples/README.md) | 三方共用的成功/失败样例 | 全员 |
-| [三人执行计划](docs/PLAN.md) | 范围、分工、倒排 | 全员 |
-| [星图规格](docs/NEBULA.md) | 前端交互、状态映射、降级 | 设计师 |
-| [接入指南](docs/ADAPTER.md) | 注册、上线、任务和回执 | 后端、小胖 |
-| [硬件与部署](docs/HARDWARE.md) | 两台 Passport、服务器与机械臂 | 小胖、后端 |
-| [产品方案](docs/方案书.md) | 场景、价值与演示 | 全员 |
-| [验收清单](docs/ACCEPTANCE.md) | 联调与故障验证 | 全员 |
+## 同一个 Agent，不同的身体
 
-字段以 Schema 为准，时序/权限以 PROTOCOL 为准，范围以 PLAN 为准。其他文档引用而不重新定义。旧版的三具机械壳、Flipper 和零延迟设想保留在 Git 历史中，不是本版承诺。
+我们希望你可以在随身设备上与 Agent 聊一件展品，告诉它“下次先用一句话介绍”。走到另一处展台，再次唤起它时，它能沿用这个偏好，并借助现场设备继续讲解或指向对应的展品。
 
-## 最低演示
+SUMMON 围绕这段体验设计三个环节：
 
-首个验证场景为“跨设备展会导览”，需求仍需现场试用验证。
+- **唤名**：找到熟悉的 Agent，选择它可以使用的设备。
+- **接驳**：Agent 通过设备提供的能力显示内容、播放语音或执行动作。
+- **延续**：保存经过确认的偏好，在设备交接后继续使用。
 
-1. 在 Passport A 选择一个 Agent，询问展品。
-2. 反馈“太长了，下次先用一句话解释”，等待偏好保存确认。
-3. 将 Agent 交接到 Passport B；若取得机械臂，B 与机械臂组成一具壳。
-4. 提出新问题，Agent 按刚才的偏好继续回答；可选机械臂执行经过校准的指示动作。
-5. 星图显示实际连接、任务结果、控制权与记忆版本，不用动画代替硬件证据。
+星图是这段体验的可视化入口：每个节点对应一个 Agent，呈现它的在线状态、当前连接与交接过程。
 
-最低交付为 **1 个真实远端 Agent + 2 台 Passport + 1 个可操作官网**。机械臂、NFC、第二个外部 Agent 为增强。Agent 不下载到 ESP32，远端推理通过现场网关调用设备。
+## 如何连接
+
+Agent 保持在原有电脑或服务器上运行，通过 SUMMON Hub 与现场的 Shell Gateway 通信。Gateway 将统一的动作请求转换为设备调用，并返回执行结果。
 
 ```mermaid
 flowchart LR
-  A[远端电脑：Agent + Adapter] <-->|WSS| H[服务器 A：Hub]
-  H <-->|WSS| G[现场电脑：Shell Gateway]
-  G <--> P[Passport A / B]
-  G <--> R[可选机械臂 + SDK]
-  W[星图官网] <-->|HTTPS + SSE| H
-  G <-->|音频桥| V[服务器 B：可选 ASR / TTS]
+  A[远端 Agent] <-->|Ghost Adapter| H[SUMMON Hub]
+  W[星图界面] <--> H
+  H <-->|授权会话| G[Shell Gateway]
+  G <--> P[随身设备]
+  G <--> R[机械臂等执行设备]
 ```
 
-## 硬件边界
+| 组成 | 作用 |
+|---|---|
+| Ghost Adapter | 连接已有 Agent，将设备能力提供为可调用工具 |
+| SUMMON Hub | 管理身份、会话、记忆与设备交接 |
+| Shell Gateway | 适配本地硬件，执行允许的动作并回传结果 |
+| 星图界面 | 浏览 Agent、发起连接、查看交互状态 |
 
-FoloToy AI Passport：ESP32-C3、8 MB Flash、无 PSRAM，带屏幕、按键、音频与 Wi-Fi。NFC 是**被动 NTAG213 标签，不是读卡器**；两台互碰不能召唤。首版按键/网页输入，NFC 另配读卡器。复用 FoloToy BSP，不假设通用小智固件可刷入。[官方规格](https://github.com/folotoy/ai-passport/blob/main/docs/hardware-design/specifications.zh_CN.md)
+协议将设备能力、控制权和执行回执分开描述。每次接入都有明确的会话，设备交接经过停止确认，偏好更新带有版本记录。具体约定见 [公共契约](docs/PROTOCOL.md)。
 
-## 契约校验
+## 开发进展
 
-推荐 Python 3.10+ 与虚拟环境：
+项目处于早期开发阶段，当前版本为 **契约 v0.1.0**。仓库已提供协议文档、JSON Schema、交互样例与校验工具，下一阶段将实现运行服务并开展硬件联调。首个验证方向是基于 FoloToy AI Passport 的跨设备导览，机械臂接入作为后续扩展。
+
+开发者可以先阅读 [接入指南](docs/ADAPTER.md)，使用 [场景样例](protocol/examples/README.md) 对齐消息与状态，再接入具体的 Agent 或设备。
+
+在仓库根目录运行契约校验（推荐 Python 3.10+）：
 
 ```sh
 python -m pip install -r protocol/requirements.txt
 python tools/validate_contract.py
 ```
 
-检查 Schema、正反样例、场景断言及本地文档链接；**不代表网络服务已实现或硬件测试通过**。
+此命令检查消息结构、样例时序和文档链接；服务联调与实物验证见 [验收说明](docs/ACCEPTANCE.md)。
 
-## 展示纪律与赛事依据
+## 文档
 
-注册不等于在线，请求收到不等于执行完成，记住暗号不等于训练模型。实时、模拟、影子、回放必须区分。仅展示真实适配数和实际赞助产品作用，不承诺零延迟或获奖。
+| 文档 | 内容 |
+|---|---|
+| [协议规范](docs/PROTOCOL.md) | 身份、接口、会话、动作与记忆 |
+| [JSON Schema](protocol/summon.schema.json) | 可校验的消息定义 |
+| [接入指南](docs/ADAPTER.md) | Agent 与设备适配流程 |
+| [硬件与部署](docs/HARDWARE.md) | 设备基线、网关与网络连接 |
+| [星图设计](docs/NEBULA.md) | 界面交互与状态呈现 |
+| [项目方案](docs/方案书.md) | 应用场景与设计方向 |
 
-[官方指南](https://autogame.feishu.cn/docx/PTZsdDoymoZ7a3x3v6pcBLQInZe) · [评分表](https://autogame.feishu.cn/sheets/WfkbsXcU2hWjWctkglLcjCLOnqe?sheet=nkcNTx)
+## License
 
-2026-09-20 查阅 revision 5264 / 5：通用 6 分，硬件专属 4 分，后者包括市场洞察、闭环学习、垂直场景、现场交付。表中 SHELL FORGE 与指南 CYBERBODY 名称有差异，现场确认对应关系及规则。MIT · [LICENSE](LICENSE)
+[MIT](LICENSE)
