@@ -6,6 +6,8 @@
 
 SUMMON 探索一种跨设备的 Agent 体验：让运行在远端的智能体接入身边的设备，带着已保存的偏好继续与你互动。从一块随身屏幕到展台上的机械臂，交互的形态可以改变，陪你完成任务的仍是同一个 Agent。
 
+本项目为 **EvoTavern 进化酒馆黑客松 · 深圳站**（2026-09-21 ~ 09-24）赛道 01「具身与穿戴硬件」的参赛参考实现，当前处于契约阶段。
+
 [协议文档](docs/PROTOCOL.md) · [接入指南](docs/ADAPTER.md) · [消息样例](protocol/examples/README.md)
 
 ## 同一个 Agent，不同的身体
@@ -67,6 +69,7 @@ python tools/validate_contract.py
 | [硬件与部署](docs/HARDWARE.md) | 设备基线、网关与网络连接 |
 | [星图设计](docs/NEBULA.md) | 界面交互与状态呈现 |
 | [项目方案](docs/方案书.md) | 应用场景与设计方向 |
+| [执行计划](docs/PLAN.md) | 三人分工、倒排与范围边界 |
 
 ## License
 

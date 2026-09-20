@@ -9,6 +9,10 @@ from jsonschema import Draft202012Validator, FormatChecker
 
 ROOT = Path(__file__).resolve().parents[1]
 
+# 每个前缀对应一个必须存在的联调场景。新增场景不会让本检查失败，
+# 但缺少任一场景、或两个文件共用同一前缀会失败。
+REQUIRED_SCENARIOS = ("01", "02", "03", "04", "05", "06", "07", "08", "09", "10")
+
 
 def require(condition, message):
     if not condition:
@@ -21,7 +25,14 @@ def main():
     fixtures = {}
     counts = {True: 0, False: 0}
     files = sorted((ROOT / "protocol/examples").glob("*.json"))
-    require(len(files) == 10, "Expected ten scenario files")
+    stems = {}
+    for path in files:
+        key = path.stem[:2]
+        require(key not in stems,
+                "Duplicate scenario prefix {}: {} and {}".format(key, stems.get(key), path.name))
+        stems[key] = path.name
+    missing = [key for key in REQUIRED_SCENARIOS if key not in stems]
+    require(not missing, "Missing required scenario files: " + ", ".join(missing))
     for path in files:
         fixture = json.loads(path.read_text(encoding="utf-8"))
         require(isinstance(fixture.get("description"), str), str(path))
