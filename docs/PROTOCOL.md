@@ -21,7 +21,7 @@ MVP：一个 Hub、一个权威记忆库、一个真实 Agent、两个壳。一�
 | message_id | 发送端 | 一次传输的追踪标识，不替代逻辑幂等键 |
 | event_id / cursor | Hub | 不透明 `stream_id:sequence`，不要求客户端解析 |
 
-ID 使用 ASCII 字母、数字、下划线、短横线，1–80 字符。时间统一 UTC RFC3339 字符串，延迟为整数毫秒。Schema 校验要启用 date-time format 校验。名字是展示/解析字段，内部执行只用 ID。`summon://<agent_id>?v=1` 仅为寻址线索，不是凭证。
+ID 使用 ASCII 字母、数字、下划线、短横线，1–80 字符。时间统一 UTC RFC3339 字符串，延迟为整数毫秒。Schema 校验要启用 date-time format 校验。名字是展示/解析字段，内部执行只用 ID。`summon://<agent_id>?v=1` 仅为寻址线索，不是凭证。贴牌因此只能选定一个已获授权的 Agent，不能认证持卡人；要讲"它记得你"，记住的是 agent_id 的入住轨迹，不是持卡人的身份。
 
 `summons` 只在 LIVE 会话第一次进入 ACTIVE 时加一，重发事件、失败连接、回放不加。`last_landed_at` 未入住时为 null。公开展示只开放部署时选定的演示 Agent 和壳，不泄露其他操作者信息。
 
