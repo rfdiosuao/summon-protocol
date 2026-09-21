@@ -1,7 +1,9 @@
 """Validate static contracts and fixture invariants; not a runtime simulator."""
 import json
 import re
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
@@ -13,10 +15,58 @@ ROOT = Path(__file__).resolve().parents[1]
 # 但缺少任一场景、或两个文件共用同一前缀会失败。
 REQUIRED_SCENARIOS = ("01", "02", "03", "04", "05", "06", "07", "08", "09", "10")
 
+# 参考客户端产出的消息也要过 Schema。负例两类：未知字段、超过 16 KiB。
+REF_CLIENT = ROOT / "tools" / "summon_device_ref.py"
+MAX_FRAME_BYTES = 16 * 1024
+
 
 def require(condition, message):
     if not condition:
         raise ValueError(message)
+
+
+def validate_reference_client(schema):
+    """跑参考客户端 --emit，把产出的消息按 Schema 校验，并验两条负例。
+
+    返回 {True: 正例数, False: 负例数}。参考客户端是协议的可执行样板，
+    它发出去的东西必须和静态样例一样过同一份 Schema。
+    """
+    require(REF_CLIENT.is_file(), "Missing reference client: {}".format(REF_CLIENT))
+    with tempfile.TemporaryDirectory() as tmp:
+        out = Path(tmp) / "emit.jsonl"
+        # 按字节捕获：参考客户端会打印中文，Windows 默认 GBK 解码会炸。
+        proc = subprocess.run(
+            [sys.executable, str(REF_CLIENT), "--emit", str(out)],
+            capture_output=True, timeout=120, cwd=str(ROOT),
+        )
+        require(proc.returncode == 0,
+                "reference client --emit failed: {}".format(
+                    proc.stderr.decode("utf-8", "replace").strip()[:200]))
+        lines = [l for l in out.read_text(encoding="utf-8").splitlines() if l.strip()]
+        require(lines, "reference client emitted nothing")
+
+        wrapper = {"$schema": schema["$schema"], "$defs": schema["$defs"],
+                   "$ref": "#/$defs/BridgeMessage"}
+        validator = Draft202012Validator(wrapper, format_checker=FormatChecker())
+        positive = 0
+        for line in lines:
+            errors = list(validator.iter_errors(json.loads(line)))
+            require(not errors, "reference client message rejected: {}".format(
+                errors[0].message if errors else ""))
+            positive += 1
+
+        # 负例一：未知字段必须被拒绝
+        bad_field = json.loads(lines[0])
+        bad_field["unexpected"] = "x"
+        require(list(validator.iter_errors(bad_field)), "unknown field was accepted")
+
+        # 负例二：超过 16 KiB 必须被拒绝
+        oversized = json.loads(lines[0])
+        oversized["payload"] = dict(oversized["payload"])
+        oversized["payload"]["text"] = "x" * (MAX_FRAME_BYTES + 1024)
+        require(list(validator.iter_errors(oversized)), "oversized frame was accepted")
+
+    return {True: positive, False: 2}
 
 
 def main():
@@ -88,6 +138,8 @@ def main():
     codes = schema["$defs"]["ErrorResponse"]["properties"]["error"]["properties"]["code"]["enum"]
     require({v["error"]["code"] for v in data("03")} == set(codes), "Error fixture coverage incomplete")
 
+    ref_counts = validate_reference_client(schema)
+
     links = 0
     for path in [ROOT / "README.md"] + list((ROOT / "docs").glob("*.md")) + [ROOT / "protocol/examples/README.md"]:
         for target in re.findall(r"\[[^\]]*\]\(([^)]+)\)", path.read_text(encoding="utf-8")):
@@ -97,8 +149,9 @@ def main():
                 continue
             require((path.parent / unquote(parsed.path)).is_file(), "Broken link in {}: {}".format(path.name, target))
             links += 1
-    print("PASS: schema; {} scenarios; {} positive and {} negative checks; fixture invariants; {} local links.".format(
-        len(files), counts[True], counts[False], links))
+    print("PASS: schema; {} scenarios; {} positive and {} negative checks; fixture invariants; "
+          "{} reference-client messages; {} local links.".format(
+        len(files), counts[True], counts[False], ref_counts[True], links))
     print("Runtime services and physical hardware are not tested by this command.")
 
 

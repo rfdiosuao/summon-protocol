@@ -50,6 +50,8 @@ flowchart LR
 
 开发者可以先阅读 [接入指南](docs/ADAPTER.md)，使用 [场景样例](protocol/examples/README.md) 对齐消息与状态，再接入具体的 Agent 或设备。
 
+要移植到自己的硬件，从 [固件移植手册](docs/FIRMWARE.md) 开始：只需实现 `summon_port_t` 一个结构体。**该模板不提供物理急停，急停必须是你自己的硬件。**
+
 在仓库根目录运行契约校验（推荐 Python 3.10+）：
 
 ```sh
@@ -68,6 +70,7 @@ python tools/validate_contract.py
 | [接入指南](docs/ADAPTER.md) | Agent 与设备适配流程 |
 | [硬件与部署](docs/HARDWARE.md) | 设备基线、网关与网络连接 |
 | [星图设计](docs/NEBULA.md) | 界面交互与状态呈现 |
+| [固件移植](docs/FIRMWARE.md) | `summon_port_t` 逐字段说明、六条板侧规则的框架强制点 |
 | [项目方案](docs/方案书.md) | 应用场景与设计方向 |
 | [执行计划](docs/PLAN.md) | 三人分工、倒排与范围边界 |
 

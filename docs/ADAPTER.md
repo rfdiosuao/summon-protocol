@@ -51,7 +51,34 @@
 5. **`display.text` 完成回执必须是真实渲染后**；`speech.say` 完成回执必须是播放结束后。不得用动画计时伪造完成。
 6. **同时记录空闲堆与最大连续空闲块。** 常见故障不是缓冲太小，而是堆碎片——总空闲堆够但连续块不够。
 
-## 前端（设计师）
+## 参考客户端（设备端样板）
+
+`tools/summon_device_ref.py` 是协议的可执行样板，标准库即可跑通全部自检。
+
+```sh
+python tools/summon_device_ref.py --selftest      # 六个子用例，CI 也跑这条
+python tools/summon_device_ref.py --case dedup    # 单独跑一个子用例
+python tools/summon_device_ref.py --port cli      # 终端当屏幕，交互试用
+python tools/summon_device_ref.py --emit out.jsonl  # 导出收发消息供校验
+python tools/summon_device_ref.py --connect ws://127.0.0.1:8800/device  # 连真实 Gateway
+```
+
+六个子用例各自对应一条安全规则，失败时直接指出是哪条被破坏：
+
+| 子用例 | 断言的规则 |
+|---|---|
+| `full_sequence` | hello → command → result → stop → stopped 齐全，执行一次 |
+| `dedup` | 同 `command_id` 同内容只执行一次；同 ID 不同内容报 `IDEMPOTENCY_CONFLICT` 且不执行 |
+| `stale_lease` | 旧 `lease_epoch` 返回 `STALE_LEASE` |
+| `expired` | 过期 `expires_at` 返回 `EXPIRED` 且不执行 |
+| `heartbeat_timeout` | 超 3 秒收不到 Gateway 心跳即本地停止并清队列 |
+| `reconnect` | 重连后未确认命令报 `UNKNOWN`，绝不自动重放 |
+
+**它同时是 P0 的模拟壳**：Hub 与前端在没有真实固件时，用它顶替一台设备；`--emit` 导出的消息由 `tools/validate_contract.py` 按同一份 Schema 校验，因此样板与静态样例不会漂移。
+
+**它不提供物理急停。** 急停是硬件，框架只能上报 `ESTOP`。
+
+
 
 公开 catalog → 现场访问码登录 → state → SSE → 按 ID 发召唤/输入/交接。初版用 examples 模拟接口，显式显示 SIMULATED。前端不推断成功，不控制电机，模型文件与真实能力无关。
 

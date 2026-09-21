@@ -1,0 +1,6 @@
+version: "0.1.0"
+description: SUMMON device-side framework: WSS, BridgeMessage codec, dedup, lease, stop FSM, heartbeat
+targets:
+  - esp32c3
+dependencies:
+  idf: ">=5.5.3,<5.6.0"
