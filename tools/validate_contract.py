@@ -141,13 +141,17 @@ def main():
     ref_counts = validate_reference_client(schema)
 
     links = 0
-    for path in [ROOT / "README.md"] + list((ROOT / "docs").glob("*.md")) + [ROOT / "protocol/examples/README.md"]:
+    # 递归扫描全部 Markdown：docs/ 的子目录（如 ADR）与 firmware/ 的 README
+    # 同样含本地链接，漏掉它们就会出现没人校验的死指引。
+    md_files = sorted(p for p in ROOT.rglob("*.md") if ".git" not in p.parts)
+    for path in [ROOT / "README.md"] + md_files:
         for target in re.findall(r"\[[^\]]*\]\(([^)]+)\)", path.read_text(encoding="utf-8")):
             target = target.strip("<>")
             parsed = urlsplit(target)
             if parsed.scheme or target.startswith("#"):
                 continue
-            require((path.parent / unquote(parsed.path)).is_file(), "Broken link in {}: {}".format(path.name, target))
+            require((path.parent / unquote(parsed.path)).is_file(),
+                    "Broken link in {}: {}".format(path.relative_to(ROOT), target))
             links += 1
     print("PASS: schema; {} scenarios; {} positive and {} negative checks; fixture invariants; "
           "{} reference-client messages; {} local links.".format(
