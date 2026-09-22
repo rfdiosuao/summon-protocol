@@ -16,6 +16,8 @@ class CommandTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('SUMMON_COMMAND_TEST',result['stdout']);self.assertEqual(result['exit_code'],0)
         with self.assertRaises(CommandFailure) as caught:await runner.execute('Write-Error "expected failure"')
         self.assertNotEqual(caught.exception.result['exit_code'],0)
+        with self.assertRaises(CommandFailure) as native:await runner.execute('cmd.exe /c exit 7')
+        self.assertEqual(native.exception.result['exit_code'],7)
         self.assertIsNone(runner.process)
 
     async def test_timeout_and_cancel_stop_process(self):

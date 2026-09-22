@@ -71,7 +71,7 @@ class CommandRunner:
             raise ValueError('Command must contain 1-1000 characters and no NUL')
         if self.process is not None:raise ValueError('A command is already running')
         started=time.monotonic();timed_out=False
-        wrapper="[Console]::InputEncoding = New-Object System.Text.UTF8Encoding($false); [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false); $ErrorActionPreference='Stop'; try { $script=[Console]::In.ReadToEnd(); & ([ScriptBlock]::Create($script)); if (-not $?) { exit 1 }; if ($null -ne $LASTEXITCODE) { exit $LASTEXITCODE } } catch { [Console]::Error.WriteLine($_.Exception.Message); exit 1 }"
+        wrapper="[Console]::InputEncoding = New-Object System.Text.UTF8Encoding($false); [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false); $ErrorActionPreference='Stop'; try { $script=[Console]::In.ReadToEnd(); & ([ScriptBlock]::Create($script)); $success=$?; if ($null -ne $LASTEXITCODE) { exit $LASTEXITCODE }; if (-not $success) { exit 1 } } catch { [Console]::Error.WriteLine($_.Exception.Message); exit 1 }"
         buffers={'stdout':'','stderr':''};truncated=False;readers=[]
         async def drain(stream,key):
             nonlocal truncated
