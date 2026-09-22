@@ -1,0 +1,28 @@
+{
+  "at": "2026-09-22T12:55:59.569Z",
+  "mode": "SIMULATED",
+  "adapter": "terminal",
+  "physical_hardware_tested": false,
+  "agent": "remote rule-based demo agent",
+  "gateway": "local computer",
+  "cloud_evidence_saved": true,
+  "upload_acknowledged": true,
+  "command_id": "command_bc331b9b06e39c93463b71f9",
+  "session_id": "session_f4e8abae9d7f25c79421e7cb",
+  "profile": {
+    "model": "PC Terminal",
+    "firmware": "host",
+    "adapter_version": "terminal-1",
+    "capabilities": [
+      "display.text"
+    ],
+    "allowed_actions": [
+      "display.text"
+    ]
+  },
+  "scenario_total_ms": 12203,
+  "note": "Scenario includes HTTPS polling and setup; not action round-trip latency.",
+  "nameplate": "SMN-ATFD-8RH8",
+  "device_pairing_verified": true,
+  "release_and_revoke_verified": true
+}
