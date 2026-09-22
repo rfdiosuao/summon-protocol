@@ -4,6 +4,8 @@
 
 这是前端、Hub、Ghost Adapter、Shell Gateway 的共同约定。字段/枚举以 [summon.schema.json](../protocol/summon.schema.json) 为准；本文件定义 Schema 无法表达的时序、认证和状态约束。Schema 中的 `$defs` 名称是以下各表使用的类型名。
 
+铭牌与设备配对新增接口单独定义在 [NAMEPLATES.md](NAMEPLATES.md) 和 [nameplate.schema.json](../protocol/nameplate.schema.json)，不改变旧 Catalog、注册响应与 wire v1；其机器认证、Origin 豁免和内存幂等生命周期以扩展契约为准。
+
 ## 1. 范围与身份
 
 MVP：一个 Hub、一个权威记忆库、一个真实 Agent、两个壳。一具壳只有一个执行会话，一个 Agent 同时只能持有一具壳；拒绝忙碌请求，不排队、不抢占。Hub 不接受外部 callback URL，Agent 与 Gateway 都主动建立出站 WSS。

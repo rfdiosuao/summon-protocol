@@ -48,6 +48,7 @@ class Gateway:
         self.fault=False
         self.last_rx=0
         self.upload_event=asyncio.Event()
+        self.pending_stop=None
 
     async def send(self,kind,payload):
         message={'v':1,'message_id':'gw_'+uuid.uuid4().hex,'sent_at':utc(),'type':kind,'payload':payload}
@@ -99,6 +100,9 @@ class Gateway:
         while True:
             try:
                 await self.flush()
+                if self.pending_stop:
+                    await self.send('session.stopped',self.pending_stop)
+                    self.pending_stop=None
                 delay=1
                 self.upload_event.clear()
                 try:
@@ -183,8 +187,10 @@ class Gateway:
             if not known or p['session_id']!=known['session_id'] or p['lease_epoch']!=known['lease_epoch']:
                 raise ValueError('Invalid revocation')
             if await self.stop():
-                await self.send('session.stopped',{k:p[k] for k in ('session_id','lease_epoch')})
-                self.upload_event.set()  # Cloud upload must not delay stop acknowledgement or heartbeats.
+                # Stop locally immediately. Only acknowledge after results are durable,
+                # in the uploader task so a slow HTTP request cannot block heartbeats.
+                self.pending_stop={k:p[k] for k in ('session_id','lease_epoch')}
+                self.upload_event.set()
             else:
                 await self.report()
         elif kind=='action.request':
@@ -240,6 +246,7 @@ class Gateway:
             old=self.journal.metadata('session')
             if old and stopped:
                 await self.send('session.stopped',{k:old[k] for k in ('session_id','lease_epoch')})
+                self.pending_stop=None
             await self.report()
             LOG.info('已连接云端 | %s | 等待任务 | 待上传=%s',self.shell_id,len(self.journal.pending()))
             watcher=asyncio.create_task(self.watchdog())

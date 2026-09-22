@@ -70,6 +70,7 @@ def validate_reference_client(schema):
 
 
 def main():
+    Draft202012Validator.check_schema(json.loads((ROOT/'protocol/nameplate.schema.json').read_text(encoding='utf-8')))
     schema = json.loads((ROOT / "protocol/summon.schema.json").read_text(encoding="utf-8"))
     Draft202012Validator.check_schema(schema)
     fixtures = {}

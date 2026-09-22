@@ -119,6 +119,8 @@ class Hub:
         self.store.save(agents=self.agents,sessions=self.sessions,commands=self.commands)
         for record in self.commands.values():
             self.experiences.finish(record, 'recovery')
+        from hub.nameplates import Nameplates
+        self.nameplates=Nameplates(self)
 
     def validate(self, name, value):
         if not self.validators[name].is_valid(value):
@@ -250,15 +252,19 @@ class Hub:
             raise Rejected('CAPABILITY_UNSUPPORTED',422)
         return sorted(caps)
 
-    async def create_session(self, owner, aid, shid):
+    async def create_session(self, owner, aid, shid, authorization=None):
         caps = self.precheck(aid,shid)
+        if authorization:
+            caps=sorted(set(caps) & set(authorization['capabilities']))
+            if not caps:raise Rejected('CAPABILITY_UNSUPPORTED',422)
         if any(s['agent_id']==aid and (s['state'] in ('CONNECTING','ACTIVE','RELEASING') or self.shells.get(s['shell_id'],{}).get('current_session_id')==s['session_id']) for s in self.sessions.values()):
             raise Rejected('AGENT_BUSY')
         sid,epoch = uid('session'), self.epochs.get(shid,0)+1
         s = {'session_id':sid,'agent_id':aid,'shell_id':shid,'operator_id':owner,'state':'CONNECTING','lease_epoch':epoch,'expires_at':utc(time.time()+60),'memory_version':0}
         memory = self.memory(s)
         s['memory_version'] = memory['memory_version']
-        self.store.save(sessions={sid:s},epochs={shid:epoch})
+        self.store.save(sessions={sid:s},epochs={shid:epoch},session_authorizations={sid:authorization} if authorization else {})
+        if authorization:self.nameplates.session_auth[sid]=authorization
         self.sessions[sid],self.epochs[shid],self.ready[sid] = s,epoch,set()
         self.deadlines[sid] = time.monotonic()+5
         sh = self.shells[shid]
@@ -419,10 +425,13 @@ class Hub:
                     raise Rejected('RATE_LIMITED',429)
                 aid,token=uid('agent'),secrets.token_urlsafe(32)
                 public={'agent_id':aid,'name':name,'bio':body['bio'],'capabilities':body['capabilities'],'status':'OFFLINE','summons':0,'last_landed_at':None}
-                self.agents[aid]={'public':public,'token_hash':digest(token)}
+                new_agent={'public':public,'token_hash':digest(token)}
                 result={'agent':public,'agent_token':token,'address':'summon://'+aid+'?v=1'}
                 status=201
-                self.store.save(agents={aid:self.agents[aid]})
+                # Nameplate allocation and registration are one SQLite transaction.
+                self.nameplates.ensure(aid)
+                self.store.save(agents={aid:new_agent})
+                self.agents[aid]=new_agent
             elif path=='/v1/sessions':
                 s=await self.create_session(principal,body['agent_id'],body['shell_id'])
                 result={'session':s}
@@ -449,6 +458,7 @@ class Hub:
             return web.json_response(entry['result'],status=status)
 
     async def submit(self,s,text):
+        self.nameplates.check_session(s)
         self.active(s)
         if s['session_id'] in self.inputs:
             raise Rejected('TASK_BUSY')
@@ -566,6 +576,7 @@ class Hub:
         if 'lease_epoch' in p and p['lease_epoch']!=s['lease_epoch']:
             raise Rejected('STALE_LEASE')
         if kind=='session.ready':
+            self.nameplates.check_session(s)
             if s['state']!='CONNECTING' or p['role']!=role:
                 raise Rejected('SESSION_NOT_ACTIVE')
             self.ready[sid].add(role)
@@ -612,6 +623,7 @@ class Hub:
                     self.emit('handoff.failed',failed,s['operator_id'])
             return
         if kind=='action.request' and role=='agent':
+            self.nameplates.check_session(s)
             cid=p['command_id']
             existing=self.commands.get(cid)
             if existing:
@@ -635,6 +647,9 @@ class Hub:
             if p['seq']!=len(records)+1:
                 raise Rejected('OUT_OF_ORDER')
             sh=self.shells[s['shell_id']]
+            authorization=self.nameplates.session_auth.get(sid)
+            if authorization and p['action']['capability'] not in authorization['capabilities']:
+                raise Rejected('ACTION_NOT_ALLOWED',422)
             if not sh['enabled'] or sh['state']!='ACTIVE':
                 raise Rejected('SHELL_DISABLED',403)
             if p['action']['capability'] not in sh['allowed_actions'] or p['action']['capability'] not in self.agents[identifier]['public']['capabilities']:
@@ -706,6 +721,7 @@ class Hub:
                 else:
                     await self.send(role,identifier,'heartbeat',{'connection_id':c['id']})
             async with self.lock:
+                await self.nameplates.expire()
                 for sid,s in list(self.sessions.items()):
                     if s['state']=='ACTIVE' and stamp(s['expires_at'])<=time.time():
                         await self.release(s,'lease expired')
@@ -743,7 +759,7 @@ def create_app(path, cfg):
     @web.middleware
     async def guard(request,handler):
         try:
-            if request.match_info.http_exception is None and request.method=='POST' and request.path not in ('/v1/agents','/v1/gateway/results') and request.headers.get('Origin')!=cfg['origin']:
+            if request.match_info.http_exception is None and request.method=='POST' and request.path not in ('/v1/agents','/v1/gateway/results') and request.match_info.route not in request.app['machine_routes'] and request.headers.get('Origin')!=cfg['origin']:
                 raise Rejected('FORBIDDEN',403,'Missing or mismatched Origin; write requests require the exact configured site origin.')
             response=await handler(request)
         except Rejected as exc:
@@ -770,6 +786,8 @@ def create_app(path, cfg):
 
     app=web.Application(middlewares=[guard],client_max_size=16384)
     app['hub']=hub
+    app['machine_routes']=set()
+    hub.nameplates.routes(app)
     for route in ['/v1/operator-session','/v1/agents','/v1/gateway/results','/v1/sessions','/v1/sessions/{sid}/inputs','/v1/sessions/{sid}/feedback','/v1/sessions/{sid}/release','/v1/sessions/{sid}/handoff']:
         app.router.add_post(route,hub.http)
     for route in ['/v1/catalog','/v1/agents/me','/v1/gateway/config','/v1/state','/v1/events','/v1/experiences','/v1/sessions/{sid}/experiences','/v1/sessions/{sid}/memory','/v1/commands/{cid}']:

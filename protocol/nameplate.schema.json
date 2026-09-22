@@ -1,0 +1,425 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "NameplateRequest": {
+      "type": "object",
+      "properties": {
+        "request_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        }
+      },
+      "required": [
+        "request_id"
+      ],
+      "additionalProperties": false
+    },
+    "PairingPreview": {
+      "type": "object",
+      "properties": {
+        "request_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "user_code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        }
+      },
+      "required": [
+        "request_id",
+        "user_code"
+      ],
+      "additionalProperties": false
+    },
+    "PairingApproval": {
+      "type": "object",
+      "properties": {
+        "request_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "user_code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "shell_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "capabilities": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "display.text",
+              "speech.say",
+              "arm.gesture"
+            ]
+          }
+        }
+      },
+      "required": [
+        "request_id",
+        "user_code",
+        "shell_id",
+        "capabilities"
+      ],
+      "additionalProperties": false
+    },
+    "DeviceConnect": {
+      "type": "object",
+      "properties": {
+        "request_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "agent_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        }
+      },
+      "required": [
+        "request_id",
+        "code",
+        "agent_id"
+      ],
+      "additionalProperties": false
+    },
+    "DeviceInput": {
+      "type": "object",
+      "properties": {
+        "request_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        }
+      },
+      "required": [
+        "request_id",
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "Nameplate": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "agent": {
+          "type": "object",
+          "properties": {
+            "agent_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "name": {
+              "type": "string"
+            },
+            "bio": {
+              "type": "string"
+            },
+            "capabilities": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "display.text",
+                  "speech.say",
+                  "arm.gesture"
+                ]
+              }
+            },
+            "status": {
+              "enum": [
+                "ONLINE",
+                "OFFLINE",
+                "BUSY"
+              ]
+            }
+          },
+          "required": [
+            "agent_id",
+            "name",
+            "bio",
+            "capabilities",
+            "status"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "code",
+        "agent"
+      ],
+      "additionalProperties": false
+    },
+    "NameplateDirectory": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Nameplate"
+          }
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "additionalProperties": false
+    },
+    "PairingCreated": {
+      "type": "object",
+      "properties": {
+        "pairing_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "user_code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "verification_uri": {
+          "type": "string"
+        },
+        "expires_at": {
+          "type": "string"
+        },
+        "interval": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "pairing_id",
+        "user_code",
+        "verification_uri",
+        "expires_at",
+        "interval"
+      ],
+      "additionalProperties": false
+    },
+    "PairingStatus": {
+      "type": "object",
+      "properties": {
+        "pairing_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "status": {
+          "enum": [
+            "PENDING",
+            "APPROVED"
+          ]
+        },
+        "expires_at": {
+          "type": "string"
+        },
+        "interval": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "pairing_id",
+        "status",
+        "expires_at",
+        "interval"
+      ],
+      "additionalProperties": false
+    },
+    "PairingDevice": {
+      "type": "object",
+      "properties": {
+        "shell_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "label": {
+          "type": "string"
+        },
+        "capabilities": {
+          "type": "array",
+          "minItems": 0,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "display.text",
+              "speech.say",
+              "arm.gesture"
+            ]
+          }
+        },
+        "mode": {
+          "enum": [
+            "LIVE",
+            "SIMULATED"
+          ]
+        },
+        "expires_at": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "shell_id",
+        "label",
+        "capabilities",
+        "mode",
+        "expires_at"
+      ],
+      "additionalProperties": false
+    },
+    "DeviceApproval": {
+      "type": "object",
+      "properties": {
+        "grant_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "expires_at": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "grant_id",
+        "expires_at"
+      ],
+      "additionalProperties": false
+    },
+    "DeviceGrant": {
+      "type": "object",
+      "properties": {
+        "grant_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "device_grant": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "expires_at": {
+          "type": "string"
+        },
+        "capabilities": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "display.text",
+              "speech.say",
+              "arm.gesture"
+            ]
+          }
+        }
+      },
+      "required": [
+        "grant_id",
+        "device_grant",
+        "expires_at",
+        "capabilities"
+      ],
+      "additionalProperties": false
+    },
+    "DeviceSession": {
+      "type": "object",
+      "properties": {
+        "session": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "session_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                },
+                "agent_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                },
+                "shell_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                },
+                "state": {
+                  "enum": [
+                    "CONNECTING",
+                    "ACTIVE",
+                    "RELEASING",
+                    "RELEASED",
+                    "FAILED"
+                  ]
+                },
+                "expires_at": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "session_id",
+                "agent_id",
+                "shell_id",
+                "state",
+                "expires_at"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "required": [
+        "session"
+      ],
+      "additionalProperties": false
+    },
+    "DeviceRevoked": {
+      "type": "object",
+      "properties": {
+        "revoked": {
+          "const": true
+        }
+      },
+      "required": [
+        "revoked"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

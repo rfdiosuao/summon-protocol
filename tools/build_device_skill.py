@@ -9,7 +9,8 @@ SOURCE=ROOT/'skills/summon-device-onboarding'
 
 
 def build():
-    (ROOT/'web/gateway.md').write_bytes((ROOT/'docs/GATEWAY.md').read_text(encoding='utf-8').encode('utf-8'))
+    gateway=(ROOT/'docs/GATEWAY.md').read_text(encoding='utf-8').replace('](NAMEPLATES.md)','](https://github.com/rfdiosuao/summon-protocol/blob/main/docs/NAMEPLATES.md)')
+    (ROOT/'web/gateway.md').write_bytes(gateway.encode('utf-8'))
     # Publish a self-contained reading entry; local installation stays optional.
     base='https://github.com/rfdiosuao/summon-protocol/blob/main/skills/summon-device-onboarding/'
     skill=(SOURCE/'SKILL.md').read_text(encoding='utf-8')

@@ -80,7 +80,7 @@ python tools/validate_contract.py
 | [星图设计](docs/NEBULA.md) | 界面交互与状态呈现 |
 | [固件移植](docs/FIRMWARE.md) | `summon_port_t` 逐字段说明、六条板侧规则的框架强制点 |
 | [固件经验沉淀](docs/FIRMWARE-EXPERIENCE.md) | 手机配网、Agent 铭牌、双击确认返回及验证状态 |
-| [铭牌与电脑客户端设计](docs/NAMEPLATE-DESIGN.md) | 铭牌解析、设备授权、服务端接口与 TUI 流程（待实现） |
+| [铭牌与电脑客户端](docs/NAMEPLATES.md) | 已实现的铭牌、浏览器配对授权与 Windows TUI；[原设计](docs/NAMEPLATE-DESIGN.md) |
 | [项目方案](docs/方案书.md) | 应用场景与设计方向 |
 | [执行计划](docs/PLAN.md) | 三人分工、倒排与范围边界 |
 

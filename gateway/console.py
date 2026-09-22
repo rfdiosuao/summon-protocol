@@ -1,10 +1,8 @@
 """Scrolling terminal UI; persistent logs contain lifecycle metadata only."""
-import asyncio
 import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 import sys
-import webbrowser
 
 
 def setup(config,log_file=None):
@@ -36,18 +34,5 @@ async def run(gateway):
     import os
     if os.name!='nt' or not sys.stdin.isatty():
         return await gateway.run()
-    import msvcrt
-    task=asyncio.create_task(gateway.run())
-    try:
-        while not task.done():
-            if msvcrt.kbhit():
-                key=msvcrt.getwch().lower()
-                if key=='q':
-                    logging.getLogger('summon.gateway').info('正在停止设备并退出；未上传结果保留在本地。')
-                    return
-                if key=='b':webbrowser.open(gateway.base)
-            await asyncio.sleep(.1)
-        return await task
-    finally:
-        if not task.done():task.cancel()
-        await asyncio.gather(task,return_exceptions=True)
+    from gateway.tui import run as desktop_run
+    return await desktop_run(gateway)

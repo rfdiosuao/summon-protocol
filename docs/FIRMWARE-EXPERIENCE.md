@@ -17,7 +17,7 @@
 
 规则正文只维护在 [固件交互要求](../skills/summon-device-onboarding/references/firmware-ux.md)，Skill 包及在线入口包含相同内容。
 
-当前缺口：没有目标板的 SoftAP 配网页和按键实现证据；专用铭牌解析/绑定后端尚未实现。ESP-IDF 骨架和现有 Gateway 不能据此宣称已具备这些功能。
+当前缺口：没有目标板的 SoftAP 配网页和按键实现证据。铭牌后端与电脑 TUI 已完成首版，接口见 [NAMEPLATES.md](NAMEPLATES.md)；不能将电脑验证当作固件真机通过。
 
 ## 后续经验记录格式
 
