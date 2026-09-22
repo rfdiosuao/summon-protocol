@@ -104,6 +104,14 @@ python scripts/probe_hardware.py --output hardware-probe.json
 
 ## 5. 验证与交付
 
+### Passport 联网语音 API
+
+支持 Wi-Fi 的 Passport 可通过 WSS 直接上传录音并接收云端播报。开发前阅读 https://summon.entermodetwo.com/assets/passport-network.md ，核对部署者提供的官方 SDK、固件版本、联网方式和独立设备凭证。手机局域网配网页配置 2.4GHz Wi-Fi 与铭牌；开机自动重连、联网键和双击确定返回必须保留。只有服务端握手成功才显示云端在线。
+
+Agent 需要语音转文字时，可用部署者发放的受限 sender_token 调用 `POST /v1/passport/transcribe`，上传 16 kHz 单声道 PCM16 WAV（0.1–8 秒）。返回文字不代表执行命令，Agent 必须自行判断再调用已授权设备能力。STT/TTS 服务 API key 留在服务器，不写入固件、网页或日志。
+
+从远端给 Passport 发消息使用 `POST /v1/passport/messages`，区别 `announce`（仅播报）和 `agent`（交给绑定 Agent 处理）。查询消息回执直到完成或失败，HTTP 202 不代表已播放；离线、忙碌、UNKNOWN 不得自动重放。设备 token 与 sender_token、Agent token、注册 invite 相互独立。现有参考部署是服务器测试 Agent，不要宣称已经接入本地 Codex。
+
 按 admission 逐级推进：候选 → 适配中 → 联调通过 → 演示通过。验证真实结果、停止/去重/过期/断线、重新授权、跨设备交接，以及经验入库和执行前检索。模拟数据单列。
 
 交付报告、能力清单、选定 transport、适配器/固件源码、构建产物（如有）、启动与恢复命令、测试证据和剩余缺口。只有实际与 Hub 握手在线才说“已接入”。经验检索只作决策参考，不能覆盖本地安全限制或自动重放未知动作。
