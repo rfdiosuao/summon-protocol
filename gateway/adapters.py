@@ -56,7 +56,9 @@ class SerialDisplayAdapter:
         if len(raw)>16384:
             raise ValueError('Bridge frame too large')
         async with self.write_lock:
-            await asyncio.get_running_loop().run_in_executor(None,self.serial.write,raw)
+            written=await asyncio.get_running_loop().run_in_executor(None,self.serial.write,raw)
+            if written!=len(raw):
+                raise ConnectionError('Incomplete serial write')
 
     async def open(self):
         import serial
@@ -70,13 +72,19 @@ class SerialDisplayAdapter:
             raise
 
     async def read(self):
+        buffer=bytearray()
         try:
             while True:
                 raw=await asyncio.get_running_loop().run_in_executor(None,self.serial.read_until,b'\n',16385)
                 if not raw:
                     continue
-                if len(raw)>16384 or not raw.endswith(b'\n'):
-                    raise ValueError('Incomplete or oversized serial frame')
+                buffer.extend(raw)
+                if len(buffer)>16384:
+                    raise ValueError('Oversized serial frame')
+                if not buffer.endswith(b'\n'):
+                    continue  # Serial read timeout can split a valid JSONL frame.
+                raw=bytes(buffer)
+                buffer.clear()
                 message=json.loads(raw.decode('utf-8'))
                 self.validator.validate(message)
                 kind,p=message['type'],message['payload']

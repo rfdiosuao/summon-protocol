@@ -180,7 +180,9 @@ class SerialAdapterTests(unittest.IsolatedAsyncioTestCase):
         frames=queue.Queue()
         writes=[]
         def respond(kind,payload):
-            frames.put((json.dumps({'v':1,'message_id':'device_message','sent_at':utc(),'type':kind,'payload':payload})+'\n').encode())
+            raw=(json.dumps({'v':1,'message_id':'device_message','sent_at':utc(),'type':kind,'payload':payload})+'\n').encode()
+            # pyserial may return a partial frame when its read timeout elapses.
+            frames.put(raw[:17]);frames.put(raw[17:])
         respond('device.hello',{'device_id':'device_a','shell_id':'shell_a'})
         class Port:
             def read_until(self,*args):
