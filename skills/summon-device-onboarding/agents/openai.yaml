@@ -1,0 +1,4 @@
+interface:
+  display_name: "SUMMON 设备接入"
+  short_description: "检测硬件准入条件，结合官方 SDK 开发适配器或固件并验证接入"
+  default_prompt: "使用 $summon-device-onboarding 检测我的硬件，选择接入方式，开发并验证 SUMMON 适配器或固件。"

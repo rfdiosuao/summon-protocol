@@ -65,6 +65,8 @@ python tools/validate_contract.py
 
 ## 文档
 
+设备接入自动化：[SUMMON 设备接入 Skill](skills/summon-device-onboarding/SKILL.md) · [安装与提示词](web/device-onboarding.md)。先检测硬件与准入条件，再按官方 SDK/BSP 开发网关或固件；不包含通用成品固件。
+
 | 文档 | 内容 |
 |---|---|
 | [协议规范](docs/PROTOCOL.md) | 身份、接口、会话、动作与记忆 |

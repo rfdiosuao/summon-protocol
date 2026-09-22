@@ -1,0 +1,29 @@
+{
+  "device": {"model": "unknown", "firmware": "unknown", "transport": "unknown", "sdk_revision": "unknown"},
+  "stage": "candidate",
+  "evidence_level": "documentation",
+  "motion_device": false,
+  "capabilities": [],
+  "criteria": {
+    "H1": {"status": "unknown", "evidence": []},
+    "H2": {"status": "unknown", "evidence": []},
+    "H3": {"status": "unknown", "evidence": []},
+    "H4": {"status": "unknown", "evidence": []},
+    "H5": {"status": "unknown", "evidence": []},
+    "H6": {"status": "unknown", "evidence": []},
+    "H7": {"status": "unknown", "evidence": []},
+    "H8": {"status": "unknown", "evidence": []}
+  },
+  "acceptance": {
+    "cold_start": {"status": "unknown", "evidence": []},
+    "soak": {"status": "unknown", "evidence": []},
+    "interactions": {"status": "unknown", "evidence": []},
+    "latency": {"status": "unknown", "evidence": []},
+    "handoff": {"status": "unknown", "evidence": []},
+    "faults": {"status": "unknown", "evidence": []},
+    "rejection": {"status": "unknown", "evidence": []},
+    "experience": {"status": "unknown", "evidence": []}
+  },
+  "motion_stop": {"status": "unknown", "evidence": []},
+  "next_steps": []
+}
