@@ -8,7 +8,7 @@ Read https://summon.entermodetwo.com/skill.md to assess my hardware and connect 
 
 中文也可以：阅读 https://summon.entermodetwo.com/skill.md，评估我的硬件，并按指南将它接入 SUMMON。
 
-可补充：设备型号/照片标签信息、官方项目 URL、连接在哪台电脑、期望显示/语音/感知/运动能力。未提供时先发现，不要猜板型。
+接入时请提供：设备完整型号与版本、官方仓库、官方 Wiki/开发者文档、SDK/API/通信协议、示例工程，以及厂商提供的手册或 PDF；同时说明连接在哪台电脑/手机、连接方式和期望能力。不知道的可写“不知道”，Agent 会整理已有资料并协助查找。涉及固件、接线或运动控制时，还会按需核对构建/刷写/恢复、引脚/供电、限位/停止说明。完整填写模板见在线 Skill 的第 0 节。
 
 ## 可选：安装到本地技能目录
 
