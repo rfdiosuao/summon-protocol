@@ -13,7 +13,7 @@ $('shells').replaceChildren();for(const s of state.shells){const box=document.cr
 $('session').textContent=session?(labels[session.state]||session.state)+' · '+(state.shells.find(s=>s.shell_id===session.shell_id)?.label||session.shell_id):'尚未连接设备';
 if(session){memoryVersion=session.memory_version;$('memory').textContent='记忆版本 '+memoryVersion+' · 保存后交接仍然有效'}
 const latest=state.commands[state.commands.length-1];if(latest){$('resultStatus').textContent=latest.outcome.status;$('output').textContent=latest.outcome.result||latest.outcome.error?.error?.code||'等待设备回执';taskBusy=['ACCEPTED','EXECUTING'].includes(latest.outcome.status)}
-renderNetwork(state);renderExperience();controls();lease();}
+renderNetwork(state);controls();lease();}
 
 function renderNetwork(data){
 const map=$('networkMap');map.replaceChildren();
@@ -23,17 +23,24 @@ function group(items,kind){const col=document.createElement('div');col.className
 const hub=document.createElement('div');hub.className='hub-node';hub.textContent='SUMMON Hub';map.append(group(agents,'Agent'),hub,group(shells,'设备'));
 if(!$('nodeDetail').dataset.initialized){$('nodeDetail').textContent='点击一个节点，查看其身份与声明能力。';$('nodeDetail').dataset.initialized='true'}
 }
+let experienceData=null,experienceRequest=0;
 function renderExperience(){
-const terminal=(state.commands||[]).filter(c=>['COMPLETED','FAILED','UNKNOWN'].includes(c.outcome.status));
-$('experienceCount').textContent=terminal.length+' 条终态记录';
-$('experienceNote').textContent=(state.mode==='SIMULATED'?'模拟联调记录，不代表实物执行。':'执行状态来自设备网关回执。')+'统计限当前账号快照内最近 100 条命令；尚未自动提炼或跨设备复用技能。';
+if(!experienceData)return;
+const device=$('experienceDevice').value,capability=$('experienceCapability').value;
+const matches=x=>(!device||x.shell_id===device)&&(!capability||x.capability===capability);
+const groups=experienceData.groups.filter(matches),items=experienceData.items.filter(matches);
+const label=id=>state.shells.find(s=>s.shell_id===id)?.label||id;
+$('experienceCount').textContent=groups.reduce((n,g)=>n+g.total,0)+' 条证据 · Agent 已检索 '+experienceData.retrievals+' 次';
+$('experienceNote').textContent=(state.mode==='SIMULATED'?'模拟联调经验，不代表实物执行。':'经验来自设备网关回执。')+'已持久保存；按同设备、同版本与能力提供统计建议。检索次数不等于成功复用次数。';
 const summary=$('experienceSummary');summary.replaceChildren();
-for(const shell of state.shells){const records=terminal.filter(c=>state.sessions.find(s=>s.session_id===c.request.session_id)?.shell_id===shell.shell_id);const p=document.createElement('p');const name=document.createElement('b');name.textContent=shell.label;const detail=document.createElement('span');detail.textContent=records.filter(c=>c.outcome.status==='COMPLETED').length+' 完成 / '+records.filter(c=>c.outcome.status==='FAILED').length+' 失败 / '+records.filter(c=>c.outcome.status==='UNKNOWN').length+' 未知';p.append(name,detail);summary.append(p)}
-const list=$('experienceList');list.replaceChildren();if(!terminal.length){const p=document.createElement('p');p.className='sub';p.textContent='还没有执行结果。完成一次设备交互后，记录会出现在这里。';list.append(p)}
-for(const c of terminal.slice(-8).reverse()){const p=document.createElement('p');p.className='experience-row';const s=state.sessions.find(s=>s.session_id===c.request.session_id);const device=state.shells.find(x=>x.shell_id===s?.shell_id);const outcome={COMPLETED:'已完成',FAILED:'失败',UNKNOWN:'结果未知'}[c.outcome.status];p.textContent=(device?.label||'设备未找到')+' · '+c.request.action.capability+' · '+outcome;const id=document.createElement('small');id.textContent='动作 '+c.request.command_id;p.append(id);list.append(p)}
+for(const g of groups){const p=document.createElement('article');p.className='experience-card';const title=document.createElement('h3');title.textContent=label(g.shell_id)+' / '+g.capability;const tag=document.createElement('p');tag.className='sub';tag.textContent=(g.mode==='SIMULATED'?'模拟':'网关回报')+' · 固件 '+g.profile.firmware;const numbers=document.createElement('p');numbers.textContent=g.completed+' 完成 / '+g.failed+' 失败 / '+g.unknown+' 未知';const detail=document.createElement('p');detail.className='sub';detail.textContent='平均回执耗时 '+g.average_duration_ms+' ms · '+g.total+' 次观测';const guidance=document.createElement('p');guidance.textContent=g.guidance;p.append(title,tag,numbers,detail,guidance);summary.append(p)}
+const list=$('experienceList');list.replaceChildren();if(!items.length){const p=document.createElement('p');p.className='sub';p.textContent='暂无符合条件的经验。新版上线后完成一次设备任务即可积累；旧日志不会补造版本和证据。';list.append(p)}
+for(const c of items.slice(0,12)){const p=document.createElement('p');p.className='experience-row';p.textContent=label(c.shell_id)+' · '+c.capability+' · '+({COMPLETED:'已完成',FAILED:'失败',UNKNOWN:'结果未知'}[c.status])+' · '+c.duration_ms+' ms';const id=document.createElement('small');id.textContent=new Date(c.created_at).toLocaleString()+' / '+c.source+' / '+c.evidence+' / '+c.command_id;p.append(id);list.append(p)}
 }
+async function loadExperiences(){const seq=++experienceRequest;try{const data=await api('/v1/experiences');if(seq!==experienceRequest)return;experienceData=data;for(const [id,key,title] of [['experienceDevice','shell_id','全部设备'],['experienceCapability','capability','全部能力']]){const select=$(id),selected=select.value;select.replaceChildren(new Option(title,''));for(const value of [...new Set(data.groups.map(g=>g[key]))])select.add(new Option(key==='shell_id'?(state.shells.find(s=>s.shell_id===value)?.label||value):value,value));select.value=[...select.options].some(o=>o.value===selected)?selected:''}renderExperience()}catch(e){$('experienceNote').textContent='经验库暂不可用：'+e.message}}
+$('experienceDevice').onchange=renderExperience;$('experienceCapability').onchange=renderExperience;
 function lease(){ $('lease').textContent=session?'本次授权剩余 '+Math.max(0,Math.ceil((Date.parse(session.expires_at)-Date.now())/1000))+' 秒；到期需重新连接。':'';}
-async function snapshot(){state=await api('/v1/state');$('console').hidden=false;$('login').hidden=true;render()}
+async function snapshot(){state=await api('/v1/state');$('console').hidden=false;$('login').hidden=true;render();await loadExperiences()}
 async function connect(){if(stream)stream.close();connected=false;controls();await snapshot();stream=new EventSource('/v1/events?after='+encodeURIComponent(state.cursor));stream.onopen=()=>{connected=true;$('connection').textContent='实时连接';controls()};stream.onmessage=async event=>{const data=JSON.parse(event.data);if(data.type==='stream.reset'){stream.close();setTimeout(()=>connect().catch(e=>notice(e.message)),500);return}const li=document.createElement('li');li.textContent=new Date(data.at).toLocaleTimeString()+' · '+data.type;$('events').prepend(li);while($('events').children.length>40)$('events').lastChild.remove();if(data.type==='input.finished')taskBusy=false;try{await snapshot()}catch(e){notice(e.message)}};stream.onerror=()=>{connected=false;$('connection').textContent='连接中断';controls();stream.close();setTimeout(()=>connect().catch(e=>notice(e.message)),2000)}}
 async function action(fn){if(busy)return;busy=true;controls();try{await fn();await snapshot()}catch(e){notice(e.message)}finally{busy=false;controls()}}
 $('loginForm').onsubmit=e=>{e.preventDefault();action(async()=>{await api('/v1/operator-session',{access_code:$('access').value});$('access').value='';notice('已进入控制台');await connect()})};
@@ -44,5 +51,6 @@ $('handoff').onclick=()=>action(async()=>{const target=state.shells.find(s=>s.sh
 $('refresh').onclick=()=>action(connect);$('agent').onchange=render;setInterval(lease,1000);
 fetch('/healthz').then(r=>r.json()).then(h=>{$('mode').textContent=h.mode;$('modeNote').textContent=h.mode==='SIMULATED'?'当前为模拟联调：响应来自规则程序，未连接大模型或实物。':'实时服务：实际能力以在线 Agent 和设备为准。'}).catch(()=>notice('无法连接服务器'));
 connect().catch(()=>{$('connection').textContent='等待登录';controls()});
+document.querySelector('nav a[href="#experience"]').addEventListener('click',e=>{if($('console').hidden){e.preventDefault();$('login').scrollIntoView();$('access').focus();notice('登录后查看你有权访问的设备经验')}});
 async function publicNetwork(){try{const r=await fetch('/v1/catalog');if(!r.ok)throw new Error();const data=await r.json();if(!state)renderNetwork(data)}catch{if(!state)$('networkCount').textContent='节点数据暂不可用'}}
 publicNetwork();setInterval(()=>{if(!state)publicNetwork()},15000);
