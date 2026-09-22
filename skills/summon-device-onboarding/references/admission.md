@@ -1,5 +1,7 @@
 # 准入与证据
 
+八项验收统一使用 [evidence.md](evidence.md) 的 JSONL 格式、命名、原始日志关联和聚合口径。完整性检查器不采集实物数据，不能仅凭其退出码宣布真机通过。
+
 规范来源：https://github.com/rfdiosuao/summon-protocol/blob/main/docs/HARDWARE-ADMISSION.md 。读取当前版本；下表是生成报告的字段映射，不取代最新契约。
 
 | ID | 检查 |

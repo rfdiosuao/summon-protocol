@@ -24,8 +24,9 @@ def install(source, skills_dir):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--agent',choices=('codex','claude'),default='codex')
-    parser.add_argument('--skills-dir',type=Path,help='Explicit skill root for another compatible host')
+    destination=parser.add_mutually_exclusive_group(required=True)
+    destination.add_argument('--agent',choices=('codex','claude'))
+    destination.add_argument('--skills-dir',type=Path,help='Explicit skill root for another compatible host')
     args=parser.parse_args()
     default=(Path(os.environ.get('CODEX_HOME',str(Path.home()/'.codex')))/'skills'
              if args.agent=='codex' else Path.home()/'.claude/skills')

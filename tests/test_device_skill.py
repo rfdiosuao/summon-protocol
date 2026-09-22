@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+import subprocess
+import sys
 
 ROOT=Path(__file__).resolve().parents[1]
 SKILL=ROOT/'skills/summon-device-onboarding'
@@ -17,6 +19,42 @@ def module(name):
 
 
 class SkillTests(unittest.TestCase):
+    def test_stage_structure_and_cli_exit_codes(self):
+        checker=module('check_admission')
+        data=json.loads((SKILL/'assets/admission-report.json').read_text(encoding='utf-8'))
+        self.assertFalse(checker.structure(data))
+        data['stage']='demo_passed'
+        self.assertTrue(any('stage' in x for x in checker.assess(data)))
+        data['criteria']['H1']['evidence']='not-a-list'
+        self.assertTrue(checker.structure(data))
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/'report.json'
+            command=[sys.executable,str(SKILL/'scripts/check_admission.py'),str(path)]
+            self.assertEqual(subprocess.run(command,capture_output=True).returncode,2)
+            path.write_text((SKILL/'assets/admission-report.json').read_text(encoding='utf-8'),encoding='utf-8')
+            result=subprocess.run(command,capture_output=True)
+            self.assertEqual(result.returncode,3)
+            self.assertEqual(json.loads(result.stdout)['reason'],'incomplete')
+            path.write_text('{',encoding='utf-8')
+            self.assertEqual(subprocess.run(command,capture_output=True).returncode,2)
+
+    def test_windows_structured_devices_and_output_reuse(self):
+        from unittest.mock import patch
+        probe=module('probe_hardware')
+        value={'status':'ok','output':json.dumps([{'Name':'蓝牙设备 (COM7)','PNPDeviceID':'test-device','PNPClass':'Ports'}],ensure_ascii=False)}
+        with patch.object(probe.platform,'system',return_value='Windows'),patch.object(probe,'run',return_value=value):
+            data=probe.probe()
+        self.assertEqual(data['discovery']['serial_candidates'],['COM7'])
+        self.assertEqual(data['discovery']['devices'][0]['Name'],'蓝牙设备 (COM7)')
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/'probe.json'
+            path.write_text('preserve',encoding='utf-8')
+            with patch.object(sys,'argv',['probe','--output',str(path)]),patch.object(probe,'probe',return_value=data):
+                with self.assertRaises(SystemExit) as exc:
+                    probe.main()
+            self.assertEqual(exc.exception.code,2)
+            self.assertEqual(path.read_text(),'preserve')
+
     def test_unknown_and_simulated_evidence_cannot_pass(self):
         assess=module('check_admission').assess
         data=json.loads((SKILL/'assets/admission-report.json').read_text(encoding='utf-8'))

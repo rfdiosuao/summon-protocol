@@ -13,9 +13,26 @@ Agent 的模型通常留在远端；“传送”表示身份、授权会话、�
 
 本目录可作为标准 SKILL.md 技能安装；脚本仅依赖 Python 3.10+ 标准库。安装方法见网站入口 https://summon.entermodetwo.com/assets/device-onboarding.md 。不同宿主的技能发现方式不同；不支持技能目录的宿主可以显式读取本文件，但不得宣称已自动安装。
 
+读取流程无需下载；运行探针、检查器或开发适配器必须先取得代码。在一个新的工作目录执行：
+
+```sh
+git clone --depth 1 https://github.com/rfdiosuao/summon-protocol.git
+cd summon-protocol
+git rev-parse HEAD
+cd skills/summon-device-onboarding
+python --version
+python scripts/probe_hardware.py --output hardware-probe-01.json
+```
+
+Windows 可用 `py -3`；Linux/macOS 通常用 `python3`。先确认实际解释器为 Python 3.10+，然后将本文 `python` 替换为该命令。已有仓库先检查本地改动，不覆盖。上面的最后目录是所有 `scripts/`、`assets/` 命令的工作目录。探针重复运行换文件名，或明确用 `--force` 覆盖；插拔比较用 `python scripts/probe_hardware.py --diff hardware-probe-01.json hardware-probe-02.json`。
+
+技能自带脚本使用标准库；仓库级契约校验另需 protocol/requirements.txt，见开发章节。安装器必须显式指定 `--agent codex`、`--agent claude` 或 `--skills-dir`。WorkBuddy 等未确认宿主目录时直接读本页和运行仓库脚本，不默认写入 Codex 目录。
+
+本流程交付评估、接入方案和适配代码；连接公网生产网络另需部署者发放凭证。可在 https://github.com/rfdiosuao/summon-protocol/issues/new 提交“设备接入申请”，只提供型号、所需能力、SDK 链接和脱敏测试结果，请维护者指定私密发放渠道。不要在公开 Issue 中提交 token、访问码、设备序列号或私人日志；没有凭证时报告“等待发放，尚未接入”。
+
 ## 0. 向接入者收集设备与官方资料
 
-开始接入时，先整理用户已经提供的链接和文件，再一次性请接入者补充下面的资料。已提供的信息不要重复索要；允许填写“不知道 / 没有 / 不适用”，不要要求无关材料。
+开始接入时，先整理已有信息和只读探针结果；首先只确认目标型号/所在电脑和期望能力，再按所选路线补充下表中缺少的官方资料，不把整张问卷作为开始工作的门槛。已提供的信息不要重复索要；允许填写“不知道 / 没有 / 不适用”。资料记录模板见 [assets/device-sources.md](https://github.com/rfdiosuao/summon-protocol/blob/main/skills/summon-device-onboarding/assets/device-sources.md)。
 
 ```text
 设备厂商、完整型号、硬件/开发板修订：
@@ -51,7 +68,7 @@ python scripts/probe_hardware.py --output hardware-probe.json
 
 结合设备标签、VID/PID、官方 SDK/BSP、板修订与已授权的最小只读查询确认目标。只有确有必要才问缺失型号/连接位置。优先完成不依赖这些信息的工作。不要按 BLE 地址前缀认定唯一设备，不把充电口当数据口。
 
-复制 [assets/admission-report.json](https://github.com/rfdiosuao/summon-protocol/blob/main/skills/summon-device-onboarding/assets/admission-report.json) 为本次报告，保留 unknown。逐项记录证据与可用能力；区分厂商资料、编译结果、模拟、实物测试。使用 `python scripts/check_admission.py report.json` 检查报告是否足以声称“演示通过”。资料评估不足时退出码 2 是正常结果，不是让你伪造通过。
+复制 [assets/admission-report.json](https://github.com/rfdiosuao/summon-protocol/blob/main/skills/summon-device-onboarding/assets/admission-report.json) 为本次报告，保留 unknown。逐项记录证据与可用能力；区分厂商资料、编译结果、模拟、实物测试。使用 `python scripts/check_admission.py report.json` 检查完整性与阶段一致性。退出码 0=报告完整（仍需独立核验证据），3=有效报告但未满足演示门槛，2=参数/路径/JSON/结构错误。不能把退出码 2 当作正常未完成。
 
 先给出设备能做什么、不能做什么、推荐路线和缺口。未拿到设备不得报告真机通过。
 
@@ -92,12 +109,14 @@ python scripts/probe_hardware.py --output hardware-probe.json
 
 ## 在线使用说明
 
-直接读取本页即可按流程工作，无需先下载或安装 Skill。下方已内联全部参考规则。需要运行探针或开发时，再获取仓库中的脚本和源码；文中 scripts/ 与 assets/ 路径相对于 skills/summon-device-onboarding/。读取网页不代表已安装或已接入设备。
+读取流程无需下载或安装；运行探针与检查器必须先按“入口与安装”获取脚本并切换目录。下方内联全部参考规则。读取网页不代表已安装或已接入设备。
 
 
 ---
 
 # 准入与证据
+
+八项验收统一使用 [evidence.md](https://github.com/rfdiosuao/summon-protocol/blob/main/skills/summon-device-onboarding/references/evidence.md) 的 JSONL 格式、命名、原始日志关联和聚合口径。完整性检查器不采集实物数据，不能仅凭其退出码宣布真机通过。
 
 规范来源：https://github.com/rfdiosuao/summon-protocol/blob/main/docs/HARDWARE-ADMISSION.md 。读取当前版本；下表是生成报告的字段映射，不取代最新契约。
 
@@ -168,7 +187,24 @@ python scripts/probe_hardware.py --output hardware-probe.json
 
 当前 Hub 对外是 `/v1/connect`，使用 agent 或 gateway 身份。板侧 `/device` 是现场 Gateway 应实现的端点，不能把公开 Hub 的 `/device` 当成现成服务。模拟 DemoFleet 不是通用硬件 Gateway；USB/BLE/厂商 SDK 驱动需要针对设备实现。
 
-先从 `/healthz.mode` 读取模式；用 `/v1/catalog?details=1` 获取 CatalogDetailed 策略快照。HTTP 响应按具名 `$defs` 校验，不使用根 Schema 校验注册请求。客户端使用自己的真实产品 User-Agent（例如 `SUMMON-Adapter/0.1`）；默认 Python-urllib 标识曾触发 Cloudflare 1010。先检查状态与 Content-Type，区分边缘拦截和 Hub ErrorResponse，不把非 JSON 错误直接交给 JSON 解析器。
+请求 `GET /healthz`，解析 JSON 后读取 `mode` 字段（不是请求 `/healthz.mode`）。用 `/v1/catalog?details=1` 获取 CatalogDetailed；details 仅接受 0/1，省略等于 0。HTTP 响应按具名 `$defs` 校验。
+
+HTTP 与 WSS 握手必须携带非空真实产品 User-Agent，例如 `SUMMON-Adapter/0.1`；空 UA 和部分默认 UA 曾被边缘拦截，非空也不保证放行。先检查状态和 Content-Type，再尝试解析 JSON 并检查结构：`cloudflare_error` 或 `error_code=1010` 表示边缘错误；通过 ErrorResponse 校验的 `error.code` 才是 Hub 错误。JSON 格式本身不能证明来自 Hub。未知结构保留脱敏摘要，不直接索引 error.code。1010、401/403 不自动重试，不关闭 TLS 校验。
+
+最小请求：`curl -H "User-Agent: SUMMON-Adapter/0.1" -H "Accept: application/json" https://summon.entermodetwo.com/healthz`。
+
+`wss://summon.entermodetwo.com/v1/connect` 是 GET Upgrade 的 WebSocket 入口，不接受 POST。仓库固定 websockets==13.1：使用 `websockets.connect(url, extra_headers={"Authorization": "Bearer " + token}, user_agent_header="SUMMON-Adapter/0.1")`；不要照搬其他版本的 additional_headers。InvalidStatusCode 可读 status_code/headers，但没有响应体。握手失败时保留状态和 ray id；必要时用相同 UA、Authorization 发一次普通 GET /v1/connect 辅助排障，并校验 HTTP 响应结构；该新请求只能作为辅助证据，不能证明上次握手的根因。有效凭证的普通 GET 也不能建立会话。禁止把 403 单独判成 token 无效。
+
+operator 的 POST 写接口需要精确 `Origin: https://summon.entermodetwo.com`；Origin 校验先于凭证，缺失/不匹配返回 403 FORBIDDEN 并说明 Origin 原因。Agent 注册使用 invite，不要求 Origin；Gateway 使用 WSS，不通过 operator 登录接口冒充用户。
+
+从技能目录回到仓库根目录后验证（Windows 也可直接切换到仓库绝对路径）：
+
+```sh
+cd ../..
+python -m pip install -r protocol/requirements.txt
+python tools/validate_contract.py
+python tools/summon_device_ref.py --selftest
+```
 
 复用 HTTPS 连接池和每个身份的 WSS 长连接；重连从 1 秒指数退避到 30 秒并抖动，成功 welcome 后稳定 10 秒才重置，401/403 停止自动重试。撤销后不再发送新的动作、记忆更新或 input.finished，迟到输入本地丢弃。Agent 可通过 `/v1/agents/me` 核验当前握手，通过命令查询接口核对自己的旧命令；这些都不恢复旧租约。详细时序以 PROTOCOL 为准。
 
@@ -198,4 +234,36 @@ Gateway 使用自己的 shell token 与 shell_id，经 hello/welcome、心跳、
 7. 验证 boot 日志、身份、最小能力、断线停止、重启和恢复，再做 Hub 注册/握手、交接与经验检查。
 
 交付状态分别写：源码生成、构建成功、刷写成功、真机功能通过、网络联调通过、演示通过。每项附证据，不能互相代替。
+
+
+---
+
+# 验收证据格式 v1
+
+每次验收建立新目录 `evidence/<run-id>/`，禁止混用上一轮成功产物。每类检查一个 UTF-8 JSONL 文件，例如 `cold_start.jsonl`；一行是一次实际测量，不省略失败尝试。八个文件名称与 admission-report.acceptance 的八个键一致。
+
+每行共同必填：schema_version=1、run_id、sample_id（该轮全局唯一）、check、started_at/ended_at（UTC RFC3339）、evidence_level（physical/simulated）、device_profile（型号/固件/适配器版本）、success（布尔）、raw_logs（本目录内原始日志相对路径数组）、metrics（下表）。raw_logs 不放 token；原始日志需能关联 command_id/session_id、设备版本、模式和回执来源。时间差用单调时钟测量，UTC 仅用于追踪。
+
+| check | 每行 metrics 必填字段 | 聚合验收 |
+|---|---|---|
+| cold_start | ready_ms | 至少 3 次，全部成功且每次 ≤60000ms |
+| soak | duration_ms, unrecovered_disconnects, crashes | 至少一次连续 ≥1800000ms，所有记录无不可恢复断线/崩溃 |
+| interactions | command_id, session_id | 至少 20 次，全量成功率 ≥95%，保留失败 |
+| latency | gateway_to_device_received_ms, command_id | 至少 20 次，全量 nearest-rank p95 ≤1000ms；从网关发送到设备接收，不能拿 completed 耗时替代 |
+| handoff | double_occupancy, stale_replays | 每行完整 A→B→A；至少 10 次，均成功且两个计数都为 0 |
+| faults | kind=network/cable/restart, recovered, state_correct | 每类至少 3 次，均正确反映状态并恢复 |
+| rejection | kind=duplicate/expired/stale_lease, correctly_handled | 每类至少 3 次；重复返回已有结果且无重复执行，其余拒绝；全部正确处理 |
+| experience | command_id, traceable, deduplicated, mode_separated, outcome=success/failure/unknown | 三类 outcome 均有记录；均可追溯、去重且模式隔离 |
+
+示例（仅格式示意，不是实测，不能直接用来通过验收）：
+
+```json
+{"schema_version":1,"run_id":"example-only","sample_id":"cold-1","check":"cold_start","started_at":"2026-09-22T00:00:00Z","ended_at":"2026-09-22T00:00:12Z","evidence_level":"simulated","device_profile":"example/firmware-v1/adapter-v1","success":true,"raw_logs":["raw/cold-1.log"],"metrics":{"ready_ms":12000}}
+```
+
+由设备适配器或测试员在真实测试时产出上述文件。通用 Skill 不具备任意厂商的断电、拔线或急停驱动，不会自动执行这些操作。量化阈值、原始日志、设备型号和动作完成的真实性必须共同审查；JSONL 格式正确不代表硬件合格。
+
+admission-report 的 evidence 填 `evidence/<run-id>/<check>.jsonl:sample_id` 及聚合结果。运动设备另提交 motion_stop 日志，包含本地停止/看门狗/固定/限位/校准/恢复、负载姿态和停止时间，不能用远程请求成功替代物理停止。
+
+先用 `python scripts/check_admission.py report.json` 检查结构与阶段一致性，再独立核对上述原始证据与阈值；该检查器不是设备验收采集器，不会自动签发 demo_passed。缺少对应适配器的采集能力时明确列为尚未完成。
 

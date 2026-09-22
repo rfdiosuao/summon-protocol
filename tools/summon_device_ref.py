@@ -292,7 +292,7 @@ class StopFsm:
             return
         self.stopping = True
         cleared = self.clear()
-        fut = asyncio.get_event_loop().create_future()
+        fut = asyncio.get_running_loop().create_future()
 
         def done(status, detail):
             if not fut.done():
@@ -414,7 +414,7 @@ class DeviceClient:
     async def _execute(self, command_id: str, action: dict, digest: str) -> None:
         cap = action.get("capability")
         args = action.get("args", {})
-        fut = asyncio.get_event_loop().create_future()
+        fut = asyncio.get_running_loop().create_future()
 
         def done(status, detail):
             if not fut.done():
@@ -798,12 +798,12 @@ async def connect_gateway(url: str, port_name: str) -> int:
 def main(argv=None) -> int:
     args = build_parser().parse_args(argv)
     if args.connect:
-        return asyncio.get_event_loop().run_until_complete(
+        return asyncio.run(
             connect_gateway(args.connect, args.port))
     if args.emit:
-        return asyncio.get_event_loop().run_until_complete(emit_messages(args.emit))
+        return asyncio.run(emit_messages(args.emit))
     case = "all" if args.selftest else args.case
-    return asyncio.get_event_loop().run_until_complete(run_cases(case))
+    return asyncio.run(run_cases(case))
 
 
 if __name__ == "__main__":

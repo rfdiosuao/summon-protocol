@@ -38,6 +38,8 @@ ID 使用 ASCII 字母、数字、下划线、短横线，1–80 字符。时间
 
 ## 3. HTTP 接口
 
+Origin 校验先于 POST 写接口的凭证校验（注册 /v1/agents 除外），必须匹配配置的精确 HTTPS origin；缺失或错误为 403/FORBIDDEN，message 明确指出 Origin，不能诊断成 token 无效。无效方法/路由先返回 405/404。Hub 的非 API 404 也统一 ErrorResponse；Cloudflare 等上游错误不受 Hub 格式约束，需要按响应体结构判别，不能只看 Content-Type。
+
 响应成功按表中类型；失败统一 ErrorResponse。所有写请求除 operator-session 外携带 request_id。相同 principal + route + request_id + 相同 JSON 语义内容返回原结果，不重复产生效果；内容不同返回 IDEMPOTENCY_CONFLICT。幂等记录至少保存 24 小时。
 
 | 方法 / 路径 | 身份 | 请求 `$defs` | 成功 | 响应 `$defs` |
@@ -62,7 +64,7 @@ ID 使用 ASCII 字母、数字、下划线、短横线，1–80 字符。时间
 
 URL 路径的会话/命令先认证再检查对象与所有权，不相信 JSON 自报身份。缺失/无效凭证返回 401；认证后不存在对象返回 404，越权 403。`operator_id` 总由 cookie 取得，不能在 CreateSession 中指定。未知 API 路由及尾斜杠返回 404/NOT_FOUND；错误 HTTP 方法返回 405/INVALID_MESSAGE 和 Allow 头，均使用 ErrorResponse，不重定向写请求。
 
-模式从 `/healthz.mode` 读取。默认 Catalog 保留旧结构；需要 enabled、gate、identity_gates、stop_kind、allowed_actions 时显式请求 `?details=1` 并使用 CatalogDetailed 校验。它是策略快照，不是授权，最终仍需 offer/activate。`/v1/agents/me` 只接受 Agent 本人的 token，connected 与 last_handshake_at 表示当前连接完成 hello/welcome，断开后为 false/null；不代表真机动作通过。经验查询与隔离规则见 [EXPERIENCE.md](EXPERIENCE.md)。
+请求 `GET /healthz`，解析 JSON 并读取 `mode` 字段；不存在 /healthz.mode 端点。details 仅接受单个 0 或 1，省略等于 0，其他值返回 400/INVALID_MESSAGE。默认 Catalog 保留旧结构；需要 enabled、gate、identity_gates、stop_kind、allowed_actions 时显式请求 `?details=1` 并使用 CatalogDetailed 校验。它是策略快照，不是授权，最终仍需 offer/activate。`/v1/agents/me` 只接受 Agent 本人的 token，connected 与 last_handshake_at 表示当前连接完成 hello/welcome，断开后为 false/null；不代表真机动作通过。经验查询与隔离规则见 [EXPERIENCE.md](EXPERIENCE.md)。
 
 `CreateSession` 包含 agent_id、shell_id、request_id。用户先查目录再按 ID 提交，不靠同名搜索猜目标。离线 503、占用 409、不兼容能力 422、设备未本地启用 403。至少具备双方共同的一种允许动作。
 

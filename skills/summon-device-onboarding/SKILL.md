@@ -13,9 +13,26 @@ Agent 的模型通常留在远端；“传送”表示身份、授权会话、�
 
 本目录可作为标准 SKILL.md 技能安装；脚本仅依赖 Python 3.10+ 标准库。安装方法见网站入口 https://summon.entermodetwo.com/assets/device-onboarding.md 。不同宿主的技能发现方式不同；不支持技能目录的宿主可以显式读取本文件，但不得宣称已自动安装。
 
+读取流程无需下载；运行探针、检查器或开发适配器必须先取得代码。在一个新的工作目录执行：
+
+```sh
+git clone --depth 1 https://github.com/rfdiosuao/summon-protocol.git
+cd summon-protocol
+git rev-parse HEAD
+cd skills/summon-device-onboarding
+python --version
+python scripts/probe_hardware.py --output hardware-probe-01.json
+```
+
+Windows 可用 `py -3`；Linux/macOS 通常用 `python3`。先确认实际解释器为 Python 3.10+，然后将本文 `python` 替换为该命令。已有仓库先检查本地改动，不覆盖。上面的最后目录是所有 `scripts/`、`assets/` 命令的工作目录。探针重复运行换文件名，或明确用 `--force` 覆盖；插拔比较用 `python scripts/probe_hardware.py --diff hardware-probe-01.json hardware-probe-02.json`。
+
+技能自带脚本使用标准库；仓库级契约校验另需 protocol/requirements.txt，见开发章节。安装器必须显式指定 `--agent codex`、`--agent claude` 或 `--skills-dir`。WorkBuddy 等未确认宿主目录时直接读本页和运行仓库脚本，不默认写入 Codex 目录。
+
+本流程交付评估、接入方案和适配代码；连接公网生产网络另需部署者发放凭证。可在 https://github.com/rfdiosuao/summon-protocol/issues/new 提交“设备接入申请”，只提供型号、所需能力、SDK 链接和脱敏测试结果，请维护者指定私密发放渠道。不要在公开 Issue 中提交 token、访问码、设备序列号或私人日志；没有凭证时报告“等待发放，尚未接入”。
+
 ## 0. 向接入者收集设备与官方资料
 
-开始接入时，先整理用户已经提供的链接和文件，再一次性请接入者补充下面的资料。已提供的信息不要重复索要；允许填写“不知道 / 没有 / 不适用”，不要要求无关材料。
+开始接入时，先整理已有信息和只读探针结果；首先只确认目标型号/所在电脑和期望能力，再按所选路线补充下表中缺少的官方资料，不把整张问卷作为开始工作的门槛。已提供的信息不要重复索要；允许填写“不知道 / 没有 / 不适用”。资料记录模板见 [assets/device-sources.md](assets/device-sources.md)。
 
 ```text
 设备厂商、完整型号、硬件/开发板修订：
@@ -51,7 +68,7 @@ python scripts/probe_hardware.py --output hardware-probe.json
 
 结合设备标签、VID/PID、官方 SDK/BSP、板修订与已授权的最小只读查询确认目标。只有确有必要才问缺失型号/连接位置。优先完成不依赖这些信息的工作。不要按 BLE 地址前缀认定唯一设备，不把充电口当数据口。
 
-复制 [assets/admission-report.json](assets/admission-report.json) 为本次报告，保留 unknown。逐项记录证据与可用能力；区分厂商资料、编译结果、模拟、实物测试。使用 `python scripts/check_admission.py report.json` 检查报告是否足以声称“演示通过”。资料评估不足时退出码 2 是正常结果，不是让你伪造通过。
+复制 [assets/admission-report.json](assets/admission-report.json) 为本次报告，保留 unknown。逐项记录证据与可用能力；区分厂商资料、编译结果、模拟、实物测试。使用 `python scripts/check_admission.py report.json` 检查完整性与阶段一致性。退出码 0=报告完整（仍需独立核验证据），3=有效报告但未满足演示门槛，2=参数/路径/JSON/结构错误。不能把退出码 2 当作正常未完成。
 
 先给出设备能做什么、不能做什么、推荐路线和缺口。未拿到设备不得报告真机通过。
 

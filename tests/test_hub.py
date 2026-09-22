@@ -39,6 +39,18 @@ class HubTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_public_resources_and_api_errors(self):
         self.client.session.cookie_jar.clear()
+        for query in ('yes','true','','1&details=0'):
+            r=await self.client.get('/v1/catalog?details='+query)
+            self.assertEqual(r.status,400)
+            self.app['hub'].validate('ErrorResponse',await r.json())
+        r=await self.client.get('/healthz.mode')
+        self.assertEqual(r.status,404)
+        self.app['hub'].validate('ErrorResponse',await r.json())
+        r=await self.client.post('/v1/connect',json={})
+        self.assertEqual(r.status,405)
+        r=await self.client.post('/v1/operator-session',json={'access_code':'test-access'})
+        self.assertEqual(r.status,403)
+        self.assertIn('Origin',(await r.json())['error']['message'])
         for path,mime in [('/assets/agent.md','text/plain'),('/assets/device-onboarding.md','text/plain'),('/assets/style.css','text/css'),('/assets/app.js','text/javascript')]:
             r=await self.client.get(path)
             self.assertEqual(r.status,200)

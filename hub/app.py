@@ -302,6 +302,9 @@ class Hub:
             response.set_cookie('summon_session',token,secure=self.cfg.get('secure_cookie',True),httponly=True,samesite='Strict',max_age=28800)
             return response
         if path=='/v1/catalog':
+            details=request.query.getall('details',[])
+            if details and (len(details)!=1 or details[0] not in ('0','1')):
+                raise Rejected('INVALID_MESSAGE',400,'details must be 0 or 1, supplied at most once.')
             # Opt-in extension preserves strict 0.1.0 Catalog consumers.
             fields=('shell_id','label','state','capabilities')
             if request.query.get('details')=='1':
@@ -689,14 +692,12 @@ def create_app(path, cfg):
     @web.middleware
     async def guard(request,handler):
         try:
-            if request.method=='POST' and request.path!='/v1/agents' and request.headers.get('Origin')!=cfg['origin']:
-                raise Rejected('FORBIDDEN',403)
+            if request.match_info.http_exception is None and request.method=='POST' and request.path!='/v1/agents' and request.headers.get('Origin')!=cfg['origin']:
+                raise Rejected('FORBIDDEN',403,'Missing or mismatched Origin; write requests require the exact configured site origin.')
             response=await handler(request)
         except Rejected as exc:
             response=web.json_response(error(exc.code,message=exc.message),status=exc.status)
         except web.HTTPException as exc:
-            if not request.path.startswith('/v1/'):
-                raise
             code='NOT_FOUND' if exc.status==404 else 'INVALID_MESSAGE'
             response=web.json_response(error(code,message=exc.reason),status=exc.status)
             if exc.status==405:

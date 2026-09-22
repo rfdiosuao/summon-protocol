@@ -14,9 +14,11 @@ def build():
     skill=(SOURCE/'SKILL.md').read_text(encoding='utf-8')
     skill=re.sub(r'\]\(((?:references|assets)/[^)]+)\)',lambda m:']('+base+m.group(1)+')',skill)
     online=skill+'\n\n## 在线使用说明\n\n'
-    online+='直接读取本页即可按流程工作，无需先下载或安装 Skill。下方已内联全部参考规则。需要运行探针或开发时，再获取仓库中的脚本和源码；文中 scripts/ 与 assets/ 路径相对于 skills/summon-device-onboarding/。读取网页不代表已安装或已接入设备。\n\n'
-    for name in ('admission','transports','integration','firmware'):
-        online+='\n---\n\n'+(SOURCE/('references/'+name+'.md')).read_text(encoding='utf-8')+'\n'
+    online+='读取流程无需下载或安装；运行探针与检查器必须先按“入口与安装”获取脚本并切换目录。下方内联全部参考规则。读取网页不代表已安装或已接入设备。\n\n'
+    for name in ('admission','transports','integration','firmware','evidence'):
+        reference=(SOURCE/('references/'+name+'.md')).read_text(encoding='utf-8')
+        reference=reference.replace('](evidence.md)',']('+base+'references/evidence.md)')
+        online+='\n---\n\n'+reference+'\n'
     (ROOT/'web/skill.md').write_bytes(online.encode('utf-8'))
     files=sorted((p for p in SOURCE.rglob('*') if p.is_file() and '__pycache__' not in p.parts and p.suffix!='.pyc'),
                  key=lambda p:p.relative_to(SOURCE).as_posix())
