@@ -1,0 +1,24 @@
+{
+  "source": "Passport microphone",
+  "started_at": 1790090507.6222522,
+  "success": true,
+  "session_id": "session_471ea1665f1bccddadb4b986",
+  "reply_command_id": "passport_ae7f9c7dd92ec9ab330b1dbe",
+  "cloud_reply_acknowledged": true,
+  "reply": "电脑执行完成。2026-09-22 23:21:53\r\n",
+  "playback": {
+    "chunks": 246,
+    "expected_ms": 7860,
+    "device": {
+      "type": "play.done",
+      "turn": 2,
+      "bytes": 251520,
+      "underruns": 0,
+      "elapsed_ms": 7780
+    }
+  },
+  "last_stage": "设备语音播放",
+  "firmware": "0cf0bd5",
+  "full_firmware_sha256": "d3898bada4c661a2b612ffd1628aae21b8ebc1f2b7966b02a8e1947b16c01603",
+  "note": "Injected WAV exercises STT, cloud Agent, actual PC browser and Passport playback; microphone was separately verified with user speech."
+}

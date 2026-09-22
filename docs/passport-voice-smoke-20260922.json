@@ -1,0 +1,26 @@
+{
+  "source": "real Passport microphone, user-spoken Chinese instruction",
+  "firmware": "73f7e41",
+  "nameplate": "SMN-CCM7-P6RF",
+  "stt_model": "XingChenAGI/XingChenGSR-V1.0",
+  "model": "Qwen/Qwen2.5-7B-Instruct",
+  "command_id": "passport_e1633cda98bafe547981df79",
+  "outcome": {
+    "session_id": "session_2f7bfbf65dd6352963c33700",
+    "command_id": "passport_e1633cda98bafe547981df79",
+    "status": "COMPLETED",
+    "evidence": "device_ack",
+    "result": "PowerShell finished with exit code 0.",
+    "execution": {
+      "stdout": "2026-09-22 23:08:22\r\n",
+      "stderr": "",
+      "exit_code": 0,
+      "timed_out": false,
+      "truncated": false,
+      "duration_ms": 375
+    }
+  },
+  "cloud_upload_acknowledged": true,
+  "acoustic_quality": "User confirmed audible reply, but reported stuttering; buffered playback fix pending verification",
+  "platform_mode": "SIMULATED; actual USB audio and desktop command are real"
+}
