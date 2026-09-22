@@ -40,6 +40,8 @@ python -m pip install -r gateway/requirements.txt
 python -m gateway --config /path/to/gateway.json
 ```
 
+需要终端状态界面时增加 `--tui --log-file /path/to/logs/gateway.log`。界面滚动显示连接、会话、任务终态、云端保存确认与重连日志。Windows 交互终端支持 Q 停止并退出、B 打开控制台；Ctrl+C 也可退出。日志自动轮转，不写入凭证或动作正文，终端适配器的任务文本仅显示在窗口。首次网络暂不可用时会自动重试；凭证或配置错误会明确报错退出。
+
 先将 gateway/example.json 复制到自己的私有目录，填写 shell_id、Hub 地址、profile 和本地数据库路径。通过环境变量 SUMMON_GATEWAY_TOKEN 提供部署者发放的专用 token；不要把 token 写入仓库或命令行参数。CLI 启动显示上传声明，读到错误的模式、型号/版本、动作白名单或停止方式时拒绝接入。
 
 Windows PowerShell 可在私有终端设置 `$env:SUMMON_GATEWAY_TOKEN`；Linux/macOS 使用同名环境变量。不要在共享终端中回显该变量。数据库路径相对于配置文件目录；每个 Hub/shell_id 使用独立数据库，切换身份会被拒绝。停止程序使用 Ctrl+C，会走本地停止流程。无网络时不能接新动作。

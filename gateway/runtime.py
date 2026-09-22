@@ -1,6 +1,7 @@
 """One local shell per process; outbound-only connections and durable result upload."""
 import asyncio
 import json
+import logging
 import random
 import time
 import uuid
@@ -13,6 +14,7 @@ from jsonschema import Draft202012Validator,FormatChecker
 from gateway.store import Journal,failed,fingerprint
 
 ROOT=Path(__file__).resolve().parents[1]
+LOG=logging.getLogger('summon.gateway')
 
 
 def utc():
@@ -90,6 +92,7 @@ class Gateway:
                 if receipt.get('command_id')!=outcome['command_id'] or receipt.get('stored') is not True:
                     raise ValueError('Invalid cloud persistence acknowledgement')
                 self.journal.acknowledge(outcome['command_id'])
+                LOG.info('经验已上传，云端确认保存 | %s | late=%s | 待上传=%s',outcome['command_id'],receipt.get('late'),len(self.journal.pending()))
 
     async def upload_loop(self):
         delay=1
@@ -103,10 +106,12 @@ class Gateway:
                 except asyncio.TimeoutError:
                     pass
             except (aiohttp.ClientError,ConnectionError,asyncio.TimeoutError):
+                LOG.warning('经验上传暂不可用，结果已保留，稍后重试。')
                 await asyncio.sleep(random.uniform(delay,min(30,delay*1.5)))
                 delay=min(30,delay*2)
 
     async def execute(self,request):
+        LOG.info('执行任务 | %s | %s',request['command_id'],request['action']['capability'])
         outcome=failed(request)
         try:
             base={'session_id':request['session_id'],'command_id':request['command_id']}
@@ -123,6 +128,7 @@ class Gateway:
             self.fault=True
         finally:
             self.journal.finish(outcome)
+            LOG.info('任务终态 | %s | %s；等待云端确认',request['command_id'],outcome['status'])
             self.upload_event.set()
         if self.fault:
             await self.stop()
@@ -170,7 +176,9 @@ class Gateway:
             if not self.session or p['session_id']!=self.session['session_id'] or p['lease_epoch']!=self.session['lease_epoch'] or time.monotonic()>=self.deadline or self.fault:
                 raise ValueError('Invalid activation')
             self.active=True
+            LOG.info('会话已激活 | %s',p['session_id'])
         elif kind=='session.revoke':
+            LOG.info('收到会话释放请求，停止本地执行。')
             known=self.session or self.journal.metadata('session')
             if not known or p['session_id']!=known['session_id'] or p['lease_epoch']!=known['lease_epoch']:
                 raise ValueError('Invalid revocation')
@@ -216,6 +224,7 @@ class Gateway:
                 return
 
     async def connection(self,timing):
+        LOG.info('正在连接云端，检查设备身份与配置…')
         await self.preflight()
         stopped=await self.stop()
         await self.flush()
@@ -232,6 +241,7 @@ class Gateway:
             if old and stopped:
                 await self.send('session.stopped',{k:old[k] for k in ('session_id','lease_epoch')})
             await self.report()
+            LOG.info('已连接云端 | %s | 等待任务 | 待上传=%s',self.shell_id,len(self.journal.pending()))
             watcher=asyncio.create_task(self.watchdog())
             uploader=asyncio.create_task(self.upload_loop())
             async def receive():
@@ -256,8 +266,8 @@ class Gateway:
         headers={'Authorization':'Bearer '+self.token,'User-Agent':'SUMMON-Gateway/0.1','Accept':'application/json'}
         try:
             async with aiohttp.ClientSession(headers=headers,timeout=aiohttp.ClientTimeout(total=10,sock_connect=5),trust_env=True) as self.http:
-                await self.preflight()
                 await self.adapter.open()
+                LOG.info('本地适配器已就绪。')
                 delay=1
                 while True:
                     timing={}
@@ -266,11 +276,14 @@ class Gateway:
                     except aiohttp.WSServerHandshakeError as exc:
                         if exc.status in (401,403):
                             raise PermissionError('Handshake rejected; reconnect stopped') from exc
-                    except (aiohttp.ClientError,ConnectionError,asyncio.TimeoutError):
-                        pass
+                        LOG.warning('连接握手失败，HTTP %s；准备重连。',exc.status)
+                    except (aiohttp.ClientError,ConnectionError,asyncio.TimeoutError) as exc:
+                        LOG.warning('连接中断或暂不可用 [%s]；准备重连。',type(exc).__name__)
                     if 'welcome' in timing and time.monotonic()-timing['welcome']>=10:
                         delay=1
-                    await asyncio.sleep(random.uniform(delay,min(30,delay*1.5)))
+                    retry=random.uniform(delay,min(30,delay*1.5))
+                    LOG.info('%.1f 秒后重新连接；不会重放旧动作。',retry)
+                    await asyncio.sleep(retry)
                     delay=min(30,delay*2)
         finally:
             await self.stop()

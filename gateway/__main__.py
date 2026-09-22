@@ -13,6 +13,8 @@ from gateway.adapters import TerminalAdapter,SerialDisplayAdapter
 def main():
     parser=argparse.ArgumentParser(description='SUMMON Gateway: local hardware, authorized remote actions, cloud execution evidence.')
     parser.add_argument('--config',required=True,type=Path)
+    parser.add_argument('--tui',action='store_true',help='Show scrolling status UI; Windows: Q quit, B browser')
+    parser.add_argument('--log-file',type=Path,help='Rotating lifecycle log (no credentials or action text)')
     args=parser.parse_args()
     try:
         cfg=json.loads(args.config.read_text(encoding='utf-8'))
@@ -40,12 +42,19 @@ def main():
     except (KeyError,OSError,ValueError,TypeError) as exc:
         parser.error(str(exc))
     print('SUMMON Gateway: execution results upload to the configured cloud Hub; account-scoped evidence, no automatic public sharing.',flush=True)
+    from gateway.console import setup,run
+    logger=setup(cfg,args.log_file)
     try:
-        asyncio.run(gateway.run())
+        asyncio.run(run(gateway) if args.tui else gateway.run())
     except KeyboardInterrupt:
-        pass
+        logger.info('已请求退出。')
+    except Exception as exc:
+        detail=str(exc).replace(token,'[REDACTED]')
+        logger.error('启动或运行失败 [%s]：%s',type(exc).__name__,detail)
+        raise SystemExit(1)
     finally:
         gateway.close()
+        logger.info('Gateway 已停止。')
 
 
 if __name__=='__main__':
