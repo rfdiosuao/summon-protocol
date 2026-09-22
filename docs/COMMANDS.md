@@ -12,6 +12,16 @@ PowerShell 在读取命令前加入 Windows Job Object；取消、超时和任�
 
 长时间安装、交互应用、后台守护任务和其他操作系统命令执行不属于首版。Agent 和 Hub 须使用新版 Schema，不能向旧客户端发送 command.exec。
 
+## 多步 Agent 与桌面应用启动
+
+Passport 模型 Agent 现在根据实际工具回执进行最多四次调用，可以先检查环境、再执行、再验证；配置模型时不再用关键词覆盖模型命令。单条命令仍受上述时长、输出及当前 Windows 用户权限约束，因此不能承诺所有任务都能完成。
+
+打开已安装 GUI 软件时，先用 `Get-StartApps` 查真实 AppID，再调用 `Start-Process explorer.exe -ArgumentList 'shell:AppsFolder\实际AppID'; Start-Sleep -Milliseconds 700`，由 Windows 桌面接收启动请求，随后检查进程或窗口标题。这是有意启动用户桌面软件，不等同于允许普通任务留下任意后台子进程；取消网关会话不会关闭已经由桌面接收的软件。直接 `Start-Process 软件.exe` 或在 PowerShell 中创建 Shell.Application COM 对象可能随命令 Job 回收而终止，不应将退出码 0 当成打开成功。
+
+2026-09-23：本机通过上述 Explorer 路径实际启动飞书，命令任务结束后进程仍在，窗口标题为“飞书”。Passport Agent 模型已切换到现有 SiliconFlow 服务中的 `Qwen/Qwen3-30B-A3B-Instruct-2507`，语音识别模型不变。它仍是服务器 Agent，不是本地 Codex。
+
+云端复验会话 `session_4cd95c9603d7bfe568d29f1c` 通过 Hub 向 Windows 客户端发出查找、启动和验证请求，Agent 返回“飞书客户端已成功启动，主窗口已确认。”本机同时确认窗口仍在。此复验通过云端文字输入，不能代替 Passport 麦克风/Wi-Fi 验收；当时 Passport 的网络状态为离线。
+
 2026-09-22 已通过 Windows 本地真实执行测试和 [云端执行记录](command-cloud-smoke-20260922.json)：远端测试 Agent 经 Hub 请求本机执行 Get-Date 和输出 SUMMON_CLOUD_COMMAND_OK，退出码 0，stdout 回传，经验入库且持久化确认完成。
 
 现有测试 Agent 铭牌为 `SMN-VZJS-9CV3`。它是固定规则联调工具：授权 command.exec 后，在 TUI 按 T 输入 `powershell:Get-Date -Format o` 可复测；普通文字触发 browser.open，仍要求该能力已授权。不能将其描述为具备自主规划能力的大模型 Agent。
