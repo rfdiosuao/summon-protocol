@@ -104,6 +104,30 @@ class NameplateTests(unittest.IsolatedAsyncioTestCase):
             'request_id':'wrong-caps','user_code':pair['user_code'],'shell_id':'other','capabilities':['arm.gesture']})
         self.assertEqual(response.status,403)
 
+    async def test_registration_automatically_allocates_stable_nameplate(self):
+        headers={'Authorization':'Bearer invite'}
+        body={'request_id':'auto-nameplate-test','name':'Automatic nameplate test',
+              'bio':'Integration test','capabilities':['display.text']}
+        response=await self.client.post('/v1/agents',headers=headers,json=body)
+        self.assertEqual(response.status,201)
+        registered=await response.json()
+        aid=registered['agent']['agent_id']
+        # Allocation must precede the first GET; reading does not create it.
+        row=self.app['hub'].store.db.execute('SELECT code FROM nameplates WHERE agent_id=?',(aid,)).fetchone()
+        self.assertIsNotNone(row)
+        auth={'Authorization':'Bearer '+registered['agent_token']}
+        plate=await (await self.client.get('/v1/agents/me/nameplate',headers=auth)).json()
+        self.assertEqual(plate['code'],row[0])
+        self.assertEqual(plate['agent']['agent_id'],aid)
+        repeated=await (await self.client.post('/v1/agents',headers=headers,json=body)).json()
+        self.assertEqual(repeated,registered)
+        self.assertEqual(self.app['hub'].store.db.execute('SELECT COUNT(*) FROM nameplates WHERE agent_id=?',(aid,)).fetchone()[0],1)
+        from hub.app import Hub
+        from pathlib import Path
+        again=Hub(Path(self.tmp.name)/'hub.db',self.app['hub'].cfg)
+        try:self.assertEqual(again.nameplates.ensure(aid),plate['code'])
+        finally:again.store.db.close()
+
     async def test_nameplate_survives_reopen_and_does_not_change_registration_shape(self):
         from hub.app import Hub
         from pathlib import Path

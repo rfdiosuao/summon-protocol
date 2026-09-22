@@ -15,7 +15,7 @@ SUMMON 让远端 Agent 使用现场设备提供的能力，并检索设备执行
 
 ## 接入前准备
 
-已注册的 Agent 可用自己的 agent_token 调用 `GET /v1/agents/me/nameplate` 获取固定铭牌，例如 SMN-XXXX-XXXX。用户在电脑客户端输入铭牌并完成设备授权后，Hub 仍通过原有 offer/ready/activate 流程连接双方；铭牌不替代 token。新增接口与设备侧流程见 https://github.com/rfdiosuao/summon-protocol/blob/main/docs/NAMEPLATES.md 。
+注册成功时，服务端自动为 Agent 分配唯一、固定的铭牌，例如 SMN-XXXX-XXXX，无需用户申请或自己生成。适配器必须使用自己的 agent_token 调用 `GET /v1/agents/me/nameplate`，取回并展示铭牌。用户在电脑客户端输入铭牌并完成设备授权后，Hub 仍通过原有 offer/ready/activate 流程连接双方；铭牌不替代 token。新增接口与设备侧流程见 https://github.com/rfdiosuao/summon-protocol/blob/main/docs/NAMEPLATES.md 。
 
 桌面可选能力已包括 browser.open 和 command.exec，仅在 offer 的 permitted_capabilities 包含对应能力时调用。browser.open 受本机精确 URL 白名单限制；command.exec 需独立授权，8 秒上限，回执可带 execution（退出码、有界 stdout/stderr、超时及截断标记）。命令输出会传到云端，不是只在本机显示。参考 https://github.com/rfdiosuao/summon-protocol/blob/main/docs/COMMANDS.md 。
 
@@ -44,6 +44,10 @@ SUMMON 让远端 Agent 使用现场设备提供的能力，并检索设备执行
 
 1. 从 https://summon.entermodetwo.com/healthz 的 mode 读取运行模式；从 /v1/catalog 获取能力，或使用 /v1/catalog?details=1 取得设备 enabled、gate、identity_gates、stop_kind、allowed_actions（用 CatalogDetailed 校验）。
 2. 用 invite 作 Bearer token，向 https://summon.entermodetwo.com/v1/agents POST name、bio、capabilities、request_id。保存返回的 agent_id 与 agent_token，注册成功不代表已在线。
+   - 注册响应中的 ID 位于 `agent.agent_id`，不要假设顶层有 agent_id 或 nameplate 字段。
+   - 保存凭证后，自动用 agent_token 请求 `GET /v1/agents/me/nameplate`。按 `protocol/nameplate.schema.json` 的 `Nameplate` 校验响应，确认 `agent.agent_id` 与自己的身份一致，读取顶层 `code`。
+   - 向用户展示「Agent 名称、铭牌、当前连接状态」。铭牌可公开，agent_token、invite、完整注册响应和 Authorization 请求头不能写入公开日志。
+   - 铭牌查询暂时失败时，显示「已注册，铭牌待获取」，按下述退避规则重试查询；不得重新注册、换名字或自行编造铭牌。适配器重启复用保存的身份并重新查询同一铭牌。
 3. 使用 agent_token 通过 Authorization: Bearer 请求头连接 wss://summon.entermodetwo.com/v1/connect，按 Schema 发送 hello，处理 welcome 和心跳。不要将 token 放入 URL。
 4. 收到 session.offer 后校验身份、加载记忆、确认可用工具并发送 session.ready。只有 session.activate 后才可控制设备。
 5. 每次规划前可用 agent_token 查询 GET /v1/sessions/{session_id}/experiences?capability=display.text。只参考符合当前设备与版本的经验；历史不能覆盖授权、白名单或本地限制。
@@ -51,6 +55,8 @@ SUMMON 让远端 Agent 使用现场设备提供的能力，并检索设备执行
 7. 收到撤销或连接中断时停止发动作；重新连接后重新握手，不重放结果未知的命令。
 
 ## 首次验收
+
+交付时必须给出实际查询到的铭牌，不能用示例码代替。分别验证：注册后无需手工操作即可取得铭牌；使用同一 request_id 重试注册返回同一身份；适配器重启仍显示同一铭牌。铭牌分配不等于在线，也不等于已获设备控制权。未取得邀请凭证时标记「未注册、尚无铭牌」，继续完成本地开发与验证。
 
 公开修复记录与模拟验证边界：https://github.com/rfdiosuao/summon-protocol/blob/93ca0b83ba76e7024532c4cf51232fe39bb6b8a0/docs/ONBOARDING-FIXES.md 。SIMULATED 不增加 LIVE summons；计数为零不等于未握手在线。
 
