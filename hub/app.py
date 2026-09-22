@@ -40,12 +40,19 @@ def digest(value):
 
 
 class Rejected(Exception):
-    def __init__(self, code, status=409):
-        self.code, self.status = code, status
+    def __init__(self, code, status=409, message=None):
+        self.code, self.status, self.message = code, status, message
 
 
-def error(code, request_id='unknown'):
-    return {'error':{'code':code, 'message':code, 'retryable':False, 'request_id':request_id}}
+def error(code, request_id='unknown', message=None):
+    messages={'UNAUTHORIZED':'Authentication is required or the credential is invalid.',
+              'FORBIDDEN':'This identity is not permitted to access this resource.',
+              'NOT_FOUND':'The requested route or resource does not exist.',
+              'INVALID_MESSAGE':'The method, message format or fields are invalid.',
+              'SESSION_NOT_ACTIVE':'The session is not active; obtain a new authorization.',
+              'CONNECT_TIMEOUT':'Both peers did not become ready within five seconds.',
+              'UNKNOWN':'Execution could not be verified; do not replay the action.'}
+    return {'error':{'code':code, 'message':message or messages.get(code,'Request rejected: '+code.lower().replace('_',' ')+'.'), 'retryable':False, 'request_id':request_id}}
 
 
 class Store:
@@ -100,7 +107,7 @@ class Hub:
         for record in self.commands.values():
             if record['outcome']['status'] in ('ACCEPTED','EXECUTING'):
                 q = record['request']
-                record['outcome'] = {'session_id':q['session_id'],'command_id':q['command_id'],'status':'UNKNOWN','error':error('UNKNOWN')}
+                record['outcome'] = {'session_id':q['session_id'],'command_id':q['command_id'],'status':'UNKNOWN','error':error('UNKNOWN',q['command_id'])}
         self.store.save(agents=self.agents,sessions=self.sessions,commands=self.commands)
         for record in self.commands.values():
             self.experiences.finish(record, 'recovery')
@@ -133,9 +140,14 @@ class Hub:
         queue.append(now)
 
     def operator(self, request):
-        entry = self.cookies.get(digest(request.cookies.get('summon_session','')))
-        if not entry or entry[1]<time.time():
-            raise Rejected('UNAUTHORIZED',401)
+        cookie=request.cookies.get('summon_session','')
+        entry = self.cookies.get(digest(cookie))
+        if not cookie:
+            raise Rejected('UNAUTHORIZED',401,'Missing operator session cookie; sign in with the access code.')
+        if not entry:
+            raise Rejected('UNAUTHORIZED',401,'Invalid operator session; sign in again (server restart also invalidates sessions).')
+        if entry[1]<time.time():
+            raise Rejected('UNAUTHORIZED',401,'Operator session expired; sign in again.')
         return entry[0]
 
     def bearer(self, request):
@@ -143,23 +155,31 @@ class Hub:
         return value[7:] if value.startswith('Bearer ') else ''
 
     def identity(self, token):
+        if not token:
+            raise Rejected('UNAUTHORIZED',401,'Missing Authorization: Bearer header.')
         for aid,a in self.agents.items():
             if secrets.compare_digest(a['token_hash'],digest(token)):
                 return ('agent',aid)
         for sid,value in self.cfg['gateway_tokens'].items():
             if secrets.compare_digest(token,value):
                 return ('gateway',sid)
-        raise Rejected('UNAUTHORIZED',401)
+        raise Rejected('UNAUTHORIZED',401,'Invalid or revoked agent/gateway token; contact the deployment owner.')
 
-    def access(self, request, sid, allow_agent=False):
+    def reader(self, request, allow_agent=False):
+        if allow_agent and request.headers.get('Authorization'):
+            return self.identity(self.bearer(request))
+        return ('operator',self.operator(request))
+
+    def access(self, request, sid, allow_agent=False, require_active_agent=True):
+        role,identifier=self.reader(request,allow_agent)
         s = self.sessions.get(sid)
         if not s:
             raise Rejected('NOT_FOUND',404)
-        if allow_agent and self.bearer(request):
-            if self.identity(self.bearer(request))==('agent',s['agent_id']) and s['state']=='ACTIVE':
+        if role!='operator':
+            if (role,identifier)==('agent',s['agent_id']) and (not require_active_agent or s['state']=='ACTIVE'):
                 return s
             raise Rejected('FORBIDDEN',403)
-        if s['operator_id']!=self.operator(request):
+        if s['operator_id']!=identifier:
             raise Rejected('FORBIDDEN',403)
         return s
 
@@ -274,7 +294,7 @@ class Hub:
             self.validate('OperatorLogin',body)
             owner = self.cfg['operator_codes'].get(body['access_code'])
             if not owner:
-                raise Rejected('UNAUTHORIZED',401)
+                raise Rejected('UNAUTHORIZED',401,'Invalid operator access code.')
             token = secrets.token_urlsafe(32)
             expiry = time.time()+8*3600
             self.cookies[digest(token)]=(owner,expiry)
@@ -282,7 +302,19 @@ class Hub:
             response.set_cookie('summon_session',token,secure=self.cfg.get('secure_cookie',True),httponly=True,samesite='Strict',max_age=28800)
             return response
         if path=='/v1/catalog':
-            return web.json_response({'v':1,'agents':[a['public'] for a in self.agents.values()], 'shells':[{k:s[k] for k in ('shell_id','label','state','capabilities')} for s in self.shells.values()]})
+            # Opt-in extension preserves strict 0.1.0 Catalog consumers.
+            fields=('shell_id','label','state','capabilities')
+            if request.query.get('details')=='1':
+                fields+=('enabled','gate','identity_gates','stop_kind','allowed_actions')
+            return web.json_response({'v':1,'agents':[a['public'] for a in self.agents.values()], 'shells':[{k:s[k] for k in fields} for s in self.shells.values()]})
+        if path=='/v1/agents/me':
+            role,aid=self.identity(self.bearer(request))
+            if role!='agent':
+                raise Rejected('FORBIDDEN',403)
+            connection=self.connections.get((role,aid))
+            return web.json_response({'agent':self.agents[aid]['public'],
+                'connected':bool(connection and connection.get('welcomed_at')),
+                'last_handshake_at':connection.get('welcomed_at') if connection else None})
         if path=='/v1/experiences':
             owner=self.operator(request)
             return web.json_response(self.experiences.query(owner,
@@ -297,16 +329,19 @@ class Hub:
                 self.experiences.retrieved(s,result['total'])
             return web.json_response(result)
         if path=='/v1/agents':
+            if not self.bearer(request):
+                raise Rejected('UNAUTHORIZED',401,'Missing Authorization: Bearer <invite> header.')
             if not secrets.compare_digest(self.bearer(request),self.cfg['invite']):
-                raise Rejected('UNAUTHORIZED',401)
+                raise Rejected('UNAUTHORIZED',401,'Invalid registration invite; obtain the current invite from the deployment owner.')
             principal='invite'
         elif method=='GET' and path.startswith('/v1/sessions/') and path.endswith('/memory'):
             return web.json_response(self.memory(self.access(request,request.match_info['sid'],True)))
         elif method=='GET' and path.startswith('/v1/commands/'):
+            self.reader(request,True)
             record=self.commands.get(request.match_info['cid'])
             if not record:
                 raise Rejected('NOT_FOUND',404)
-            self.access(request,record['request']['session_id'],True)
+            self.access(request,record['request']['session_id'],True,False)
             return web.json_response(record)
         else:
             principal=self.operator(request)
@@ -415,6 +450,7 @@ class Hub:
             if message['type']!='hello' or message['payload']!={'role':role,'id':identifier}:
                 raise Rejected('FORBIDDEN',403)
             await self.send(role,identifier,'welcome',{'connection_id':c['id'],'heartbeat_interval_ms':1000})
+            c['welcomed_at']=utc()
             if role=='agent':
                 self.agents[identifier]['public']['status']='ONLINE'
                 self.emit('agent.state',{'agent':self.agents[identifier]['public']})
@@ -430,7 +466,7 @@ class Hub:
                 except (Rejected,ValueError,TypeError) as exc:
                     code=exc.code if isinstance(exc,Rejected) else 'INVALID_MESSAGE'
                     reply=message.get('message_id','unknown') if isinstance(message,dict) else 'unknown'
-                    await self.send(role,identifier,'error',{'reply_to':reply,'error':error(code)})
+                    await self.send(role,identifier,'error',{'reply_to':reply,'error':error(code,reply)})
         except (Rejected,ValueError,TypeError,asyncio.TimeoutError):
             await ws.close(code=1008)
         finally:
@@ -520,7 +556,7 @@ class Hub:
                     self.moves['target:'+new['session_id']]=move
                 except Rejected as exc:
                     failed={k:move[k] for k in ('handoff_id','source_session_id','target_shell_id')}
-                    failed['error']=error(exc.code)
+                    failed['error']=error(exc.code,sid)
                     self.emit('handoff.failed',failed,s['operator_id'])
             return
         if kind=='action.request' and role=='agent':
@@ -579,6 +615,7 @@ class Hub:
             await self.send('agent',s['agent_id'],kind,p)
             return
         if kind=='input.finished' and role=='agent':
+            self.active(s)
             if self.inputs.get(sid)!=p['input_id']:
                 raise Rejected('NOT_FOUND',404)
             if any(v['request']['session_id']==sid and v['outcome']['status'] in ('ACCEPTED','EXECUTING') for v in self.commands.values()):
@@ -591,7 +628,7 @@ class Hub:
                 memory=self.update_memory(s,p)
                 await self.send(role,identifier,'memory.updated',{'session_id':sid,'update_id':p['update_id'],'memory':memory})
             except Rejected as exc:
-                await self.send(role,identifier,'memory.failed',{'session_id':sid,'update_id':p['update_id'],'current_version':self.memory(s)['memory_version'],'error':error(exc.code)})
+                await self.send(role,identifier,'memory.failed',{'session_id':sid,'update_id':p['update_id'],'current_version':self.memory(s)['memory_version'],'error':error(exc.code,p['update_id'])})
             return
         if kind=='input.submit' and role=='gateway':
             key='gateway:'+identifier+':'+sid+':'+p['request_id']
@@ -626,18 +663,18 @@ class Hub:
                             s['state']='FAILED'
                             self.store.save(sessions={sid:s})
                             self.shells[s['shell_id']]['state']='FAULT'
-                            self.emit('session.failed',{'session':s,'error':error('HANDOFF_BLOCKED')},s['operator_id'])
+                            self.emit('session.failed',{'session':s,'error':error('HANDOFF_BLOCKED',sid)},s['operator_id'])
                             move=self.moves.pop(sid,None)
                             if move:
                                 payload={k:move[k] for k in ('handoff_id','source_session_id','target_shell_id')}
-                                payload['error']=error('HANDOFF_BLOCKED')
+                                payload['error']=error('HANDOFF_BLOCKED',sid)
                                 self.emit('handoff.failed',payload,s['operator_id'])
                 for key,deadline in list(self.deadlines.items()):
                     if key.startswith('cmd:') and deadline<time.monotonic():
                         self.deadlines.pop(key,None)
                         r=self.commands[key[4:]]
                         p=r['request']
-                        r['outcome']={'session_id':p['session_id'],'command_id':p['command_id'],'status':'UNKNOWN','error':error('UNKNOWN')}
+                        r['outcome']={'session_id':p['session_id'],'command_id':p['command_id'],'status':'UNKNOWN','error':error('UNKNOWN',p['command_id'])}
                         self.store.save(commands={p['command_id']:r})
                         self.experiences.finish(r,'timeout')
                         s=self.sessions[p['session_id']]
@@ -656,12 +693,25 @@ def create_app(path, cfg):
                 raise Rejected('FORBIDDEN',403)
             response=await handler(request)
         except Rejected as exc:
-            response=web.json_response(error(exc.code),status=exc.status)
+            response=web.json_response(error(exc.code,message=exc.message),status=exc.status)
+        except web.HTTPException as exc:
+            if not request.path.startswith('/v1/'):
+                raise
+            code='NOT_FOUND' if exc.status==404 else 'INVALID_MESSAGE'
+            response=web.json_response(error(code,message=exc.reason),status=exc.status)
+            if exc.status==405:
+                response.headers['Allow']=exc.headers.get('Allow','')
         except (json.JSONDecodeError,UnicodeDecodeError):
             response=web.json_response(error('INVALID_MESSAGE'),status=400)
         except sqlite3.Error:
             response=web.json_response(error('MEMORY_WRITE_FAILED'),status=500)
         response.headers['X-Content-Type-Options']='nosniff'
+        if request.path.startswith('/assets/') and response.status==200:
+            suffix=Path(request.path).suffix
+            mime={'.md':'text/plain','.css':'text/css','.js':'text/javascript'}.get(suffix)
+            if mime:
+                response.headers['Content-Type']=mime+'; charset=utf-8'
+                response.headers['Content-Disposition']='inline'
         response.headers['Cache-Control']='no-store'
         response.headers['Content-Security-Policy']="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; frame-ancestors 'none'"
         return response
@@ -670,7 +720,7 @@ def create_app(path, cfg):
     app['hub']=hub
     for route in ['/v1/operator-session','/v1/agents','/v1/sessions','/v1/sessions/{sid}/inputs','/v1/sessions/{sid}/feedback','/v1/sessions/{sid}/release','/v1/sessions/{sid}/handoff']:
         app.router.add_post(route,hub.http)
-    for route in ['/v1/catalog','/v1/state','/v1/events','/v1/experiences','/v1/sessions/{sid}/experiences','/v1/sessions/{sid}/memory','/v1/commands/{cid}']:
+    for route in ['/v1/catalog','/v1/agents/me','/v1/state','/v1/events','/v1/experiences','/v1/sessions/{sid}/experiences','/v1/sessions/{sid}/memory','/v1/commands/{cid}']:
         app.router.add_get(route,hub.http)
     app.router.add_get('/v1/connect',hub.ws)
     async def health(request):

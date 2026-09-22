@@ -18,6 +18,437 @@
     }
   ],
   "$defs": {
+    "Health": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "const": "ok"
+        },
+        "mode": {
+          "enum": [
+            "LIVE",
+            "SIMULATED"
+          ]
+        },
+        "contract": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "mode",
+        "contract"
+      ],
+      "additionalProperties": false
+    },
+    "AgentConnection": {
+      "type": "object",
+      "properties": {
+        "agent": {
+          "$ref": "#/$defs/Agent"
+        },
+        "connected": {
+          "type": "boolean"
+        },
+        "last_handshake_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "agent",
+        "connected",
+        "last_handshake_at"
+      ],
+      "additionalProperties": false
+    },
+    "ExperienceResult": {
+      "type": "object",
+      "properties": {
+        "v": {
+          "const": 1
+        },
+        "scope": {
+          "const": "operator"
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "shell_id": {
+                "type": "string"
+              },
+              "capability": {
+                "type": "string"
+              },
+              "mode": {
+                "type": "string"
+              },
+              "profile_id": {
+                "type": "string"
+              },
+              "profile": {
+                "type": "object",
+                "properties": {
+                  "model": {
+                    "type": "string"
+                  },
+                  "firmware": {
+                    "type": "string"
+                  },
+                  "adapter_version": {
+                    "type": "string"
+                  },
+                  "capabilities": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "allowed_actions": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "model",
+                  "firmware",
+                  "adapter_version",
+                  "capabilities",
+                  "allowed_actions"
+                ],
+                "additionalProperties": false
+              },
+              "operator_id": {
+                "type": "string"
+              },
+              "agent_id": {
+                "type": "string"
+              },
+              "submitted_at": {
+                "type": "number"
+              },
+              "experience_id": {
+                "type": "string"
+              },
+              "command_id": {
+                "type": "string"
+              },
+              "session_id": {
+                "type": "string"
+              },
+              "status": {
+                "enum": [
+                  "COMPLETED",
+                  "FAILED",
+                  "UNKNOWN"
+                ]
+              },
+              "evidence": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string"
+              },
+              "duration_ms": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "created_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "scope": {
+                "const": "operator"
+              },
+              "kind": {
+                "const": "execution_evidence"
+              }
+            },
+            "required": [
+              "shell_id",
+              "capability",
+              "mode",
+              "profile_id",
+              "profile",
+              "operator_id",
+              "agent_id",
+              "submitted_at",
+              "experience_id",
+              "command_id",
+              "session_id",
+              "status",
+              "evidence",
+              "source",
+              "duration_ms",
+              "created_at",
+              "scope",
+              "kind"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "groups": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "shell_id": {
+                "type": "string"
+              },
+              "capability": {
+                "type": "string"
+              },
+              "mode": {
+                "type": "string"
+              },
+              "profile_id": {
+                "type": "string"
+              },
+              "profile": {
+                "type": "object",
+                "properties": {
+                  "model": {
+                    "type": "string"
+                  },
+                  "firmware": {
+                    "type": "string"
+                  },
+                  "adapter_version": {
+                    "type": "string"
+                  },
+                  "capabilities": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "allowed_actions": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "model",
+                  "firmware",
+                  "adapter_version",
+                  "capabilities",
+                  "allowed_actions"
+                ],
+                "additionalProperties": false
+              },
+              "completed": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "failed": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "unknown": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "total": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "average_duration_ms": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "guidance": {
+                "type": "string"
+              },
+              "validation": {
+                "enum": [
+                  "simulated",
+                  "gateway_reported"
+                ]
+              }
+            },
+            "required": [
+              "shell_id",
+              "capability",
+              "mode",
+              "profile_id",
+              "profile",
+              "completed",
+              "failed",
+              "unknown",
+              "total",
+              "average_duration_ms",
+              "guidance",
+              "validation"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "returned": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "retrievals": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "v",
+        "scope",
+        "total",
+        "items",
+        "groups",
+        "returned",
+        "retrievals",
+        "note"
+      ],
+      "additionalProperties": false
+    },
+    "CatalogDetailed": {
+      "type": "object",
+      "properties": {
+        "v": {
+          "const": 1
+        },
+        "agents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Agent"
+          },
+          "maxItems": 100
+        },
+        "shells": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "shell_id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{1,80}$"
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "OFFLINE",
+                  "IDLE",
+                  "CONNECTING",
+                  "ACTIVE",
+                  "RELEASING",
+                  "FAULT",
+                  "ESTOP"
+                ]
+              },
+              "capabilities": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "display.text",
+                    "speech.say",
+                    "arm.gesture"
+                  ]
+                },
+                "maxItems": 3,
+                "uniqueItems": true,
+                "minItems": 1
+              },
+              "enabled": {
+                "type": "boolean"
+              },
+              "gate": {
+                "type": "string",
+                "enum": [
+                  "whitelist",
+                  "open",
+                  "readonly"
+                ]
+              },
+              "identity_gates": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "button",
+                    "web",
+                    "nfc",
+                    "qr",
+                    "voice"
+                  ]
+                },
+                "maxItems": 5,
+                "minItems": 1,
+                "uniqueItems": true
+              },
+              "stop_kind": {
+                "type": "string",
+                "enum": [
+                  "local_disable",
+                  "physical_estop"
+                ]
+              },
+              "allowed_actions": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "display.text",
+                    "speech.say",
+                    "arm.gesture"
+                  ]
+                },
+                "maxItems": 3,
+                "uniqueItems": true,
+                "minItems": 1
+              }
+            },
+            "required": [
+              "shell_id",
+              "label",
+              "state",
+              "capabilities",
+              "enabled",
+              "gate",
+              "identity_gates",
+              "stop_kind",
+              "allowed_actions"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 100
+        }
+      },
+      "required": [
+        "v",
+        "agents",
+        "shells"
+      ],
+      "additionalProperties": false
+    },
     "ErrorResponse": {
       "type": "object",
       "properties": {

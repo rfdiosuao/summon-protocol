@@ -4,6 +4,7 @@ import contextlib
 import json
 import os
 import time
+import random
 from pathlib import Path
 
 import aiohttp
@@ -19,7 +20,7 @@ class DemoFleet:
         self.clients=[]
 
     async def start(self):
-        self.http=aiohttp.ClientSession()
+        self.http=aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10,sock_connect=5))
         async with self.http.get(self.base+'/healthz') as r:
             if (await r.json())['mode']!='SIMULATED':
                 raise RuntimeError('DemoFleet must never attach to a LIVE Hub')
@@ -45,6 +46,22 @@ class DemoFleet:
         await self.http.close()
 
     async def run(self,role,identifier,token):
+        delay=1
+        while True:
+            timing={}
+            try:
+                await self.connection(role,identifier,token,timing)
+            except aiohttp.WSServerHandshakeError as exc:
+                if exc.status in (401,403):
+                    raise RuntimeError('Credentials rejected; reconnect stopped') from exc
+            except (aiohttp.ClientError,asyncio.TimeoutError,OSError):
+                pass
+            if 'welcome' in timing and time.monotonic()-timing['welcome']>=10:
+                delay=1
+            await asyncio.sleep(random.uniform(delay,min(30,delay*1.5)))
+            delay=min(30,delay*2)
+
+    async def connection(self,role,identifier,token,timing):
         async with self.http.ws_connect(self.base+'/v1/connect',headers={'Authorization':'Bearer '+token}) as ws:
             sessions, seq, pending, results = {}, {}, {}, {}
             async def send(kind,payload):
@@ -55,6 +72,8 @@ class DemoFleet:
                     break
                 m=json.loads(frame.data)
                 kind,p=m['type'],m['payload']
+                if kind=='welcome':
+                    timing['welcome']=time.monotonic()
                 if kind=='welcome' and role=='gateway':
                     await send('shell.report',{'shell_id':identifier,'physical_state':'READY','enabled':True,'detail':'SIMULATED display; no physical device'})
                 elif kind=='heartbeat':
@@ -72,7 +91,9 @@ class DemoFleet:
                     if role=='gateway':
                         await send('session.stopped',{'session_id':p['session_id'],'lease_epoch':p['lease_epoch']})
                 elif kind=='input.text' and role=='agent':
-                    state=sessions[p['session_id']]
+                    state=sessions.get(p['session_id'])
+                    if not state or not state['active']:
+                        continue
                     async with self.http.get(self.base+'/v1/sessions/'+p['session_id']+'/memory',headers={'Authorization':'Bearer '+token}) as response:
                         memory=await response.json()
                     brief=memory.get('preferences',{}).get('response_style')=='brief'
@@ -102,7 +123,7 @@ class DemoFleet:
                         await send('action.completed',result)
                 elif kind in ('action.completed','action.failed') and role=='agent':
                     original=pending.pop(p['command_id'],None)
-                    if original:
+                    if original and sessions.get(p['session_id'],{}).get('active'):
                         await send('input.finished',{'session_id':p['session_id'],'input_id':original['input_id'],'status':'COMPLETED' if kind=='action.completed' else 'FAILED'})
 
 

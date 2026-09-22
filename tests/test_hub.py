@@ -37,6 +37,45 @@ class HubTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await self.client.get('/v1/state')).status, 401)
         self.assertEqual((await self.client.get('/v1/catalog')).status, 200)
 
+    async def test_public_resources_and_api_errors(self):
+        self.client.session.cookie_jar.clear()
+        for path,mime in [('/assets/agent.md','text/plain'),('/assets/device-onboarding.md','text/plain'),('/assets/style.css','text/css'),('/assets/app.js','text/javascript')]:
+            r=await self.client.get(path)
+            self.assertEqual(r.status,200)
+            self.assertEqual(r.headers['Content-Type'],mime+'; charset=utf-8')
+        for path,status in [('/v1/agents',405),('/v1/not-a-route',404),('/v1/catalog/',404),('/v1/sessions/missing/memory',401),('/v1/commands/missing',401)]:
+            r=await self.client.get(path)
+            self.assertEqual(r.status,status)
+            self.app['hub'].validate('ErrorResponse',await r.json())
+        r=await self.client.get('/healthz')
+        self.app['hub'].validate('Health',await r.json())
+        for path,definition in [('/v1/catalog','Catalog'),('/v1/catalog?details=1','CatalogDetailed')]:
+            r=await self.client.get(path)
+            self.app['hub'].validate(definition,await r.json())
+        messages=[]
+        for headers in [{},{'Authorization':'Bearer invalid'}]:
+            r=await self.client.get('/v1/connect',headers=headers)
+            self.assertEqual(r.status,401)
+            messages.append((await r.json())['error']['message'])
+        self.assertNotEqual(*messages)
+
+    async def test_connection_self_check(self):
+        aid,agent,gateway,send,receive=await self.raw_clients()
+        registration=self.app['hub'].idem['invite:/v1/agents:raw']['result']
+        headers={'Authorization':'Bearer '+registration['agent_token']}
+        r=await self.client.get('/v1/agents/me',headers=headers)
+        body=await r.json()
+        self.app['hub'].validate('AgentConnection',body)
+        self.assertTrue(body['connected'])
+        self.assertEqual(body['agent']['agent_id'],aid)
+        self.assertIsNotNone(body['last_handshake_at'])
+        await agent.close()
+        await asyncio.sleep(.03)
+        body=await (await self.client.get('/v1/agents/me',headers=headers)).json()
+        self.assertFalse(body['connected'])
+        self.assertEqual((await self.client.get('/v1/agents/me',headers={'Authorization':'Bearer ga'})).status,403)
+        await gateway.close()
+
     async def test_registration_idempotency(self):
         body = {'request_id':'reg','name':'Test','bio':'','capabilities':['display.text']}
         headers = {'Authorization':'Bearer test-invite'}
@@ -80,6 +119,7 @@ class HubTests(unittest.IsolatedAsyncioTestCase):
                 await asyncio.sleep(.03)
             self.assertEqual(state['commands'][-1]['outcome']['status'], 'COMPLETED')
             experiences=await (await self.client.get('/v1/experiences')).json()
+            self.app['hub'].validate('ExperienceResult',experiences)
             self.assertEqual(experiences['total'],1)
             self.assertEqual(experiences['retrievals'],1)
             self.assertEqual(experiences['items'][0]['shell_id'],'shell_a')
@@ -176,6 +216,8 @@ class HubTests(unittest.IsolatedAsyncioTestCase):
             await send(ws,'session.ready',{'session_id':sid,'lease_epoch':s['lease_epoch'],'role':role})
         await receive(agent,'session.activate')
         await self.post('/v1/sessions/'+sid+'/release',{'request_id':'release'})
+        await send(agent,'input.finished',{'session_id':sid,'input_id':'late','status':'FAILED'})
+        self.assertEqual((await receive(agent,'error'))['error']['error']['code'],'SESSION_NOT_ACTIVE')
         self.assertEqual(self.app['hub'].shells['shell_a']['current_session_id'],sid)
         r=await self.post('/v1/sessions',{'request_id':'again','agent_id':aid,'shell_id':'shell_a'})
         self.assertEqual(r.status,409)

@@ -1,6 +1,6 @@
 # SUMMON 公共契约
 
-版本 **0.1.0** · wire `v: 1` · 2026-09-20 · 规范草案已可校验，服务尚未实现。
+版本 **0.1.0** · wire `v: 1` · 文档修订 2026-09-22 · Hub 已实现，公开演示为 SIMULATED；真机接入需单独验收。本次增加可选 HTTP 端点与 details 查询，原有 wire 和默认 Catalog 不变。
 
 这是前端、Hub、Ghost Adapter、Shell Gateway 的共同约定。字段/枚举以 [summon.schema.json](../protocol/summon.schema.json) 为准；本文件定义 Schema 无法表达的时序、认证和状态约束。Schema 中的 `$defs` 名称是以下各表使用的类型名。
 
@@ -45,6 +45,11 @@ ID 使用 ASCII 字母、数字、下划线、短横线，1–80 字符。时间
 | POST /v1/operator-session | 现场访问码 | OperatorLogin | 200 | OperatorLoginResult + cookie |
 | POST /v1/agents | invite | RegisterAgent | 201 | RegisteredAgent |
 | GET /v1/catalog | 公开 | 无 | 200 | Catalog |
+| GET /healthz | 公开 | 无 | 200 | Health |
+| GET /v1/catalog?details=1 | 公开 | 无 | 200 | CatalogDetailed |
+| GET /v1/agents/me | agent_token | 无 | 200 | AgentConnection |
+| GET /v1/experiences | operator | 无 | 200 | ExperienceResult |
+| GET /v1/sessions/{session_id}/experiences | 会话主人/当前对应 agent | 无 | 200 | ExperienceResult |
 | GET /v1/state | operator | 无 | 200 | Snapshot |
 | POST /v1/sessions | operator | CreateSession | 202 | SessionResult |
 | POST /v1/sessions/{session_id}/inputs | 会话主人 | SubmitInput | 202 | InputAccepted |
@@ -55,7 +60,9 @@ ID 使用 ASCII 字母、数字、下划线、短横线，1–80 字符。时间
 | GET /v1/events?after={cursor} | operator | SSE | 200 | Event 流 |
 | GET /v1/commands/{command_id} | 会话主人/对应 agent | 无 | 200 | ActionRecord |
 
-URL 路径的会话/命令先做所有权检查再操作，不相信 JSON 自报身份。不存在对象返回 404；越权 403。`operator_id` 总由 cookie 取得，不能在 CreateSession 中指定。
+URL 路径的会话/命令先认证再检查对象与所有权，不相信 JSON 自报身份。缺失/无效凭证返回 401；认证后不存在对象返回 404，越权 403。`operator_id` 总由 cookie 取得，不能在 CreateSession 中指定。未知 API 路由及尾斜杠返回 404/NOT_FOUND；错误 HTTP 方法返回 405/INVALID_MESSAGE 和 Allow 头，均使用 ErrorResponse，不重定向写请求。
+
+模式从 `/healthz.mode` 读取。默认 Catalog 保留旧结构；需要 enabled、gate、identity_gates、stop_kind、allowed_actions 时显式请求 `?details=1` 并使用 CatalogDetailed 校验。它是策略快照，不是授权，最终仍需 offer/activate。`/v1/agents/me` 只接受 Agent 本人的 token，connected 与 last_handshake_at 表示当前连接完成 hello/welcome，断开后为 false/null；不代表真机动作通过。经验查询与隔离规则见 [EXPERIENCE.md](EXPERIENCE.md)。
 
 `CreateSession` 包含 agent_id、shell_id、request_id。用户先查目录再按 ID 提交，不靠同名搜索猜目标。离线 503、占用 409、不兼容能力 422、设备未本地启用 403。至少具备双方共同的一种允许动作。
 
@@ -67,7 +74,7 @@ URL 路径的会话/命令先做所有权检查再操作，不相信 JSON 自报
 
 ## 4. WSS 连接与消息
 
-端点 `/v1/connect`。Message 信封：`v, message_id, sent_at, type, payload`。控制帧 UTF-8 JSON 最大 16 KiB，超限拒绝；音频不进入此 JSON 通道。未知版本/类型/字段拒绝，不静默执行。
+端点 `/v1/connect`。Message 信封：`v, message_id, sent_at, type, payload`。控制帧 UTF-8 编码后不超过 16384 字节（16 KiB），超限拒绝；input.text 的 2000 上限另按 Unicode 字符计算。音频不进入此 JSON 通道。未知版本/类型/字段拒绝，不静默执行。
 
 | 消息 | 方向 | 含义 |
 |---|---|---|
@@ -95,6 +102,20 @@ WebSocket 保证单连接有序不等于重连后恰好一次。根据 command_i
 Agent 通过握手后标 ONLINE，持有会话时标 BUSY。Gateway 握手后必须上报 shell.report，Hub 才能将壳标为可用；壳能力、入口和策略来自部署配置，报告不得扩大权限。FAULT/ESTOP/disabled 立即触发撤销；READY 不能覆盖活动会话或清除未核对的故障。故障后的 READY 仅可由现场完成停止确认与复位后发出，Hub 核对待终止命令再解锁，并发布 shell.state。
 
 ## 5. 壳、会话和控制权
+
+### 连接与延迟预算
+
+首次连接单独统计 DNS/TCP/TLS、HTTP Upgrade、hello/welcome 和会话 offer→activate；不能将冷启动耗时藏进热连接指标。客户端 HTTPS 连接池复用；每个角色/id 保持一条 WSS 长连接，演示前完成握手、心跳与状态检查，禁止每次召唤重新连接。
+
+| 阶段 | 要求 / 测量口径 |
+|---|---|
+| DNS/TCP/TLS + Upgrade | 建连总超时 10 秒，TCP/TLS 建议 5 秒；记录冷启动 p50/p95/max 与失败率，不承诺 200–400ms |
+| hello/welcome | 升级后 5 秒内提交 hello；握手失败不能显示在线 |
+| offer→activate | 双端 ready 上限 5 秒，超时撤销 |
+| 现场交互反馈 | 点击/刷卡后本地立即显示“连接中”；不等于授权或动作完成 |
+| 热连接任务 | 分别实测请求→接收、首反馈、真实完成，遵循 HARDWARE-ADMISSION 准入表；模型与物理执行耗时单列 |
+
+重连采用指数退避：初始 1 秒、倍增到 30 秒，每次等待在当前基数到 min(30,基数×1.5) 秒之间随机抖动。只有成功 welcome 且连续稳定至少 10 秒才重置。401/403 停止自动重试并修凭证；429 尊重 Retry-After（如有）且不得短于退避。TLS 错误不能通过关闭证书校验解决。每次重连重新 hello，旧租约无效，未知结果动作禁止重放。现场网络未实测前不得承诺固定端到端延迟。
 
 壳 `state`：OFFLINE / IDLE / CONNECTING / ACTIVE / RELEASING / FAULT / ESTOP。动作执行进度单独由 ActionRecord 表达，不将“在线、空闲、具备急停、急停已按下”挤成一个 bool。
 
@@ -128,7 +149,13 @@ ACCEPTED 不等于 COMPLETED。`action.completed` 必须含 evidence=`device_ack
 
 动作超过配置执行上限（演示默认 10 秒）先本地停止，确认结果前标 UNKNOWN；不可盲目发新 command 重试。Agent 可 GET command 状态，必要时请求用户重新授权。不是对真实物理动作作严格 exactly-once 保证。
 
+`GET /v1/commands/{command_id}` 允许原对应 Agent 在会话结束后用有效 token 只读核对旧命令，不恢复控制权；记忆/经验的 Agent 访问仍要求当前 ACTIVE 会话。
+
 ## 7. 记忆
+
+### 撤销与迟到消息
+
+收到 session.revoke 或连接断开后，Agent 取消当前推理/工具任务，不再提交新的 action.request、memory.update 或 input.finished（包括 FAILED）；本地记录取消，不补发撤销期间的任务完成。非 ACTIVE 会话收到迟到 input.text 时丢弃并记录，不用 input.finished 回报。Hub 对非 ACTIVE 的新 input.finished 返回 SESSION_NOT_ACTIVE；Gateway 的动作终态与 session.stopped 仍允许在停止流程中上报。已在撤销前提交的记忆事务以 Hub 返回/持久化结果为准；同 update_id 的已成功更新可以返回原结果，不产生新写入。
 
 MVP 权威存储在 Hub SQLite，键 `(operator_id, agent_id)`；不能只按 agent_id 混合不同访客偏好。记忆含 memory_version（从 0）、preferences.response_style、updated_at。完整聊天记录与家庭记忆库自动双向同步不在 v1。
 
@@ -154,11 +181,16 @@ Event：`v, event_id, at, mode, type, payload`，SSE 的 id 与 event_id 一致�
 
 ErrorResponse：`error.code, message, retryable, request_id`；WSS error 另有 reply_to。message 给人读，程序分支只判断 code。
 
+为保持 wire v1 兼容，action.failed.error 继续使用完整 ErrorResponse；其中 request_id 使用 command_id，memory.failed 使用 update_id，异步会话失败使用 session_id。收到旧实现的 unknown 也应兼容。WSS error.reply_to 指向被拒消息的 message_id，其内层 request_id 同值；无法解析 message_id 时为 unknown。offer 超时是异步 session.revoke（reason=connect timeout），随后停止或 session.failed，不伪造指向某条入站消息的 error。HTTP 无法取得有效 request_id 时返回 unknown。
+
+无效 WSS 凭证在 HTTP Upgrade 前返回 401/ErrorResponse，不要等待 WebSocket error 帧。当前 agent/gateway token 无内置到期时间，不能把无效 token 诊断成“已过期”；operator cookie 有明确到期时间。注册 invite 轮换后旧 invite 不再有效。
+
 | HTTP | 代码 | 处理 |
 |---|---|---|
 | 400 | INVALID_MESSAGE / UNSUPPORTED_VERSION | 修输入或版本，不重试动作 |
 | 401/403 | UNAUTHORIZED / FORBIDDEN / SHELL_DISABLED | 重新取得授权或现场启用 |
 | 404 | NOT_FOUND | 刷新目录 |
+| 405 | INVALID_MESSAGE | 根据 Allow 头修改 HTTP 方法 |
 | 409 | NAME_TAKEN / AGENT_BUSY / SHELL_BUSY / TASK_BUSY / COMMAND_BUSY / CONNECTION_EXISTS | 状态改变后新请求 |
 | 409 | IDEMPOTENCY_CONFLICT / OUT_OF_ORDER / STALE_LEASE / SESSION_NOT_ACTIVE | 查状态，禁止盲重放 |
 | 409/500 | MEMORY_CONFLICT / MEMORY_WRITE_FAILED | 重新读版本 / 同 update_id 核对写结果 |
@@ -171,6 +203,8 @@ ErrorResponse：`error.code, message, retryable, request_id`；WSS error 另有 
 retryable=true 只表示允许检查状态后用**原幂等键**重试；绝不等于可重复物理动作。
 
 ## 10. 演进与校验边界
+
+根 Schema 的 oneOf 只校验 Message/Event/Snapshot/BridgeMessage；HTTP 请求与响应按本文件总表选具名 `$defs`。例如 Python：`Draft202012Validator({'$defs': schema['$defs'], '$ref': '#/$defs/RegisterAgent'}, format_checker=FormatChecker()).validate(body)`。不要拿根 Schema 校验注册 JSON。
 
 三端先走读 [场景样例](../protocol/examples/README.md)。Schema 可验证结构，校验工具可检查样例时序；实际权限、断网制动、数据库事务与硬件行为必须按 [ACCEPTANCE](ACCEPTANCE.md) 另验。
 
