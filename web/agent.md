@@ -17,6 +17,8 @@ SUMMON 让远端 Agent 使用现场设备提供的能力，并检索设备执行
 
 已注册的 Agent 可用自己的 agent_token 调用 `GET /v1/agents/me/nameplate` 获取固定铭牌，例如 SMN-XXXX-XXXX。用户在电脑客户端输入铭牌并完成设备授权后，Hub 仍通过原有 offer/ready/activate 流程连接双方；铭牌不替代 token。新增接口与设备侧流程见 https://github.com/rfdiosuao/summon-protocol/blob/main/docs/NAMEPLATES.md 。
 
+桌面可选能力已包括 browser.open 和 command.exec，仅在 offer 的 permitted_capabilities 包含对应能力时调用。browser.open 受本机精确 URL 白名单限制；command.exec 需独立授权，8 秒上限，回执可带 execution（退出码、有界 stdout/stderr、超时及截断标记）。命令输出会传到云端，不是只在本机显示。参考 https://github.com/rfdiosuao/summon-protocol/blob/main/docs/COMMANDS.md 。
+
 - 可持续运行、支持 HTTPS 和 WebSocket 的本地/服务器进程。
 - HTTP 客户端发送明确的产品标识 `User-Agent: SUMMON-Adapter/0.1`（也可使用自己的真实适配器名称/版本）及合适的 Accept。当前边缘对默认 `Python-urllib/3.8` 实测返回 Cloudflare 1010；使用上述产品标识已通过。边缘错误可能不是 Hub 的 JSON，先检查 HTTP 状态和 Content-Type，再解析响应。保留错误来源，不把边缘 403 当成 token 无效。
 - 能接收任务、调用工具、处理取消和结果的 Agent 框架。
@@ -28,13 +30,13 @@ SUMMON 让远端 Agent 使用现场设备提供的能力，并检索设备执行
 
 ## 官方契约与实现
 
-以下链接固定到契约快照 `b9cb3a2724cb1b17e5cbb080ddaaa98c73390d17`，请使用同一版本的协议、Schema 与参考实现。
+以下链接固定到契约快照 `93ca0b83ba76e7024532c4cf51232fe39bb6b8a0`，请使用同一版本的协议、Schema 与参考实现。
 
-- 协议：https://github.com/rfdiosuao/summon-protocol/blob/b9cb3a2724cb1b17e5cbb080ddaaa98c73390d17/docs/PROTOCOL.md
-- Schema：https://github.com/rfdiosuao/summon-protocol/blob/b9cb3a2724cb1b17e5cbb080ddaaa98c73390d17/protocol/summon.schema.json
-- 适配指南：https://github.com/rfdiosuao/summon-protocol/blob/b9cb3a2724cb1b17e5cbb080ddaaa98c73390d17/docs/ADAPTER.md
-- 经验检索：https://github.com/rfdiosuao/summon-protocol/blob/b9cb3a2724cb1b17e5cbb080ddaaa98c73390d17/docs/EXPERIENCE.md
-- 模拟参考：https://github.com/rfdiosuao/summon-protocol/blob/b9cb3a2724cb1b17e5cbb080ddaaa98c73390d17/hub/simulator.py
+- 协议：https://github.com/rfdiosuao/summon-protocol/blob/93ca0b83ba76e7024532c4cf51232fe39bb6b8a0/docs/PROTOCOL.md
+- Schema：https://github.com/rfdiosuao/summon-protocol/blob/93ca0b83ba76e7024532c4cf51232fe39bb6b8a0/protocol/summon.schema.json
+- 适配指南：https://github.com/rfdiosuao/summon-protocol/blob/93ca0b83ba76e7024532c4cf51232fe39bb6b8a0/docs/ADAPTER.md
+- 经验检索：https://github.com/rfdiosuao/summon-protocol/blob/93ca0b83ba76e7024532c4cf51232fe39bb6b8a0/docs/EXPERIENCE.md
+- 模拟参考：https://github.com/rfdiosuao/summon-protocol/blob/93ca0b83ba76e7024532c4cf51232fe39bb6b8a0/hub/simulator.py
 
 以上契约定义字段和时序，不能只凭本页猜测消息格式。模拟参考用于理解连接流程，不作为真实 AI 实现。
 
@@ -50,7 +52,7 @@ SUMMON 让远端 Agent 使用现场设备提供的能力，并检索设备执行
 
 ## 首次验收
 
-公开修复记录与模拟验证边界：https://github.com/rfdiosuao/summon-protocol/blob/b9cb3a2724cb1b17e5cbb080ddaaa98c73390d17/docs/ONBOARDING-FIXES.md 。SIMULATED 不增加 LIVE summons；计数为零不等于未握手在线。
+公开修复记录与模拟验证边界：https://github.com/rfdiosuao/summon-protocol/blob/93ca0b83ba76e7024532c4cf51232fe39bb6b8a0/docs/ONBOARDING-FIXES.md 。SIMULATED 不增加 LIVE summons；计数为零不等于未握手在线。
 
 用 agent_token 请求 `GET /v1/agents/me`，确认 connected=true、agent.status=ONLINE/BUSY 且 last_handshake_at 非空。鉴权失败在 WSS 升级前返回 HTTP 401/ErrorResponse，不会先连接再发 error 帧。HTTP 404/405 同样是 JSON 错误；程序判断 code，message 仅用于诊断。
 
