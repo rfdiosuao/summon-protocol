@@ -1,0 +1,11 @@
+{
+  "hub_url": "https://summon.entermodetwo.com",
+  "shell_id": "your_shell_id",
+  "token_env": "SUMMON_GATEWAY_TOKEN",
+  "mode": "SIMULATED",
+  "database": "gateway-state.db",
+  "enabled": true,
+  "experience_upload": true,
+  "profile": {"model": "PC Terminal", "firmware": "host", "adapter_version": "terminal-1"},
+  "adapter": {"kind": "terminal"}
+}

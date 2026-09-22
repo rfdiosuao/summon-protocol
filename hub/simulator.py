@@ -135,7 +135,8 @@ class DemoFleet:
 
 async def main():
     cfg=json.loads(Path(os.environ['SUMMON_CONFIG']).read_text())
-    fleet=DemoFleet('http://127.0.0.1:'+str(cfg.get('port',8840)),cfg['invite'],cfg['gateway_tokens'],cfg.get('demo_credentials'))
+    demo_ids=cfg.get('demo_shell_ids',list(cfg['gateway_tokens']))
+    fleet=DemoFleet('http://127.0.0.1:'+str(cfg.get('port',8840)),cfg['invite'],{sid:cfg['gateway_tokens'][sid] for sid in demo_ids},cfg.get('demo_credentials'))
     await fleet.start()
     try:
         await asyncio.gather(*fleet.tasks)

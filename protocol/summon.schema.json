@@ -18,6 +18,91 @@
     }
   ],
   "$defs": {
+    "GatewayResult": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/ActionCompleted"
+        },
+        {
+          "$ref": "#/$defs/ActionFailed"
+        }
+      ]
+    },
+    "GatewayReceipt": {
+      "type": "object",
+      "properties": {
+        "command_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,80}$"
+        },
+        "stored": {
+          "const": true
+        },
+        "late": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "command_id",
+        "stored",
+        "late"
+      ],
+      "additionalProperties": false
+    },
+    "GatewayConfig": {
+      "type": "object",
+      "properties": {
+        "shell": {
+          "$ref": "#/$defs/Shell"
+        },
+        "mode": {
+          "enum": [
+            "LIVE",
+            "SIMULATED"
+          ]
+        },
+        "profile": {
+          "type": "object",
+          "properties": {
+            "model": {
+              "type": "string"
+            },
+            "firmware": {
+              "type": "string"
+            },
+            "adapter_version": {
+              "type": "string"
+            },
+            "capabilities": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "allowed_actions": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "model",
+            "firmware",
+            "adapter_version",
+            "capabilities",
+            "allowed_actions"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "shell",
+        "mode",
+        "profile"
+      ],
+      "additionalProperties": false
+    },
     "Health": {
       "type": "object",
       "properties": {

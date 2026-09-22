@@ -38,9 +38,9 @@ ID 使用 ASCII 字母、数字、下划线、短横线，1–80 字符。时间
 
 ## 3. HTTP 接口
 
-Origin 校验先于 POST 写接口的凭证校验（注册 /v1/agents 除外），必须匹配配置的精确 HTTPS origin；缺失或错误为 403/FORBIDDEN，message 明确指出 Origin，不能诊断成 token 无效。无效方法/路由先返回 405/404。Hub 的非 API 404 也统一 ErrorResponse；Cloudflare 等上游错误不受 Hub 格式约束，需要按响应体结构判别，不能只看 Content-Type。
+Origin 校验先于 POST 写接口的凭证校验（使用机器凭证的 /v1/agents、/v1/gateway/results 除外），必须匹配配置的精确 HTTPS origin；缺失或错误为 403/FORBIDDEN，message 明确指出 Origin，不能诊断成 token 无效。无效方法/路由先返回 405/404。Hub 的非 API 404 也统一 ErrorResponse；Cloudflare 等上游错误不受 Hub 格式约束，需要按响应体结构判别，不能只看 Content-Type。
 
-响应成功按表中类型；失败统一 ErrorResponse。所有写请求除 operator-session 外携带 request_id。相同 principal + route + request_id + 相同 JSON 语义内容返回原结果，不重复产生效果；内容不同返回 IDEMPOTENCY_CONFLICT。幂等记录至少保存 24 小时。
+响应成功按表中类型；失败统一 ErrorResponse。写请求除 operator-session 和以 command_id 为幂等键的 gateway/results 外携带 request_id。相同 principal + route + request_id + 相同 JSON 语义内容返回原结果，不重复产生效果；内容不同返回 IDEMPOTENCY_CONFLICT。幂等记录至少保存 24 小时。
 
 | 方法 / 路径 | 身份 | 请求 `$defs` | 成功 | 响应 `$defs` |
 |---|---|---|---|---|
@@ -50,6 +50,8 @@ Origin 校验先于 POST 写接口的凭证校验（注册 /v1/agents 除外）�
 | GET /healthz | 公开 | 无 | 200 | Health |
 | GET /v1/catalog?details=1 | 公开 | 无 | 200 | CatalogDetailed |
 | GET /v1/agents/me | agent_token | 无 | 200 | AgentConnection |
+| GET /v1/gateway/config | Gateway token | 无 | 200 | GatewayConfig |
+| POST /v1/gateway/results | Gateway token，无 Origin 要求 | GatewayResult | 200（持久化后） | GatewayReceipt |
 | GET /v1/experiences | operator | 无 | 200 | ExperienceResult |
 | GET /v1/sessions/{session_id}/experiences | 会话主人/当前对应 agent | 无 | 200 | ExperienceResult |
 | GET /v1/state | operator | 无 | 200 | Snapshot |
@@ -138,6 +140,8 @@ Session `state`：CONNECTING → ACTIVE → RELEASING → RELEASED；任一异�
 普通 release 与迁移使用同一停止流程，但不创建新会话。故障/急停之后只能现场复位并重新本地启用；网络重连不自动清除 ESTOP。不要自动断电或回零，无制动关节的停止必须按厂商验证路径执行。
 
 ## 6. 动作与回执
+
+独立 Gateway 可以通过认证 HTTP /v1/gateway/results 提交终态并取得持久化确认（详见 [GATEWAY.md](GATEWAY.md)）。此写接口以 command_id 为幂等键，不另加 request_id；仅限所属壳已有命令。在线终态同样推进命令与经验，UNKNOWN 之后的晚到终态仅留审计记录，不改原终态、不恢复执行权。该端点不接受客户端任意提交经验摘要或声明其他 operator。
 
 首版能力：`display.text`（1–500 字符）、`speech.say`（1–500 字符，可选）、`arm.gesture`（nod/wave/point_left/point_center/point_right；repeat 1–3）。Gateway 在注册快照中声明实际 capabilities 和本地 allowed_actions，实际使用取双方交集。
 

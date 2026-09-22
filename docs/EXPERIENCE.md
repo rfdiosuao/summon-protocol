@@ -4,6 +4,8 @@
 
 ## 已实现
 
+独立现场 Gateway 的架构、上传声明和补传流程见 [GATEWAY.md](GATEWAY.md)。设备执行经验会上传配置的云端 Hub；配置显式声明 experience_upload=true。新增认证结果补传端点 /v1/gateway/results，以 command_id 去重并在持久化后确认。迟到回执单独保存在 gateway_receipts，已判 UNKNOWN 的经验不会被自动改成成功。
+
 新动作进入 Hub 时持久化设备上下文；网关回传完成/失败，或 Hub 判定超时未知时，按 command_id 保存一条经验凭据。重复回执不重复计数。进程恢复会补齐已有上下文的终态凭据，重启前未结束的命令记为 UNKNOWN。
 
 经验保存在 Hub SQLite 中，与最近 100 条命令快照分离。统计覆盖当前账号全部已采集凭据，列表最多返回最近 100 条。旧命令没有模式与版本快照，不自动回填。

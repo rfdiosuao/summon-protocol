@@ -4,6 +4,7 @@ __pycache__/
 *.db
 *.db-wal
 *.db-shm
+*.db.lock
 .env
 config.local.json
 demo-credentials.json

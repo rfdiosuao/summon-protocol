@@ -26,6 +26,10 @@ SUMMON 围绕这段体验设计三个环节：
 
 Agent 保持在原有电脑或服务器上运行，通过 SUMMON Hub 与现场的 Shell Gateway 通信。Gateway 将统一的动作请求转换为设备调用，并返回执行结果。
 
+独立 [SUMMON Gateway](docs/GATEWAY.md) 已提供终端显示与 USB 串口显示桥：在现场电脑运行 `python -m gateway --config <私有配置路径>`。串口设备需要匹配的协议固件，厂商 SDK 可按适配器接口扩展。
+
+**经验上传声明：接入后执行结果会上传配置的云端 Hub，按账号、设备版本和运行模式隔离，用于经验统计与 Agent 检索。** 专用经验表不保存对话、音视频或动作原始参数；普通命令表仍保留协议请求与回执。断网结果本地排队，恢复只补传证据，不重放动作；默认不公开给其他账号。
+
 ```mermaid
 flowchart LR
   A[远端 Agent] <-->|Ghost Adapter| H[SUMMON Hub]
@@ -52,7 +56,7 @@ flowchart LR
 
 开发者可以先阅读 [接入指南](docs/ADAPTER.md)，使用 [场景样例](protocol/examples/README.md) 对齐消息与状态，再接入具体的 Agent 或设备。
 
-要移植到自己的硬件，从 [固件移植手册](docs/FIRMWARE.md) 开始：只需实现 `summon_port_t` 一个结构体。**该模板不提供物理急停，急停必须是你自己的硬件。**
+要移植到自己的硬件，从 [固件移植手册](docs/FIRMWARE.md) 开始，结合目标板 BSP、驱动和协议完成实现与实测。**该模板不提供物理急停，急停必须是你自己的硬件。**
 
 在仓库根目录运行契约校验（推荐 Python 3.10+）：
 

@@ -176,6 +176,8 @@ python scripts/probe_hardware.py --output hardware-probe.json
 
 仓库：https://github.com/rfdiosuao/summon-protocol
 
+现场电脑网关已有独立实现 gateway/。先阅读 https://summon.entermodetwo.com/assets/gateway.md ，优先扩展本地适配器，无需为每种传输重建云协议。接入后的执行结果上传配置的云端 Hub；本地队列只补传结果，不重放动作。必须向接入者声明上传的数据、账号内隔离及普通命令表仍保存请求/回执，按指南显式配置 experience_upload=true。终端与串口显示桥已实现，厂商机械臂/BLE/CAN 驱动不能据此宣称已支持。
+
 读取并记录所用 commit：
 
 - docs/PROTOCOL.md 与 protocol/summon.schema.json：唯一线协议依据。

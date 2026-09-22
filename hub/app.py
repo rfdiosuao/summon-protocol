@@ -78,6 +78,7 @@ class Hub:
         self.agents = self.store.all('agents')
         self.sessions = self.store.all('sessions')
         self.commands = self.store.all('commands')
+        self.gateway_receipts = self.store.all('gateway_receipts')
         self.experiences = ExperienceLedger(self.store)
         self.memories = self.store.all('memories')
         self.idem = self.store.all('idem')
@@ -95,6 +96,13 @@ class Hub:
             self.shells[sid] = {'shell_id':sid, 'label':cfg.get('shell_labels',{}).get(sid,sid), 'state':'OFFLINE',
                 'capabilities':['display.text'], 'allowed_actions':['display.text'], 'enabled':False,
                 'current_session_id':None, 'last_seen_at':None, 'identity_gates':['web','button'], 'stop_kind':'local_disable', 'gate':'whitelist'}
+            policy=cfg.get('shell_policies',{}).get(sid,{})
+            if not isinstance(policy,dict) or set(policy)-{'capabilities','allowed_actions','identity_gates','stop_kind','gate'}:
+                raise ValueError('Invalid shell policy: '+sid)
+            self.shells[sid].update(policy)
+            self.validate('Shell',self.shells[sid])
+            if not set(self.shells[sid]['allowed_actions']).issubset(self.shells[sid]['capabilities']):
+                raise ValueError('allowed_actions must be implemented capabilities: '+sid)
         for agent in self.agents.values():
             agent['public']['status'] = 'OFFLINE'
         for sid, s in self.sessions.items():
@@ -289,6 +297,46 @@ class Hub:
             body = await request.json()
         else:
             body = {}
+        if path in ('/v1/gateway/config','/v1/gateway/results'):
+            role,shell_id=self.identity(self.bearer(request))
+            if role!='gateway':
+                raise Rejected('FORBIDDEN',403)
+            if path.endswith('/config'):
+                return web.json_response({'shell':self.shells[shell_id],'mode':self.cfg['mode'],
+                    'profile':self.experiences.profile(self.shells[shell_id],self.cfg)})
+            self.validate('GatewayResult',body)
+            cid=body['command_id']
+            async with self.lock:
+                record=self.commands.get(cid)
+                if not record or record['request']['session_id']!=body['session_id']:
+                    raise Rejected('NOT_FOUND',404)
+                session=self.sessions[body['session_id']]
+                if session['shell_id']!=shell_id:
+                    raise Rejected('FORBIDDEN',403)
+                prior=self.gateway_receipts.get(cid)
+                if prior:
+                    if prior['outcome']!=body:
+                        raise Rejected('IDEMPOTENCY_CONFLICT')
+                    return web.json_response(prior['ack'])
+                old=record['outcome']
+                late=old['status']=='UNKNOWN'
+                if old['status'] in ('COMPLETED','FAILED') and old!=body:
+                    raise Rejected('IDEMPOTENCY_CONFLICT')
+                ack={'command_id':cid,'stored':True,'late':late}
+                receipt={'shell_id':shell_id,'received_at':utc(),'outcome':body,'ack':ack}
+                changed=old['status'] in ('ACCEPTED','EXECUTING')
+                if changed:
+                    record=dict(record,outcome=body)
+                self.store.save(commands={cid:record},gateway_receipts={cid:receipt})
+                self.commands[cid]=record
+                self.gateway_receipts[cid]=receipt
+                self.experiences.finish(record,'gateway')
+                if changed:
+                    self.deadlines.pop('cmd:'+cid,None)
+                    kind='action.completed' if body['status']=='COMPLETED' else 'action.failed'
+                    self.emit(kind,body,session['operator_id'])
+                    await self.send('agent',session['agent_id'],kind,body)
+                return web.json_response(ack)
         if path=='/v1/operator-session':
             self.rate('login:'+str(request.remote))
             self.validate('OperatorLogin',body)
@@ -452,6 +500,7 @@ class Hub:
             self.validate('Message',message)
             if message['type']!='hello' or message['payload']!={'role':role,'id':identifier}:
                 raise Rejected('FORBIDDEN',403)
+            c['last']=time.monotonic()
             await self.send(role,identifier,'welcome',{'connection_id':c['id'],'heartbeat_interval_ms':1000})
             c['welcomed_at']=utc()
             if role=='agent':
@@ -650,6 +699,8 @@ class Hub:
         while True:
             await asyncio.sleep(.5)
             for (role,identifier),c in list(self.connections.items()):
+                if not c.get('welcomed_at'):
+                    continue  # ws() owns the bounded hello timeout; welcome must be first.
                 if time.monotonic()-c['last']>3:
                     await c['ws'].close(code=1001)
                 else:
@@ -692,7 +743,7 @@ def create_app(path, cfg):
     @web.middleware
     async def guard(request,handler):
         try:
-            if request.match_info.http_exception is None and request.method=='POST' and request.path!='/v1/agents' and request.headers.get('Origin')!=cfg['origin']:
+            if request.match_info.http_exception is None and request.method=='POST' and request.path not in ('/v1/agents','/v1/gateway/results') and request.headers.get('Origin')!=cfg['origin']:
                 raise Rejected('FORBIDDEN',403,'Missing or mismatched Origin; write requests require the exact configured site origin.')
             response=await handler(request)
         except Rejected as exc:
@@ -719,9 +770,9 @@ def create_app(path, cfg):
 
     app=web.Application(middlewares=[guard],client_max_size=16384)
     app['hub']=hub
-    for route in ['/v1/operator-session','/v1/agents','/v1/sessions','/v1/sessions/{sid}/inputs','/v1/sessions/{sid}/feedback','/v1/sessions/{sid}/release','/v1/sessions/{sid}/handoff']:
+    for route in ['/v1/operator-session','/v1/agents','/v1/gateway/results','/v1/sessions','/v1/sessions/{sid}/inputs','/v1/sessions/{sid}/feedback','/v1/sessions/{sid}/release','/v1/sessions/{sid}/handoff']:
         app.router.add_post(route,hub.http)
-    for route in ['/v1/catalog','/v1/agents/me','/v1/state','/v1/events','/v1/experiences','/v1/sessions/{sid}/experiences','/v1/sessions/{sid}/memory','/v1/commands/{cid}']:
+    for route in ['/v1/catalog','/v1/agents/me','/v1/gateway/config','/v1/state','/v1/events','/v1/experiences','/v1/sessions/{sid}/experiences','/v1/sessions/{sid}/memory','/v1/commands/{cid}']:
         app.router.add_get(route,hub.http)
     app.router.add_get('/v1/connect',hub.ws)
     async def health(request):

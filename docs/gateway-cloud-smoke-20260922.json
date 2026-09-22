@@ -1,0 +1,25 @@
+{
+  "at": "2026-09-22T11:24:50.033Z",
+  "mode": "SIMULATED",
+  "adapter": "terminal",
+  "physical_hardware_tested": false,
+  "agent": "remote rule-based demo agent",
+  "gateway": "local computer",
+  "cloud_evidence_saved": true,
+  "upload_acknowledged": true,
+  "command_id": "command_fdc11949e510242c9d77f3dd",
+  "session_id": "session_203e57a98917be7d4382298e",
+  "profile": {
+    "model": "PC Terminal",
+    "firmware": "host",
+    "adapter_version": "terminal-1",
+    "capabilities": [
+      "display.text"
+    ],
+    "allowed_actions": [
+      "display.text"
+    ]
+  },
+  "scenario_total_ms": 12422,
+  "note": "Scenario includes HTTPS polling and setup; not action round-trip latency."
+}

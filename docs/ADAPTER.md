@@ -15,6 +15,8 @@ Hub 与模拟联调服务已实现；真实 Agent 与设备仍需各自实现适
 
 ## Shell Gateway（小胖）
 
+独立实现现位于 gateway/，启动、配置、适配器接口与云端经验上传声明见 [GATEWAY.md](GATEWAY.md)。第一版可运行终端壳和串口显示桥，机械臂官方 SDK 仍需按型号开发并实测。
+
 现场电脑持有 Gateway token，绑定允许的 shell_id。Gateway 聚合本地 Passport 和可选机械臂：板侧是低资源设备客户端，厂商 SDK 留在电脑。
 
 1. 本地配置壳身份、capabilities、允许动作、速度/幅度约束、本地启用和停止路径。
