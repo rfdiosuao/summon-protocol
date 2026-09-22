@@ -64,8 +64,12 @@ class DesktopAdapter(TerminalAdapter):
         if request['action']['capability']=='display.text':return await super().execute(request)
         if request['action']['capability']=='command.exec':
             if not self.runner:raise ValueError('Command execution is disabled locally')
-            result=await self.runner.execute(request['action']['args']['command'])
-            self.output.write('命令退出码: '+str(result['exit_code'])+'\n'+result['stdout']+result['stderr']+'\n');self.output.flush()
+            from gateway.commands import CommandFailure
+            try:result=await self.runner.execute(request['action']['args']['command'])
+            except CommandFailure as exc:
+                self.show_execution(exc.result)
+                raise
+            self.show_execution(result)
             return {'evidence':'device_ack','result':'PowerShell finished with exit code 0.','execution':result}
         url=request['action']['args']['url']
         if request['action']['capability']!='browser.open' or not self.safe_url(url) or url not in self.allowed_urls:
@@ -74,6 +78,10 @@ class DesktopAdapter(TerminalAdapter):
         # an executor that could launch a browser after the lease is cancelled.
         if not self.opener(url,new=2):raise RuntimeError('Default browser launch was rejected')
         return {'evidence':'device_ack','result':'Operating system accepted the browser-open request; page rendering requires separate verification.'}
+
+    def show_execution(self,result):
+        text='命令退出码: '+str(result['exit_code'])+'\n'+result['stdout']+result['stderr']+'\n'
+        self.output.write(''.join(c for c in text if c in '\n\t' or c.isprintable()));self.output.flush()
 
     async def stop(self,session):
         if self.runner:await self.runner.stop()

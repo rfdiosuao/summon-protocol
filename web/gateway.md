@@ -4,6 +4,8 @@ Gateway 是独立运行的 Python 程序，源码位于仓库 gateway/。一份�
 
 Windows `--tui` 已支持 [铭牌与设备授权](https://github.com/rfdiosuao/summon-protocol/blob/main/docs/NAMEPLATES.md)：A 配对、B 打开授权网页、L 查询铭牌目录、M 输入铭牌、C 确认连接、T 输入任务、R 释放、Q 退出；输入模式按 Esc 返回。授权只存内存，退出或 Hub 重启须重新配对。
 
+桌面适配器 kind=desktop 增加 [白名单浏览器打开](https://github.com/rfdiosuao/summon-protocol/blob/main/docs/BROWSER-TEST.md) 和需本地启用、用户单独授权的 [PowerShell 命令执行](https://github.com/rfdiosuao/summon-protocol/blob/main/docs/COMMANDS.md)。普通显示/串口适配器不自动获得命令能力。
+
 ## 架构
 
 ```mermaid
@@ -20,18 +22,18 @@ flowchart LR
 
 已经实现：终端 display.text、串口显示桥、租约/序号/截止时间校验、执行前持久化去重、断线停止、恢复不重放、结果补传和云端保存确认。终端完成表示本地输出写入并 flush；串口完成必须有匹配 command_id 的 device.result。两者都不是机械臂抓取成功证明。
 
-厂商机械臂 SDK、通用蓝牙驱动、NFC 读卡和固件烧录不在本次现成适配器范围内。新增驱动实现 open/healthy/execute/stop/close，并声明 capabilities 与 stop_kind；只在本地安装代码，远端任务不能传模块名、shell 命令或原始电机帧。运动适配器另需经过物理停止验收，不能套用显示适配器的 stop。
+厂商机械臂 SDK、通用蓝牙驱动、NFC 读卡和固件烧录不在本次现成适配器范围内。新增驱动实现 open/healthy/execute/stop/close，并声明 capabilities 与 stop_kind；驱动代码只在本地安装，普通硬件动作不接受模块名、shell 命令或原始电机帧。执行 PowerShell 必须走单独授权的 command.exec。运动适配器另需经过物理停止验收，不能套用显示适配器的 stop。
 
 ## 经验上传声明
 
 **接入此网络后，设备执行结果会上传至配置的 SUMMON 云端 Hub，用于形成设备经验、统计与后续 Agent 检索。** 启动日志会显示这项声明，配置必须显式设置 experience_upload=true；不接受上传时不启动网络接入。
 
 - 上传关联的 session_id/command_id、完成/失败/未知状态、完成证据类型和有界结果说明。设备型号、固件/适配器版本、模式与账号归属由云端授权配置和会话补齐；设备不能自报另一个用户。
-- 专用经验表只存执行元数据、回执类型、耗时、设备版本和统计，不存原始动作参数、对话、音视频。普通命令/补传回执表仍按协议保存请求和结果；不能把“经验表不存正文”解释成“整个服务器不保存命令正文”。当前两个适配器返回固定完成说明，不回传终端原文或串口自由文本。
+- 专用经验表只存执行元数据、回执类型、耗时、设备版本和统计，不存原始动作参数、对话、音视频。普通命令/补传回执表仍按协议保存请求和结果；不能把“经验表不存正文”解释成“整个服务器不保存命令正文”。终端显示与串口显示返回固定完成说明；command.exec 另回传 stdout/stderr 各最多 500 字符及退出码，并存入命令回执与本地补传库。
 - 当前默认是当前 operator 账号内共享；其他账号不可读取，不自动公开到全网或上传 EvoMap。SIMULATED 与 LIVE 分开，版本指纹改变后不混用统计。Gateway token 不能读取用户的经验或记忆。
 - 网络中断：本地保留待上传结果，联网后重试同 command_id，收到云端 stored=true 才标记已上传。动作不会因重连而再次执行。
 - 云端已判 UNKNOWN 时，晚到的设备结果保存在 gateway_receipts 审计记录，原 UNKNOWN 和经验统计不自动改成成功，也不会恢复旧会话。late=true 明确区分晚到观察；当前控制台不展示此附加审计记录。
-- 本地库只存动作散列、会话/序号、终态与补传状态，不存 Gateway token、输入文本或原始参数。记录目前无自动过期清理，比赛规模使用；扩展部署需制定保留/删除策略。经验是执行证据，不代表模型已训练出控制技能。
+- 本地库存动作散列、会话/序号、终态与补传状态；command.exec 的终态含有界命令输出。不存 Gateway token 或原始命令参数。记录目前无自动过期清理，比赛规模使用；扩展部署需制定保留/删除策略。经验是执行证据，不代表模型已训练出控制技能。
 
 ## 启动终端壳
 

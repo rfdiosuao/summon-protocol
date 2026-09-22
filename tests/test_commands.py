@@ -38,3 +38,11 @@ class CommandTests(unittest.IsolatedAsyncioTestCase):
         finally:
             if old is None:os.environ.pop('SUMMON_TEST_SECRET',None)
             else:os.environ['SUMMON_TEST_SECRET']=old
+
+    async def test_background_child_is_terminated_when_command_returns(self):
+        import subprocess
+        runner=self.runner()
+        result=await runner.execute("$p=Start-Process powershell.exe -WindowStyle Hidden -ArgumentList '-NoProfile','-Command','Start-Sleep -Seconds 30' -PassThru; Write-Output $p.Id")
+        pid=int(result['stdout'].strip())
+        check=subprocess.run([runner.executable,'-NoProfile','-NonInteractive','-Command',f'if (Get-Process -Id {pid} -ErrorAction SilentlyContinue) {{ exit 1 }}'],capture_output=True,timeout=5)
+        self.assertEqual(check.returncode,0,'Child process outlived its owning command')

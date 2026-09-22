@@ -11,3 +11,7 @@ ActionCompleted/ActionFailed 可带 execution：exit_code、stdout、stderr、ti
 PowerShell 在读取命令前加入 Windows Job Object；取消、超时和任务结束都关闭 Job，停止该任务的子进程，不留下后台命令。不会终止不属于此任务的进程。子进程不继承以 SUMMON_ 开头的环境变量。桌面浏览器打开动作独立于命令运行，不通过 PowerShell 绕过 URL 白名单。
 
 长时间安装、交互应用、后台守护任务和其他操作系统命令执行不属于首版。Agent 和 Hub 须使用新版 Schema，不能向旧客户端发送 command.exec。
+
+2026-09-22 已通过 Windows 本地真实执行测试和 [云端执行记录](command-cloud-smoke-20260922.json)：远端测试 Agent 经 Hub 请求本机执行 Get-Date 和输出 SUMMON_CLOUD_COMMAND_OK，退出码 0，stdout 回传，经验入库且持久化确认完成。
+
+现有测试 Agent 铭牌为 `SMN-VZJS-9CV3`。它是固定规则联调工具：授权 command.exec 后，在 TUI 按 T 输入 `powershell:Get-Date -Format o` 可复测；普通文字触发 browser.open，仍要求该能力已授权。不能将其描述为具备自主规划能力的大模型 Agent。

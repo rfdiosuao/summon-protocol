@@ -16,6 +16,13 @@ async def run(config_path,credentials_path):
     url='https://summon.entermodetwo.com/#summon-browser-cloud-test'
     path=Path(credentials_path)
     async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10),headers={'User-Agent':'SUMMON-Browser-Test-Agent/0.1'}) as http:
+        for attempt in range(30):
+            try:
+                async with http.get(base+'/healthz') as response:
+                    if response.status==200:break
+            except (aiohttp.ClientError,asyncio.TimeoutError):pass
+            await asyncio.sleep(.5)
+        else:raise RuntimeError('Hub did not become ready')
         if path.exists():registration=json.loads(path.read_text())
         else:
             async with http.post(base+'/v1/agents',headers={'Authorization':'Bearer '+cfg['invite']},json={

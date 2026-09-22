@@ -1,0 +1,41 @@
+{
+  "at": "2026-09-22T13:28:33.118Z",
+  "mode": "SIMULATED",
+  "adapter": "desktop",
+  "physical_hardware_tested": false,
+  "agent": "remote rule-based demo agent",
+  "gateway": "local computer",
+  "cloud_evidence_saved": true,
+  "upload_acknowledged": true,
+  "command_id": "browser_1aac4978c272af7cab7d927e",
+  "session_id": "session_5b037d1de2827c2202d9975d",
+  "profile": {
+    "model": "PC Desktop",
+    "firmware": "host",
+    "adapter_version": "desktop-1",
+    "capabilities": [
+      "browser.open",
+      "command.exec",
+      "display.text"
+    ],
+    "allowed_actions": [
+      "browser.open",
+      "command.exec",
+      "display.text"
+    ]
+  },
+  "scenario_total_ms": 22563,
+  "note": "Scenario includes HTTPS polling and setup; not action round-trip latency.",
+  "capability": "command.exec",
+  "execution": {
+    "stdout": "2026-09-22T21:28:29.9873662+08:00\r\nSUMMON_CLOUD_COMMAND_OK\r\n",
+    "stderr": "",
+    "exit_code": 0,
+    "timed_out": false,
+    "truncated": false,
+    "duration_ms": 765
+  },
+  "nameplate": "SMN-VZJS-9CV3",
+  "device_pairing_verified": true,
+  "release_and_revoke_verified": true
+}

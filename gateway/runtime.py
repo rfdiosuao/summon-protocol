@@ -211,7 +211,9 @@ class Gateway:
                     await self.send('action.completed' if old['outcome']['status']=='COMPLETED' else 'action.failed',old['outcome'])
                 return
             now=time.time()
-            if abs(stamp(message['sent_at'])-now)>.5 or not now<stamp(p['expires_at'])<=min(stamp(s['expires_at']),stamp(message['sent_at'])+5.1) or time.monotonic()>=self.deadline:
+            # Past sent_at includes transport delay, not just clock skew. Keep
+            # the absolute command expiry and lease bound; reject future clocks.
+            if stamp(message['sent_at'])-now>.5 or not now<stamp(p['expires_at'])<=min(stamp(s['expires_at']),stamp(message['sent_at'])+5.1) or time.monotonic()>=self.deadline:
                 raise ValueError('Expired action or clock skew')
             if p['seq']!=self.seq+1 or (self.work and not self.work.done()) or p['action']['capability'] not in self.permitted:
                 raise ValueError('Command order, busy state or capability rejected')

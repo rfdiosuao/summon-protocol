@@ -41,9 +41,9 @@ async def smoke(config,access_code,nameplates=False,open_browser=False,run_comma
                 if task.done():task.result()
                 catalog=await call('GET','/v1/catalog')
                 shell=next(s for s in catalog['shells'] if s['shell_id']==config['shell_id'])
-                if shell['state']=='IDLE':break
+                if shell['state']=='IDLE' and any(a['status']=='ONLINE' and capability in a['capabilities'] for a in catalog['agents']):break
                 await asyncio.sleep(.3)
-            else:raise RuntimeError('Terminal shell did not become IDLE')
+            else:raise RuntimeError('Device or compatible Agent did not become ready')
             agent=next(a for a in catalog['agents'] if a['status']=='ONLINE' and capability in a['capabilities'])
             if nameplates:
                 await device_client.refresh()

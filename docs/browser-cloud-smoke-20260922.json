@@ -1,0 +1,43 @@
+{
+  "at": "2026-09-22T13:27:56.163Z",
+  "mode": "SIMULATED",
+  "adapter": "desktop",
+  "physical_hardware_tested": false,
+  "agent": "remote rule-based demo agent",
+  "gateway": "local computer",
+  "cloud_evidence_saved": true,
+  "upload_acknowledged": true,
+  "command_id": "browser_74bf9b617209b9ee15846c13",
+  "session_id": "session_8a7f2d0d1a7c819c11f0b4d8",
+  "profile": {
+    "model": "PC Desktop",
+    "firmware": "host",
+    "adapter_version": "desktop-1",
+    "capabilities": [
+      "browser.open",
+      "command.exec",
+      "display.text"
+    ],
+    "allowed_actions": [
+      "browser.open",
+      "command.exec",
+      "display.text"
+    ]
+  },
+  "scenario_total_ms": 16313,
+  "note": "Scenario includes HTTPS polling and setup; not action round-trip latency.",
+  "capability": "browser.open",
+  "url": "https://summon.entermodetwo.com/#summon-browser-cloud-test",
+  "browser_launch_accepted": true,
+  "page_render_verified": false,
+  "nameplate": "SMN-VZJS-9CV3",
+  "device_pairing_verified": true,
+  "release_and_revoke_verified": true,
+  "browser_window_observation": {
+    "method": "Windows UI Automation (read-only)",
+    "browser": "Microsoft Edge",
+    "address_bar": "https://summon.entermodetwo.com/#summon-browser-cloud-test",
+    "page_title_contains": "SUMMON · 唤名",
+    "address_bar_verified": true
+  }
+}

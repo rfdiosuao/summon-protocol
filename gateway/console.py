@@ -24,7 +24,10 @@ def setup(config,log_file=None):
     print('  设备：'+config['shell_id']+'   模式：'+config['mode'])
     print('  Q 退出并停止设备   B 打开云端控制台   Ctrl+C 退出')
     print('  经验声明：执行结果上传云端，默认在当前账号内共享。')
-    print('  日志不记录凭证或动作正文；终端任务内容只显示在窗口。')
+    if config.get('adapter',{}).get('enable_commands'):
+        print('  命令及有界输出会通过执行回执上传云端；日志文件仅记录生命周期。')
+    else:
+        print('  日志不记录凭证或动作正文；终端任务内容只显示在窗口。')
     if log_file:print('  日志：'+str(log_file))
     print('='*64,flush=True)
     return logger
