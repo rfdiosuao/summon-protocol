@@ -79,6 +79,7 @@ python tools/validate_contract.py
 | [硬件与部署](docs/HARDWARE.md) | 设备基线、网关与网络连接 |
 | [星图设计](docs/NEBULA.md) | 界面交互与状态呈现 |
 | [固件移植](docs/FIRMWARE.md) | `summon_port_t` 逐字段说明、六条板侧规则的框架强制点 |
+| [固件经验沉淀](docs/FIRMWARE-EXPERIENCE.md) | 手机配网、Agent 铭牌、双击确认返回及验证状态 |
 | [项目方案](docs/方案书.md) | 应用场景与设计方向 |
 | [执行计划](docs/PLAN.md) | 三人分工、倒排与范围边界 |
 

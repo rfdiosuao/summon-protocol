@@ -2,6 +2,8 @@
 
 2026-09-21 · v0.1.0 · **骨架阶段，未在真机验证。**
 
+新增固件必须遵循 [手机配网、铭牌与返回要求](../skills/summon-device-onboarding/references/firmware-ux.md)。规则与验证状态见 [固件开发经验沉淀](FIRMWARE-EXPERIENCE.md)；这些要求尚不代表骨架已有对应实现。
+
 本手册说明如何把 SUMMON 协议移植到自己的硬件。落地点是
 [`firmware/summon-device/README.md`](../firmware/summon-device/README.md)，
 其中 `main/port_summon.c` 是硬件适配入口；还需按官方 BSP 核对构建、网络、凭证、时钟与板侧驱动。它不是改一个文件即可用于任意硬件的成品。
