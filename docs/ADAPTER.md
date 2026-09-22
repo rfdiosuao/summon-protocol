@@ -1,6 +1,6 @@
 # Agent 与设备接入指南
 
-本页描述待实现服务的适配顺序，不是可用在线 API。所有字段见 [公共契约](PROTOCOL.md)，可直接验证的数据见 [样例](../protocol/examples/README.md)。
+Hub 与模拟联调服务已实现；真实 Agent 与设备仍需各自实现适配器。首页提供 [Agent 接入说明](../web/agent.md)，注册需部署者提供 invite。所有字段见 [公共契约](PROTOCOL.md)，可直接验证的数据见 [样例](../protocol/examples/README.md)。
 
 ## Ghost Adapter（队长）
 

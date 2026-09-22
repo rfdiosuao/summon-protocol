@@ -1,5 +1,6 @@
 'use strict';
 const $=id=>document.getElementById(id);
+$('copyAgentPrompt').onclick=async()=>{try{await navigator.clipboard.writeText($('agentPrompt').textContent);$('copyAgentStatus').textContent='已复制，把这段话粘贴给你的 Agent 即可。'}catch{const selection=window.getSelection(),range=document.createRange();range.selectNodeContents($('agentPrompt'));selection.removeAllRanges();selection.addRange(range);$('copyAgentStatus').textContent='浏览器未允许复制，已选中指令，请手动复制。'}};
 let state=null,session=null,stream=null,connected=false,busy=false,memoryVersion=0,taskBusy=false;
 const labels={OFFLINE:'离线',IDLE:'就绪',CONNECTING:'正在接入',ACTIVE:'已接入',RELEASING:'正在释放',RELEASED:'已释放',FAILED:'失败',FAULT:'待核对',ESTOP:'已急停',ONLINE:'在线',BUSY:'使用中'};
 const errors={UNAUTHORIZED:'访问码无效或登录已过期',FORBIDDEN:'没有操作权限，请检查入口或访问码',AGENT_BUSY:'Agent 正在使用另一台设备',SHELL_BUSY:'设备正在使用中',SESSION_NOT_ACTIVE:'会话已结束，请重新连接',MEMORY_CONFLICT:'偏好版本已变化，请刷新后再保存',TASK_BUSY:'上一个任务还未结束',SHELL_OFFLINE:'设备离线',AGENT_OFFLINE:'Agent 离线',HANDOFF_BLOCKED:'旧设备尚未确认停止，交接已阻止',RATE_LIMITED:'请求过于频繁，请稍后再试'};
