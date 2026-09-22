@@ -49,16 +49,22 @@ class DemoFleet:
         delay=1
         while True:
             timing={}
+            retry_after=0
             try:
                 await self.connection(role,identifier,token,timing)
             except aiohttp.WSServerHandshakeError as exc:
                 if exc.status in (401,403):
                     raise RuntimeError('Credentials rejected; reconnect stopped') from exc
+                if exc.status==429:
+                    try:
+                        retry_after=max(0,float((exc.headers or {}).get('Retry-After','0')))
+                    except ValueError:
+                        pass
             except (aiohttp.ClientError,asyncio.TimeoutError,OSError):
                 pass
             if 'welcome' in timing and time.monotonic()-timing['welcome']>=10:
                 delay=1
-            await asyncio.sleep(random.uniform(delay,min(30,delay*1.5)))
+            await asyncio.sleep(max(retry_after,random.uniform(delay,min(30,delay*1.5))))
             delay=min(30,delay*2)
 
     async def connection(self,role,identifier,token,timing):

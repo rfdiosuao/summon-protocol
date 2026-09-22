@@ -13,6 +13,10 @@
 
 当前 Hub 对外是 `/v1/connect`，使用 agent 或 gateway 身份。板侧 `/device` 是现场 Gateway 应实现的端点，不能把公开 Hub 的 `/device` 当成现成服务。模拟 DemoFleet 不是通用硬件 Gateway；USB/BLE/厂商 SDK 驱动需要针对设备实现。
 
+先从 `/healthz.mode` 读取模式；用 `/v1/catalog?details=1` 获取 CatalogDetailed 策略快照。HTTP 响应按具名 `$defs` 校验，不使用根 Schema 校验注册请求。客户端使用自己的真实产品 User-Agent（例如 `SUMMON-Adapter/0.1`）；默认 Python-urllib 标识曾触发 Cloudflare 1010。先检查状态与 Content-Type，区分边缘拦截和 Hub ErrorResponse，不把非 JSON 错误直接交给 JSON 解析器。
+
+复用 HTTPS 连接池和每个身份的 WSS 长连接；重连从 1 秒指数退避到 30 秒并抖动，成功 welcome 后稳定 10 秒才重置，401/403 停止自动重试。撤销后不再发送新的动作、记忆更新或 input.finished，迟到输入本地丢弃。Agent 可通过 `/v1/agents/me` 核验当前握手，通过命令查询接口核对自己的旧命令；这些都不恢复旧租约。详细时序以 PROTOCOL 为准。
+
 Gateway 使用自己的 shell token 与 shell_id，经 hello/welcome、心跳、shell.report、offer/ready/activate 获得会话后才执行。不要用 Agent 的注册接口登记设备。缺凭证时先做本地验证，提供部署者需要配置的 shell/设备绑定清单。
 
 设备桥使用 device.hello、device.heartbeat、device.command、device.result、device.stop、device.stopped。字段、错误与枚举以 Schema 为准。每秒心跳，3 秒未收到网关心跳进入停止流程；大数据另走有界媒体通道，不能将音视频无限塞进 16 KiB 控制帧。

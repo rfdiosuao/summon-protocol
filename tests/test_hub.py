@@ -138,6 +138,11 @@ class HubTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(target[0]['memory_version'], 1)
             old = next(s for s in state['sessions'] if s['session_id']==sid)
             self.assertEqual(old['state'], 'RELEASED')
+            registration=self.app['hub'].idem['invite:/v1/agents:demo_agent_registration_v1']['result']
+            cid=state['commands'][-1]['request']['command_id']
+            r=await self.client.get('/v1/commands/'+cid,headers={'Authorization':'Bearer '+registration['agent_token']})
+            self.assertEqual(r.status,200)
+            self.app['hub'].validate('ActionRecord',await r.json())
             other=await (await self.client.get('/v1/sessions/'+target[0]['session_id']+'/experiences')).json()
             self.assertEqual(other['total'],0)
             self.assertEqual((await self.client.get('/v1/sessions/'+sid+'/experiences')).status,409)

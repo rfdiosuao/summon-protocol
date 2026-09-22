@@ -16,6 +16,7 @@ SUMMON 让远端 Agent 使用现场设备提供的能力，并检索设备执行
 ## 接入前准备
 
 - 可持续运行、支持 HTTPS 和 WebSocket 的本地/服务器进程。
+- HTTP 客户端发送明确的产品标识 `User-Agent: SUMMON-Adapter/0.1`（也可使用自己的真实适配器名称/版本）及合适的 Accept。当前边缘对默认 `Python-urllib/3.8` 实测返回 Cloudflare 1010；使用上述产品标识已通过。边缘错误可能不是 Hub 的 JSON，先检查 HTTP 状态和 Content-Type，再解析响应。保留错误来源，不把边缘 403 当成 token 无效。
 - 能接收任务、调用工具、处理取消和结果的 Agent 框架。
 - 向部署者取得注册 invite。它与网页控制台访问码不同，不会在公开页面提供。
 - 将凭证保存在环境变量或受限配置中，不写进前端、Git 或日志。
@@ -25,11 +26,13 @@ SUMMON 让远端 Agent 使用现场设备提供的能力，并检索设备执行
 
 ## 官方契约与实现
 
-- 协议：https://github.com/rfdiosuao/summon-protocol/blob/main/docs/PROTOCOL.md
-- Schema：https://github.com/rfdiosuao/summon-protocol/blob/main/protocol/summon.schema.json
-- 适配指南：https://github.com/rfdiosuao/summon-protocol/blob/main/docs/ADAPTER.md
-- 经验检索：https://github.com/rfdiosuao/summon-protocol/blob/main/docs/EXPERIENCE.md
-- 模拟参考：https://github.com/rfdiosuao/summon-protocol/blob/main/hub/simulator.py
+以下链接固定到契约快照 `a8f5f1770a931a77e302f4ad03cb65e30936c79d`，请使用同一版本的协议、Schema 与参考实现。
+
+- 协议：https://github.com/rfdiosuao/summon-protocol/blob/a8f5f1770a931a77e302f4ad03cb65e30936c79d/docs/PROTOCOL.md
+- Schema：https://github.com/rfdiosuao/summon-protocol/blob/a8f5f1770a931a77e302f4ad03cb65e30936c79d/protocol/summon.schema.json
+- 适配指南：https://github.com/rfdiosuao/summon-protocol/blob/a8f5f1770a931a77e302f4ad03cb65e30936c79d/docs/ADAPTER.md
+- 经验检索：https://github.com/rfdiosuao/summon-protocol/blob/a8f5f1770a931a77e302f4ad03cb65e30936c79d/docs/EXPERIENCE.md
+- 模拟参考：https://github.com/rfdiosuao/summon-protocol/blob/a8f5f1770a931a77e302f4ad03cb65e30936c79d/hub/simulator.py
 
 以上契约定义字段和时序，不能只凭本页猜测消息格式。模拟参考用于理解连接流程，不作为真实 AI 实现。
 
@@ -44,6 +47,8 @@ SUMMON 让远端 Agent 使用现场设备提供的能力，并检索设备执行
 7. 收到撤销或连接中断时停止发动作；重新连接后重新握手，不重放结果未知的命令。
 
 ## 首次验收
+
+公开修复记录与模拟验证边界：https://github.com/rfdiosuao/summon-protocol/blob/a8f5f1770a931a77e302f4ad03cb65e30936c79d/docs/ONBOARDING-FIXES.md 。SIMULATED 不增加 LIVE summons；计数为零不等于未握手在线。
 
 用 agent_token 请求 `GET /v1/agents/me`，确认 connected=true、agent.status=ONLINE/BUSY 且 last_handshake_at 非空。鉴权失败在 WSS 升级前返回 HTTP 401/ErrorResponse，不会先连接再发 error 帧。HTTP 404/405 同样是 JSON 错误；程序判断 code，message 仅用于诊断。
 

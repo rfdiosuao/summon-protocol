@@ -34,3 +34,7 @@ A-01～A-07 为接入者注明“已修”的适配器自身问题，不重新�
 复测命令：`python tools/probe_public_network.py --samples 20 --output <新报告路径>`。此探针不带凭证、不驱动设备，不等于 WSS 热连接或动作延迟。当前样本不能证明接入方此前的 TLS 故障已根治，也不能代表比赛现场网络。原报告中 cfOrigin 时长不必然等于纯应用处理时间，不能凭一个头部确定全部根因。
 
 公开闭环验证使用 tests/test_hub.py 的 test_complete_simulated_handoff：注册→握手→激活→输入→模拟完成→经验入库/检索→交接→权限隔离。它是自动化模拟证据，不是外部 Agent 或真机认证。
+
+部署后复验：11 项单元/集成测试通过；契约 10 个场景、94 正例、8 负例通过；公网 curl 检查文档 MIME、API 错误及新增接口 Schema 通过。Chrome 实测登录、召唤、模拟输出、经验显示、保存偏好、换壳、释放通过，手机无横向溢出。
+
+额外发现并处理：相同 Python urllib 客户端携带默认 `Python-urllib/3.8` 时，Cloudflare 返回 403/1010；显式标注真实产品 `SUMMON-Adapter/0.1` 并发送 Accept 后返回 200。agent.md 与设备 Skill 已补客户端要求及非 JSON 边缘错误处理。本次未调整 Cloudflare 全站安全规则；边缘策略可能变化，仍需现场验证。
