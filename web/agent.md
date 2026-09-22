@@ -26,13 +26,13 @@ SUMMON 让远端 Agent 使用现场设备提供的能力，并检索设备执行
 
 ## 官方契约与实现
 
-以下链接固定到契约快照 `a8f5f1770a931a77e302f4ad03cb65e30936c79d`，请使用同一版本的协议、Schema 与参考实现。
+以下链接固定到契约快照 `4a38e6b28ca314e26f19d1e644cca33370add74b`，请使用同一版本的协议、Schema 与参考实现。
 
-- 协议：https://github.com/rfdiosuao/summon-protocol/blob/a8f5f1770a931a77e302f4ad03cb65e30936c79d/docs/PROTOCOL.md
-- Schema：https://github.com/rfdiosuao/summon-protocol/blob/a8f5f1770a931a77e302f4ad03cb65e30936c79d/protocol/summon.schema.json
-- 适配指南：https://github.com/rfdiosuao/summon-protocol/blob/a8f5f1770a931a77e302f4ad03cb65e30936c79d/docs/ADAPTER.md
-- 经验检索：https://github.com/rfdiosuao/summon-protocol/blob/a8f5f1770a931a77e302f4ad03cb65e30936c79d/docs/EXPERIENCE.md
-- 模拟参考：https://github.com/rfdiosuao/summon-protocol/blob/a8f5f1770a931a77e302f4ad03cb65e30936c79d/hub/simulator.py
+- 协议：https://github.com/rfdiosuao/summon-protocol/blob/4a38e6b28ca314e26f19d1e644cca33370add74b/docs/PROTOCOL.md
+- Schema：https://github.com/rfdiosuao/summon-protocol/blob/4a38e6b28ca314e26f19d1e644cca33370add74b/protocol/summon.schema.json
+- 适配指南：https://github.com/rfdiosuao/summon-protocol/blob/4a38e6b28ca314e26f19d1e644cca33370add74b/docs/ADAPTER.md
+- 经验检索：https://github.com/rfdiosuao/summon-protocol/blob/4a38e6b28ca314e26f19d1e644cca33370add74b/docs/EXPERIENCE.md
+- 模拟参考：https://github.com/rfdiosuao/summon-protocol/blob/4a38e6b28ca314e26f19d1e644cca33370add74b/hub/simulator.py
 
 以上契约定义字段和时序，不能只凭本页猜测消息格式。模拟参考用于理解连接流程，不作为真实 AI 实现。
 
@@ -48,7 +48,7 @@ SUMMON 让远端 Agent 使用现场设备提供的能力，并检索设备执行
 
 ## 首次验收
 
-公开修复记录与模拟验证边界：https://github.com/rfdiosuao/summon-protocol/blob/a8f5f1770a931a77e302f4ad03cb65e30936c79d/docs/ONBOARDING-FIXES.md 。SIMULATED 不增加 LIVE summons；计数为零不等于未握手在线。
+公开修复记录与模拟验证边界：https://github.com/rfdiosuao/summon-protocol/blob/4a38e6b28ca314e26f19d1e644cca33370add74b/docs/ONBOARDING-FIXES.md 。SIMULATED 不增加 LIVE summons；计数为零不等于未握手在线。
 
 用 agent_token 请求 `GET /v1/agents/me`，确认 connected=true、agent.status=ONLINE/BUSY 且 last_handshake_at 非空。鉴权失败在 WSS 升级前返回 HTTP 401/ErrorResponse，不会先连接再发 error 帧。HTTP 404/405 同样是 JSON 错误；程序判断 code，message 仅用于诊断。
 
