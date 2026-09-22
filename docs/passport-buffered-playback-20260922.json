@@ -20,5 +20,6 @@
   "last_stage": "设备语音播放",
   "firmware": "0cf0bd5",
   "full_firmware_sha256": "d3898bada4c661a2b612ffd1628aae21b8ebc1f2b7966b02a8e1947b16c01603",
-  "note": "Injected WAV exercises STT, cloud Agent, actual PC browser and Passport playback; microphone was separately verified with user speech."
+  "note": "User speech through the Passport microphone exercised STT, the server-hosted test Agent, actual PC time command and Passport playback. This does not verify a local Codex Agent or a second computer.",
+  "user_listening_feedback": "User confirmed playback no longer stutters."
 }
