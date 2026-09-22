@@ -20,8 +20,8 @@ async def run(config_path,credentials_path):
         else:
             async with http.post(base+'/v1/agents',headers={'Authorization':'Bearer '+cfg['invite']},json={
                 'request_id':'summon_browser_test_agent_v1','name':'海鸥 · 浏览器联调 Agent',
-                'bio':'固定规则测试 Agent：收到任务后请求打开 SUMMON 官网，非大模型决策',
-                'capabilities':['browser.open']}) as r:
+                'bio':'固定规则测试：打开官网，或执行 powershell: 后的命令，非大模型',
+                'capabilities':['browser.open','command.exec']}) as r:
                 if r.status!=201:raise RuntimeError('Browser test agent registration failed: '+str(r.status))
                 registration=await r.json()
             fd=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
@@ -49,10 +49,13 @@ async def run(config_path,credentials_path):
                             if not s or not s['active']:continue
                             seq[p['session_id']]+=1;cid=uid('browser')
                             pending[cid]=p
+                            action={'capability':'browser.open','args':{'url':url}}
+                            if p['text'].startswith('powershell:'):
+                                action={'capability':'command.exec','args':{'command':p['text'][len('powershell:'):].strip()}}
                             await send('action.request',{'session_id':s['session_id'],'input_id':p['input_id'],
                                 'lease_epoch':s['lease_epoch'],'command_id':cid,'seq':seq[s['session_id']],
                                 'expires_at':utc(min(time.time()+4,stamp(s['expires_at']))),
-                                'action':{'capability':'browser.open','args':{'url':url}}})
+                                'action':action})
                             print('Browser test action requested:',cid,flush=True)
                         elif kind in ('action.completed','action.failed'):
                             original=pending.pop(p['command_id'],None)

@@ -62,7 +62,8 @@
               "display.text",
               "speech.say",
               "arm.gesture",
-              "browser.open"
+              "browser.open",
+              "command.exec"
             ]
           }
         }
@@ -152,7 +153,8 @@
                   "display.text",
                   "speech.say",
                   "arm.gesture",
-                  "browser.open"
+                  "browser.open",
+                  "command.exec"
                 ]
               }
             },
@@ -278,7 +280,8 @@
               "display.text",
               "speech.say",
               "arm.gesture",
-              "browser.open"
+              "browser.open",
+              "command.exec"
             ]
           }
         },
@@ -344,7 +347,8 @@
               "display.text",
               "speech.say",
               "arm.gesture",
-              "browser.open"
+              "browser.open",
+              "command.exec"
             ]
           }
         }

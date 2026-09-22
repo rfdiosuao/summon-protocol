@@ -12,6 +12,7 @@ import aiohttp
 from jsonschema import Draft202012Validator,FormatChecker
 
 from gateway.store import Journal,failed,fingerprint
+from gateway.commands import CommandFailure
 
 ROOT=Path(__file__).resolve().parents[1]
 LOG=logging.getLogger('summon.gateway')
@@ -127,6 +128,11 @@ class Gateway:
         except asyncio.CancelledError:
             outcome=failed(request)
             raise
+        except CommandFailure as exc:
+            outcome=failed(request,'DRIVER_ERROR')
+            outcome['error']['error']['message']='Command timed out or exited with a nonzero status; see execution.'
+            outcome['execution']=exc.result
+            self.validators['ActionFailed'].validate(outcome)
         except Exception:
             outcome=failed(request)
             self.fault=True

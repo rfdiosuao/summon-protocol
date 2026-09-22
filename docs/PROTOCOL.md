@@ -8,6 +8,8 @@
 
 桌面新增可选能力 browser.open，args.url 为 HTTPS 地址，须通过本地精确白名单；其完成回执只表示操作系统接受打开请求，页面渲染须另验。详情见 [浏览器联调](BROWSER-TEST.md)。使用此能力的 Hub、Agent 与 Gateway 必须更新 Schema；旧客户端可继续使用原能力，不得自报 browser.open。
 
+Windows 桌面增加需单独授权的 command.exec，args.command 为 PowerShell 命令；终态可带有界 execution 结果。完整权限、8 秒上限、停止及云端输出声明见 [命令执行](COMMANDS.md)。
+
 ## 1. 范围与身份
 
 MVP：一个 Hub、一个权威记忆库、一个真实 Agent、两个壳。一具壳只有一个执行会话，一个 Agent 同时只能持有一具壳；拒绝忙碌请求，不排队、不抢占。Hub 不接受外部 callback URL，Agent 与 Gateway 都主动建立出站 WSS。

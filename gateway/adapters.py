@@ -47,6 +47,12 @@ class DesktopAdapter(TerminalAdapter):
         if not self.allowed_urls or any(not self.safe_url(url) for url in self.allowed_urls):
             raise ValueError('desktop adapter requires an explicit HTTPS URL allowlist')
         self.opener=opener or webbrowser.open
+        self.runner=None
+        self.capabilities=list(type(self).capabilities)
+        if (config or {}).get('enable_commands') is True:
+            from gateway.commands import CommandRunner
+            self.runner=CommandRunner(config)
+            self.capabilities.append('command.exec')
 
     @staticmethod
     def safe_url(url):
@@ -56,6 +62,11 @@ class DesktopAdapter(TerminalAdapter):
 
     async def execute(self,request):
         if request['action']['capability']=='display.text':return await super().execute(request)
+        if request['action']['capability']=='command.exec':
+            if not self.runner:raise ValueError('Command execution is disabled locally')
+            result=await self.runner.execute(request['action']['args']['command'])
+            self.output.write('命令退出码: '+str(result['exit_code'])+'\n'+result['stdout']+result['stderr']+'\n');self.output.flush()
+            return {'evidence':'device_ack','result':'PowerShell finished with exit code 0.','execution':result}
         url=request['action']['args']['url']
         if request['action']['capability']!='browser.open' or not self.safe_url(url) or url not in self.allowed_urls:
             raise ValueError('URL is not explicitly allowed by this computer')
@@ -63,6 +74,13 @@ class DesktopAdapter(TerminalAdapter):
         # an executor that could launch a browser after the lease is cancelled.
         if not self.opener(url,new=2):raise RuntimeError('Default browser launch was rejected')
         return {'evidence':'device_ack','result':'Operating system accepted the browser-open request; page rendering requires separate verification.'}
+
+    async def stop(self,session):
+        if self.runner:await self.runner.stop()
+        return True
+
+    async def close(self):
+        if self.runner:await self.runner.stop()
 
 
 class SerialDisplayAdapter:

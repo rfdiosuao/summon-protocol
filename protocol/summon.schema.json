@@ -262,6 +262,41 @@
               },
               "kind": {
                 "const": "execution_evidence"
+              },
+              "execution": {
+                "type": "object",
+                "properties": {
+                  "exit_code": {
+                    "type": "integer"
+                  },
+                  "stdout": {
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  "stderr": {
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  "timed_out": {
+                    "type": "boolean"
+                  },
+                  "truncated": {
+                    "type": "boolean"
+                  },
+                  "duration_ms": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "exit_code",
+                  "stdout",
+                  "stderr",
+                  "timed_out",
+                  "truncated",
+                  "duration_ms"
+                ],
+                "additionalProperties": false
               }
             },
             "required": [
@@ -456,7 +491,8 @@
                     "display.text",
                     "speech.say",
                     "arm.gesture",
-                    "browser.open"
+                    "browser.open",
+                    "command.exec"
                   ]
                 },
                 "maxItems": 3,
@@ -505,7 +541,8 @@
                     "display.text",
                     "speech.say",
                     "arm.gesture",
-                    "browser.open"
+                    "browser.open",
+                    "command.exec"
                   ]
                 },
                 "maxItems": 3,
@@ -679,7 +716,8 @@
               "display.text",
               "speech.say",
               "arm.gesture",
-              "browser.open"
+              "browser.open",
+              "command.exec"
             ]
           },
           "maxItems": 3,
@@ -754,7 +792,8 @@
               "display.text",
               "speech.say",
               "arm.gesture",
-              "browser.open"
+              "browser.open",
+              "command.exec"
             ]
           },
           "maxItems": 3,
@@ -769,7 +808,8 @@
               "display.text",
               "speech.say",
               "arm.gesture",
-              "browser.open"
+              "browser.open",
+              "command.exec"
             ]
           },
           "maxItems": 3,
@@ -1025,6 +1065,33 @@
             "args"
           ],
           "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "capability": {
+              "const": "command.exec"
+            },
+            "args": {
+              "type": "object",
+              "properties": {
+                "command": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1000
+                }
+              },
+              "required": [
+                "command"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "capability",
+            "args"
+          ],
+          "additionalProperties": false
         }
       ]
     },
@@ -1140,6 +1207,41 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 500
+        },
+        "execution": {
+          "type": "object",
+          "properties": {
+            "exit_code": {
+              "type": "integer"
+            },
+            "stdout": {
+              "type": "string",
+              "maxLength": 500
+            },
+            "stderr": {
+              "type": "string",
+              "maxLength": 500
+            },
+            "timed_out": {
+              "type": "boolean"
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "duration_ms": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "exit_code",
+            "stdout",
+            "stderr",
+            "timed_out",
+            "truncated",
+            "duration_ms"
+          ],
+          "additionalProperties": false
         }
       },
       "required": [
@@ -1171,6 +1273,41 @@
         },
         "error": {
           "$ref": "#/$defs/ErrorResponse"
+        },
+        "execution": {
+          "type": "object",
+          "properties": {
+            "exit_code": {
+              "type": "integer"
+            },
+            "stdout": {
+              "type": "string",
+              "maxLength": 500
+            },
+            "stderr": {
+              "type": "string",
+              "maxLength": 500
+            },
+            "timed_out": {
+              "type": "boolean"
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "duration_ms": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "exit_code",
+            "stdout",
+            "stderr",
+            "timed_out",
+            "truncated",
+            "duration_ms"
+          ],
+          "additionalProperties": false
         }
       },
       "required": [
@@ -1268,7 +1405,8 @@
               "display.text",
               "speech.say",
               "arm.gesture",
-              "browser.open"
+              "browser.open",
+              "command.exec"
             ]
           },
           "maxItems": 3,
@@ -1354,7 +1492,8 @@
                     "display.text",
                     "speech.say",
                     "arm.gesture",
-                    "browser.open"
+                    "browser.open",
+                    "command.exec"
                   ]
                 },
                 "maxItems": 3,
@@ -1840,7 +1979,8 @@
                       "display.text",
                       "speech.say",
                       "arm.gesture",
-                      "browser.open"
+                      "browser.open",
+                      "command.exec"
                     ]
                   },
                   "maxItems": 3,

@@ -14,14 +14,15 @@ from gateway.adapters import TerminalAdapter,DesktopAdapter
 from gateway.nameplates import NameplateClient
 
 
-async def smoke(config,access_code,nameplates=False,open_browser=False):
-    if open_browser:
+async def smoke(config,access_code,nameplates=False,open_browser=False,run_command=False):
+    if open_browser and run_command:raise ValueError('Choose only one desktop smoke action')
+    if open_browser or run_command:
         if not nameplates or config['mode']!='SIMULATED' or config['adapter']['kind']!='desktop':
             raise ValueError('Browser smoke needs explicit --nameplates and a SIMULATED desktop adapter')
     elif config['mode']!='SIMULATED' or config['adapter']['kind']!='terminal':
         raise ValueError('Smoke requires explicit SIMULATED terminal configuration')
-    capability='browser.open' if open_browser else 'display.text'
-    gateway=Gateway(config,os.environ[config['token_env']],DesktopAdapter(config['adapter']) if open_browser else TerminalAdapter())
+    capability='command.exec' if run_command else 'browser.open' if open_browser else 'display.text'
+    gateway=Gateway(config,os.environ[config['token_env']],DesktopAdapter(config['adapter']) if open_browser or run_command else TerminalAdapter())
     task=asyncio.create_task(gateway.run())
     base=config['hub_url'].rstrip('/')
     sid=None
@@ -67,7 +68,8 @@ async def smoke(config,access_code,nameplates=False,open_browser=False):
             else:raise RuntimeError('Session activation timed out')
             if nameplates:
                 await device_client.status()
-                await device_client.submit('打开浏览器，访问 SUMMON 官网。' if open_browser else 'Nameplate cloud verification: print this on the local computer.')
+                text='powershell:Get-Date -Format o; Write-Output "SUMMON_CLOUD_COMMAND_OK"' if run_command else '打开浏览器，访问 SUMMON 官网。' if open_browser else 'Nameplate cloud verification: print this on the local computer.'
+                await device_client.submit(text)
             else:
                 await call('POST','/v1/sessions/'+sid+'/inputs',{'request_id':'gateway_input_'+str(time.time_ns()),'text':'Gateway cloud verification: print this on the local computer.'})
             for _ in range(25):
@@ -87,13 +89,17 @@ async def smoke(config,access_code,nameplates=False,open_browser=False):
                 if not gateway.journal.pending():break
                 await asyncio.sleep(.1)
             assert not gateway.journal.pending(),'Cloud upload acknowledgement missing'
-            result={'at':utc(),'mode':'SIMULATED','adapter':'desktop' if open_browser else 'terminal','physical_hardware_tested':False,
+            result={'at':utc(),'mode':'SIMULATED','adapter':'desktop' if open_browser or run_command else 'terminal','physical_hardware_tested':False,
                     'agent':'remote rule-based demo agent','gateway':'local computer','cloud_evidence_saved':True,
                     'upload_acknowledged':True,'command_id':cid,'session_id':sid,'profile':item['profile'],
                     'scenario_total_ms':round((time.monotonic()-started)*1000),'note':'Scenario includes HTTPS polling and setup; not action round-trip latency.'}
             if open_browser:
                 result.update(capability=capability,url=records[-1]['request']['action']['args']['url'],
                               browser_launch_accepted=True,page_render_verified=False)
+            if run_command:
+                execution=records[-1]['outcome']['execution']
+                assert execution['exit_code']==0 and 'SUMMON_CLOUD_COMMAND_OK' in execution['stdout']
+                result.update(capability=capability,execution=execution)
             if nameplates:
                 result['nameplate']=plate['code']
                 result['device_pairing_verified']=True
@@ -125,12 +131,13 @@ def main():
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--nameplates',action='store_true')
     parser.add_argument('--open-browser',action='store_true',help='Explicitly execute a real desktop browser launch')
+    parser.add_argument('--run-command',action='store_true',help='Explicitly run a read-only PowerShell marker command')
     args=parser.parse_args()
     config=json.loads(args.config.read_text(encoding='utf-8'))
     config['database']=str((args.config.resolve().parent/config['database']).resolve())
-    result=asyncio.run(smoke(config,os.environ['SUMMON_OPERATOR_CODE'],args.nameplates,args.open_browser))
+    result=asyncio.run(smoke(config,os.environ['SUMMON_OPERATOR_CODE'],args.nameplates,args.open_browser,args.run_command))
     args.output.write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
-    print('PASS: '+('browser launch accepted' if args.open_browser else 'local terminal execution')+' and acknowledged cloud experience upload')
+    print('PASS: '+('PowerShell command verified' if args.run_command else 'browser launch accepted' if args.open_browser else 'local terminal execution')+' and acknowledged cloud experience upload')
 
 
 if __name__=='__main__':

@@ -21,7 +21,7 @@ $('lookup').onsubmit=e=>{e.preventDefault();action(e.submitter,async()=>{
  if($('code').value!==code)return;
  preview={...result,user_code:code};$('device').textContent=result.label+' · '+result.shell_id;$('mode').textContent='运行模式：'+result.mode;
  $('capabilities').replaceChildren();const legend=document.createElement('legend');legend.textContent='允许的能力';$('capabilities').append(legend);
- for(const cap of result.capabilities){const label=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.value=cap;input.checked=true;label.append(input,document.createTextNode(' '+cap));$('capabilities').append(label);}
+ for(const cap of result.capabilities){const label=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.value=cap;input.checked=cap!=='command.exec';label.append(input,document.createTextNode(' '+cap+(cap==='command.exec'?' · 执行 PowerShell 命令并回传有界输出（需主动勾选）':'')));$('capabilities').append(label);}
  $('preview').hidden=false;$('notice').textContent='请核对设备和能力后确认。';
 });};
 $('approve').onclick=e=>action(e.target,async()=>{if(!preview)throw Error('请先核对设备。');const body={...request(),user_code:preview.user_code,shell_id:preview.shell_id,capabilities:[...$('capabilities').querySelectorAll('input:checked')].map(x=>x.value)};
