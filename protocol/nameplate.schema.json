@@ -61,7 +61,8 @@
             "enum": [
               "display.text",
               "speech.say",
-              "arm.gesture"
+              "arm.gesture",
+              "browser.open"
             ]
           }
         }
@@ -150,7 +151,8 @@
                 "enum": [
                   "display.text",
                   "speech.say",
-                  "arm.gesture"
+                  "arm.gesture",
+                  "browser.open"
                 ]
               }
             },
@@ -275,7 +277,8 @@
             "enum": [
               "display.text",
               "speech.say",
-              "arm.gesture"
+              "arm.gesture",
+              "browser.open"
             ]
           }
         },
@@ -340,7 +343,8 @@
             "enum": [
               "display.text",
               "speech.say",
-              "arm.gesture"
+              "arm.gesture",
+              "browser.open"
             ]
           }
         }

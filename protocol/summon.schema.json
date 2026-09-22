@@ -455,7 +455,8 @@
                   "enum": [
                     "display.text",
                     "speech.say",
-                    "arm.gesture"
+                    "arm.gesture",
+                    "browser.open"
                   ]
                 },
                 "maxItems": 3,
@@ -503,7 +504,8 @@
                   "enum": [
                     "display.text",
                     "speech.say",
-                    "arm.gesture"
+                    "arm.gesture",
+                    "browser.open"
                   ]
                 },
                 "maxItems": 3,
@@ -676,7 +678,8 @@
             "enum": [
               "display.text",
               "speech.say",
-              "arm.gesture"
+              "arm.gesture",
+              "browser.open"
             ]
           },
           "maxItems": 3,
@@ -750,7 +753,8 @@
             "enum": [
               "display.text",
               "speech.say",
-              "arm.gesture"
+              "arm.gesture",
+              "browser.open"
             ]
           },
           "maxItems": 3,
@@ -764,7 +768,8 @@
             "enum": [
               "display.text",
               "speech.say",
-              "arm.gesture"
+              "arm.gesture",
+              "browser.open"
             ]
           },
           "maxItems": 3,
@@ -983,6 +988,34 @@
               "required": [
                 "name",
                 "repeat"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "capability",
+            "args"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "capability": {
+              "const": "browser.open"
+            },
+            "args": {
+              "type": "object",
+              "properties": {
+                "url": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2048,
+                  "pattern": "^https://"
+                }
+              },
+              "required": [
+                "url"
               ],
               "additionalProperties": false
             }
@@ -1234,7 +1267,8 @@
             "enum": [
               "display.text",
               "speech.say",
-              "arm.gesture"
+              "arm.gesture",
+              "browser.open"
             ]
           },
           "maxItems": 3,
@@ -1319,7 +1353,8 @@
                   "enum": [
                     "display.text",
                     "speech.say",
-                    "arm.gesture"
+                    "arm.gesture",
+                    "browser.open"
                   ]
                 },
                 "maxItems": 3,
@@ -1804,7 +1839,8 @@
                     "enum": [
                       "display.text",
                       "speech.say",
-                      "arm.gesture"
+                      "arm.gesture",
+                      "browser.open"
                     ]
                   },
                   "maxItems": 3,

@@ -10,14 +10,18 @@ from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 import aiohttp
 from gateway.runtime import Gateway,utc
-from gateway.adapters import TerminalAdapter
+from gateway.adapters import TerminalAdapter,DesktopAdapter
 from gateway.nameplates import NameplateClient
 
 
-async def smoke(config,access_code,nameplates=False):
-    if config['mode']!='SIMULATED' or config['adapter']['kind']!='terminal':
+async def smoke(config,access_code,nameplates=False,open_browser=False):
+    if open_browser:
+        if not nameplates or config['mode']!='SIMULATED' or config['adapter']['kind']!='desktop':
+            raise ValueError('Browser smoke needs explicit --nameplates and a SIMULATED desktop adapter')
+    elif config['mode']!='SIMULATED' or config['adapter']['kind']!='terminal':
         raise ValueError('Smoke requires explicit SIMULATED terminal configuration')
-    gateway=Gateway(config,os.environ[config['token_env']],TerminalAdapter())
+    capability='browser.open' if open_browser else 'display.text'
+    gateway=Gateway(config,os.environ[config['token_env']],DesktopAdapter(config['adapter']) if open_browser else TerminalAdapter())
     task=asyncio.create_task(gateway.run())
     base=config['hub_url'].rstrip('/')
     sid=None
@@ -39,14 +43,14 @@ async def smoke(config,access_code,nameplates=False):
                 if shell['state']=='IDLE':break
                 await asyncio.sleep(.3)
             else:raise RuntimeError('Terminal shell did not become IDLE')
-            agent=next(a for a in catalog['agents'] if a['status']=='ONLINE' and 'display.text' in a['capabilities'])
+            agent=next(a for a in catalog['agents'] if a['status']=='ONLINE' and capability in a['capabilities'])
             if nameplates:
                 await device_client.refresh()
                 plate=next(p for p in device_client.directory if p['agent']['agent_id']==agent['agent_id'])
                 pair=await device_client.call('POST','/v1/gateway/pairings',{})
                 preview=await call('POST','/v1/device-pairings/preview',{'request_id':'preview_'+str(time.time_ns()),'user_code':pair['user_code']})
                 approved=await call('POST','/v1/device-pairings/approve',{'request_id':'approve_'+str(time.time_ns()),'user_code':pair['user_code'],
-                    'shell_id':preview['shell_id'],'capabilities':['display.text']})
+                    'shell_id':preview['shell_id'],'capabilities':[capability]})
                 grant_id=approved['grant_id']
                 device_client.grant=await device_client.call('POST','/v1/gateway/pairings/'+pair['pairing_id']+'/claim',{})
                 await device_client.lookup(plate['code'])
@@ -63,7 +67,7 @@ async def smoke(config,access_code,nameplates=False):
             else:raise RuntimeError('Session activation timed out')
             if nameplates:
                 await device_client.status()
-                await device_client.submit('Nameplate cloud verification: print this on the local computer.')
+                await device_client.submit('打开浏览器，访问 SUMMON 官网。' if open_browser else 'Nameplate cloud verification: print this on the local computer.')
             else:
                 await call('POST','/v1/sessions/'+sid+'/inputs',{'request_id':'gateway_input_'+str(time.time_ns()),'text':'Gateway cloud verification: print this on the local computer.'})
             for _ in range(25):
@@ -75,6 +79,7 @@ async def smoke(config,access_code,nameplates=False):
             if not records or records[-1]['outcome']['status']!='COMPLETED':
                 raise RuntimeError('Terminal result was not COMPLETED')
             cid=records[-1]['request']['command_id']
+            assert records[-1]['request']['action']['capability']==capability
             evidence=await call('GET','/v1/experiences?shell_id='+config['shell_id'])
             item=next(e for e in evidence['items'] if e['command_id']==cid)
             assert item['mode']=='SIMULATED' and item['status']=='COMPLETED'
@@ -82,10 +87,13 @@ async def smoke(config,access_code,nameplates=False):
                 if not gateway.journal.pending():break
                 await asyncio.sleep(.1)
             assert not gateway.journal.pending(),'Cloud upload acknowledgement missing'
-            result={'at':utc(),'mode':'SIMULATED','adapter':'terminal','physical_hardware_tested':False,
+            result={'at':utc(),'mode':'SIMULATED','adapter':'desktop' if open_browser else 'terminal','physical_hardware_tested':False,
                     'agent':'remote rule-based demo agent','gateway':'local computer','cloud_evidence_saved':True,
                     'upload_acknowledged':True,'command_id':cid,'session_id':sid,'profile':item['profile'],
                     'scenario_total_ms':round((time.monotonic()-started)*1000),'note':'Scenario includes HTTPS polling and setup; not action round-trip latency.'}
+            if open_browser:
+                result.update(capability=capability,url=records[-1]['request']['action']['args']['url'],
+                              browser_launch_accepted=True,page_render_verified=False)
             if nameplates:
                 result['nameplate']=plate['code']
                 result['device_pairing_verified']=True
@@ -116,12 +124,13 @@ def main():
     parser.add_argument('--config',type=Path,required=True)
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--nameplates',action='store_true')
+    parser.add_argument('--open-browser',action='store_true',help='Explicitly execute a real desktop browser launch')
     args=parser.parse_args()
     config=json.loads(args.config.read_text(encoding='utf-8'))
     config['database']=str((args.config.resolve().parent/config['database']).resolve())
-    result=asyncio.run(smoke(config,os.environ['SUMMON_OPERATOR_CODE'],args.nameplates))
+    result=asyncio.run(smoke(config,os.environ['SUMMON_OPERATOR_CODE'],args.nameplates,args.open_browser))
     args.output.write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
-    print('PASS: local terminal execution and acknowledged cloud experience upload')
+    print('PASS: '+('browser launch accepted' if args.open_browser else 'local terminal execution')+' and acknowledged cloud experience upload')
 
 
 if __name__=='__main__':

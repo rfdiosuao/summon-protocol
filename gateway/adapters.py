@@ -4,6 +4,8 @@ import json
 import sys
 import time
 import uuid
+import webbrowser
+from urllib.parse import urlsplit
 
 
 class TerminalAdapter:
@@ -33,6 +35,34 @@ class TerminalAdapter:
 
     async def close(self):
         pass
+
+
+class DesktopAdapter(TerminalAdapter):
+    """Local, explicit URL allowlist. No arbitrary browser scripting or shell commands."""
+    capabilities=['display.text','browser.open']
+
+    def __init__(self,config=None,output=None,opener=None):
+        super().__init__(config,output)
+        self.allowed_urls=(config or {}).get('allowed_urls',[])
+        if not self.allowed_urls or any(not self.safe_url(url) for url in self.allowed_urls):
+            raise ValueError('desktop adapter requires an explicit HTTPS URL allowlist')
+        self.opener=opener or webbrowser.open
+
+    @staticmethod
+    def safe_url(url):
+        if not isinstance(url,str) or any(ord(c)<33 for c in url) or '\\' in url:return False
+        p=urlsplit(url)
+        return p.scheme=='https' and bool(p.hostname) and not p.username and not p.password
+
+    async def execute(self,request):
+        if request['action']['capability']=='display.text':return await super().execute(request)
+        url=request['action']['args']['url']
+        if request['action']['capability']!='browser.open' or not self.safe_url(url) or url not in self.allowed_urls:
+            raise ValueError('URL is not explicitly allowed by this computer')
+        # Windows' default browser handoff is short and synchronous; do not detach
+        # an executor that could launch a browser after the lease is cancelled.
+        if not self.opener(url,new=2):raise RuntimeError('Default browser launch was rejected')
+        return {'evidence':'device_ack','result':'Operating system accepted the browser-open request; page rendering requires separate verification.'}
 
 
 class SerialDisplayAdapter:

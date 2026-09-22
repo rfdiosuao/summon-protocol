@@ -7,7 +7,7 @@ from urllib.parse import urlparse
 
 from jsonschema import Draft202012Validator,FormatChecker
 from gateway.runtime import Gateway,ROOT
-from gateway.adapters import TerminalAdapter,SerialDisplayAdapter
+from gateway.adapters import TerminalAdapter,SerialDisplayAdapter,DesktopAdapter
 
 
 def main():
@@ -32,12 +32,14 @@ def main():
         kind=cfg['adapter']['kind']
         if kind=='terminal':
             adapter=TerminalAdapter(cfg['adapter'])
+        elif kind=='desktop':
+            adapter=DesktopAdapter(cfg['adapter'])
         elif kind=='serial-display':
             schema=json.loads((ROOT/'protocol/summon.schema.json').read_text(encoding='utf-8'))
             validator=Draft202012Validator({'$defs':schema['$defs'],'$ref':'#/$defs/BridgeMessage'},format_checker=FormatChecker())
             adapter=SerialDisplayAdapter(dict(cfg['adapter'],shell_id=cfg['shell_id']),validator)
         else:
-            raise ValueError('Unknown adapter; implemented kinds: terminal, serial-display')
+            raise ValueError('Unknown adapter; implemented kinds: terminal, desktop, serial-display')
         gateway=Gateway(cfg,token,adapter)
     except (KeyError,OSError,ValueError,TypeError) as exc:
         parser.error(str(exc))
