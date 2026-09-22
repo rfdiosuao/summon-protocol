@@ -234,6 +234,9 @@ Gateway 使用自己的 shell token 与 shell_id，经 hello/welcome、心跳、
 7. 验证 boot 日志、身份、最小能力、断线停止、重启和恢复，再做 Hub 注册/握手、交接与经验检查。
 
 交付状态分别写：源码生成、构建成功、刷写成功、真机功能通过、网络联调通过、演示通过。每项附证据，不能互相代替。
+# 端口发现不等于可刷写
+
+Windows 探针将端口分为 usb_serial_ports、bluetooth_serial_ports、other_serial_ports；serial_candidates 只是全集，不能自动取第一个。蓝牙串口通常属于经典蓝牙 SPP，并不能仅凭名称断言是 BLE。USB 串口也不证明支持刷写：仍需确认目标板、VID/PID、bootloader、厂商刷写路径及授权。其他平台未分类的端口归入 other_serial_ports，不猜 USB 类型。
 
 
 ---

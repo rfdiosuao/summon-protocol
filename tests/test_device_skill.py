@@ -93,3 +93,16 @@ class SkillTests(unittest.TestCase):
             report=probe.probe()
         self.assertEqual(report['admission'],'NOT_ASSESSED')
         self.assertNotIn('credentials',report)
+
+    def test_serial_classification_does_not_choose_flash_port(self):
+        from unittest.mock import patch
+        probe=module('probe_hardware')
+        entries=[{'Name':'USB 串行设备 (COM6)','PNPDeviceID':'USB\\VID_1234'},
+                 {'Name':'蓝牙链接上的标准串行 (COM3)','PNPDeviceID':'BTHENUM\\device'},
+                 {'Name':'Serial (COM8)','PNPDeviceID':'ACPI\\device'}]
+        with patch.object(probe.platform,'system',return_value='Windows'),patch.object(probe,'run',return_value={'status':'ok','output':json.dumps(entries)}):
+            result=probe.probe()['discovery']
+        self.assertEqual(result['usb_serial_ports'],['COM6'])
+        self.assertEqual(result['bluetooth_serial_ports'],['COM3'])
+        self.assertEqual(result['other_serial_ports'],['COM8'])
+        self.assertEqual(result['serial_candidates'],['COM3','COM6','COM8'])

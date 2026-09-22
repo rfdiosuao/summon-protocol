@@ -15,8 +15,7 @@ def run(command):
     try:
         result=subprocess.run(command,capture_output=True,text=True,encoding='utf-8',errors='backslashreplace',timeout=20)
         return {'status':'ok' if result.returncode==0 else 'error',
-                'output':result.stdout, 'error':result.stderr[:2000],
-                'truncated':False}
+                'output':result.stdout, 'error':result.stderr}
     except (OSError,subprocess.TimeoutExpired) as exc:
         return {'status':'error','error':type(exc).__name__}
 
@@ -29,7 +28,22 @@ def probe():
         try:
             entries=json.loads(devices.get('output','') or '[]')
             devices['devices']=entries if isinstance(entries,list) else [entries]
-            devices['serial_candidates']=sorted(set(re.findall(r'\bCOM\d+\b',devices.get('output',''))))
+            groups={'usb_serial_ports':set(),'bluetooth_serial_ports':set(),'other_serial_ports':set()}
+            for entry in devices['devices']:
+                if not isinstance(entry,dict):
+                    continue
+                name=str(entry.get('Name') or '')
+                ports=re.findall(r'\bCOM\d+\b',name)
+                identity=str(entry.get('PNPDeviceID') or '').upper()
+                if identity.startswith('BTH') or 'bluetooth' in name.lower() or '蓝牙' in name:
+                    kind='bluetooth_serial_ports'
+                elif identity.startswith(('USB','FTDIBUS')):
+                    kind='usb_serial_ports'
+                else:
+                    kind='other_serial_ports'
+                groups[kind].update(ports)
+            devices.update({key:sorted(value) for key,value in groups.items()})
+            devices['serial_candidates']=sorted(set().union(*groups.values()))
         except ValueError:
             devices['parse_error']='Device enumeration was not valid JSON; inspect output.'
     elif system=='Linux':
@@ -42,11 +56,15 @@ def probe():
         devices={'status':'unsupported','output':''}
     devices.setdefault('serial_candidates',[])
     devices.setdefault('devices',[])
+    devices.setdefault('usb_serial_ports',[])
+    devices.setdefault('bluetooth_serial_ports',[])
+    devices.setdefault('other_serial_ports',devices['serial_candidates'])
     return {'schema_version':1,'created_at':datetime.now(timezone.utc).isoformat(),
             'host':{'os':system,'release':platform.release(),'architecture':platform.machine()},
             'tools':{tool:shutil.which(tool) for tool in ('python','git','cmake','idf.py','esptool','arduino-cli','pio','cargo','adb','bluetoothctl')},
             'discovery':devices,'admission':'NOT_ASSESSED',
             'notes':['Discovery is not proof of SDK support or connectivity.',
+                     'Port classification is a discovery hint, not flash eligibility. Verify board identity and bootloader; never select the first port automatically.',
                      'Local device IDs may contain serial numbers; review before sharing.',
                      'No serial/BLE connection, flashing, credentials, or network upload performed.']}
 

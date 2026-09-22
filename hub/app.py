@@ -736,7 +736,19 @@ def create_app(path, cfg):
     app.router.add_get('/skill.md',skill)
     app.router.add_get('/',index)
     if (ROOT/'web').exists():
-        app.router.add_static('/assets/',ROOT/'web',show_index=False)
+        async def asset(request):
+            root=(ROOT/'web').resolve()
+            try:
+                path=(root/request.match_info['filename']).resolve()
+                path.relative_to(root)
+                if not path.is_file():
+                    raise web.HTTPNotFound()
+            except (ValueError,OSError):
+                raise web.HTTPNotFound()
+            # Check before FileResponse.prepare(), where missing-file errors
+            # would otherwise occur after the error middleware has returned.
+            return web.FileResponse(path)
+        app.router.add_get('/assets/{filename:.*}',asset)
     async def startup(app):
         hub.spawn(hub.tick())
     async def shutdown(app):

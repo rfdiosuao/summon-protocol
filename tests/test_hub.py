@@ -39,6 +39,12 @@ class HubTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_public_resources_and_api_errors(self):
         self.client.session.cookie_jar.clear()
+        for path in ('/assets/nope.md','/assets/nope.txt','/assets/nope.js','/assets/'):
+            r=await self.client.get(path)
+            self.assertEqual(r.status,404)
+            self.assertNotIn('Content-Disposition',r.headers)
+            self.assertEqual(r.content_type,'application/json')
+            self.app['hub'].validate('ErrorResponse',await r.json())
         for query in ('yes','true','','1&details=0'):
             r=await self.client.get('/v1/catalog?details='+query)
             self.assertEqual(r.status,400)
