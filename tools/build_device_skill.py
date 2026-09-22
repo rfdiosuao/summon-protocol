@@ -8,7 +8,8 @@ SOURCE=ROOT/'skills/summon-device-onboarding'
 
 
 def build():
-    files=sorted(p for p in SOURCE.rglob('*') if p.is_file() and '__pycache__' not in p.parts and p.suffix!='.pyc')
+    files=sorted((p for p in SOURCE.rglob('*') if p.is_file() and '__pycache__' not in p.parts and p.suffix!='.pyc'),
+                 key=lambda p:p.relative_to(SOURCE).as_posix())
     if not files or any(p.is_symlink() for p in SOURCE.rglob('*')):
         raise ValueError('Missing package or unexpected symlink')
     target=ROOT/'web/summon-device-onboarding.zip'
