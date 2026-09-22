@@ -24,6 +24,7 @@
 | [0001](0001-record-architecture-decisions.md) | 用 ADR 记录架构决策 | Accepted |
 | [0002](0002-port-interface-callback-only.md) | 端口接口只收完成回调、无同步返回 | Accepted |
 | [0003](0003-nfc-reader-not-on-the-arm.md) | NFC 读卡器不挂在机械臂上 | Accepted |
+| [0004](0004-speculative-preparation-is-optional.md) | 概率预判只用于可取消的准备工作 | Accepted（实现未开始） |
 
 ## 纪律
 
