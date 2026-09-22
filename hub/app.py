@@ -677,7 +677,12 @@ def create_app(path, cfg):
         return web.json_response({'status':'ok','mode':cfg['mode'],'contract':'0.1.0'})
     async def index(request):
         return web.FileResponse(ROOT/'web/index.html')
+    async def skill(request):
+        return web.Response(text=(ROOT/'web/skill.md').read_text(encoding='utf-8'),
+                            content_type='text/plain',charset='utf-8',
+                            headers={'Content-Disposition':'inline'})
     app.router.add_get('/healthz',health)
+    app.router.add_get('/skill.md',skill)
     app.router.add_get('/',index)
     if (ROOT/'web').exists():
         app.router.add_static('/assets/',ROOT/'web',show_index=False)

@@ -1,14 +1,18 @@
-# SUMMON 硬件接入 Skill：安装与使用
+# SUMMON 硬件接入 Skill：在线使用
 
-把下面的提示词交给能读取网页、执行命令和修改代码的 Agent。先安装 Skill，再评估指定硬件；本包不是通用固件，不会自动刷写任何设备。
+在线入口：https://summon.entermodetwo.com/skill.md 。浏览器可直接阅读，无需先下载安装包。把下面的提示词交给能读取网页、执行命令和修改代码的 Agent；它会先评估指定硬件，再按可行路线开发。
 
 ## 可复制提示词
 
-请阅读 https://summon.entermodetwo.com/assets/device-onboarding.md ，下载并核验其中的 SUMMON 设备接入 Skill，将它安装到你当前宿主支持的技能目录，再使用 summon-device-onboarding 完成我的设备接入。先只读检测本机和已连接硬件，核对官方型号、SDK/API/BSP，按 H1–H8 输出符合情况、证据、可实现能力和缺口，选择 USB、Wi-Fi、蓝牙或其他合适的网关路径。能用官方接口桥接就实现适配器；需要固件且板型明确时，结合 SUMMON 契约与官方工程开发、构建，给出产物哈希、具体目标端口、刷写步骤和恢复办法。只有目标与刷写授权明确后才执行刷写。最后验证联网、授权、真实动作回执、断线停止、交接、经验入库与检索。未知项不要算通过，缺少硬件或凭证时继续可完成的本地工作，并说明尚未接入。不要把模拟响应当实物结果。
+Read https://summon.entermodetwo.com/skill.md to assess my hardware and connect it to SUMMON.
+
+中文也可以：阅读 https://summon.entermodetwo.com/skill.md，评估我的硬件，并按指南将它接入 SUMMON。
 
 可补充：设备型号/照片标签信息、官方项目 URL、连接在哪台电脑、期望显示/语音/感知/运动能力。未提供时先发现，不要猜板型。
 
-## 安装包
+## 可选：安装到本地技能目录
+
+在线读取已经可以开始工作。只有需要宿主长期发现和复用该 Skill 时，才使用下面的安装包。
 
 - ZIP：https://summon.entermodetwo.com/assets/summon-device-onboarding.zip
 - SHA-256：https://summon.entermodetwo.com/assets/summon-device-onboarding.zip.sha256
