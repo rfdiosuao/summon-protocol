@@ -123,6 +123,8 @@ class Hub:
         self.nameplates=Nameplates(self)
         from hub.onboarding import Onboarding
         self.onboarding=Onboarding(self)
+        from hub.agent_dashboard import AgentDashboard
+        self.agent_dashboard=AgentDashboard(self)
 
     def validate(self, name, value):
         if not self.validators[name].is_valid(value):
@@ -795,6 +797,7 @@ def create_app(path, cfg):
     app['machine_routes']=set()
     hub.nameplates.routes(app)
     hub.onboarding.routes(app)
+    hub.agent_dashboard.routes(app)
     for route in ['/v1/operator-session','/v1/agents','/v1/gateway/results','/v1/sessions','/v1/sessions/{sid}/inputs','/v1/sessions/{sid}/feedback','/v1/sessions/{sid}/release','/v1/sessions/{sid}/handoff']:
         app.router.add_post(route,hub.http)
     for route in ['/v1/catalog','/v1/agents/me','/v1/gateway/config','/v1/state','/v1/events','/v1/experiences','/v1/sessions/{sid}/experiences','/v1/sessions/{sid}/memory','/v1/commands/{cid}']:

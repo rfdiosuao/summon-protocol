@@ -130,6 +130,11 @@ export default function HardwarePage({
             </p>
           </div>
 
+          <p className="flow__footnote">
+            设备客户端已有配对码？{' '}
+            <a className="flow__textlink" href="/assets/device.html">打开设备授权</a>
+          </p>
+
           <button
             type="button"
             className="flow__cta flow__cta--copy"

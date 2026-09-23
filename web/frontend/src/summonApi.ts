@@ -71,17 +71,23 @@ export type OnboardingStatus = {
   nameplate?: string;
 };
 
+export type AgentDashboardProfile = {
+  agent: { agent_id: string; name: string; status: string };
+  nameplate: string;
+};
+
+export const redeemAgentLoginCode = (code: string, nameplate?: string) =>
+  json<AgentDashboardProfile>('/v1/agent-login/redeem',
+    nameplate ? { code, nameplate } : { code });
+
+export const fetchAgentDashboardMe = () =>
+  json<AgentDashboardProfile>('/v1/agent-dashboard/me');
+
 export const createOnboardingIntent = () =>
   json<{ token: string; expires_at: string }>('/v1/onboarding/intents', {});
 
 export const fetchOnboardingStatus = (token: string) =>
   json<OnboardingStatus>('/v1/onboarding/status', { token });
-
-export const fetchNameplates = () =>
-  json<{ items: Nameplate[] }>('/v1/nameplates');
-
-export const loginOperator = (access_code: string) =>
-  json<{ operator_id: string }>('/v1/operator-session', { access_code });
 
 export const fetchPublicNameplate = (code: string) =>
   json<Nameplate>(`/v1/nameplates/public/${encodeURIComponent(code)}`);

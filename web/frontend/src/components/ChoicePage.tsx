@@ -89,7 +89,7 @@ export default function ChoicePage({
             data-node-id="57:2921"
             onClick={onAgentLink}
           >
-            提示词接入硬件与 Agent
+            提示词接入 Agent
           </button>
           <button
             type="button"
@@ -97,7 +97,7 @@ export default function ChoicePage({
             data-node-id="57:2923"
             onClick={onWriteToken}
           >
-            找到自己的 Agent
+            输入铭牌进入后台
           </button>
         </div>
       </div>

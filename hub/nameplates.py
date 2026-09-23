@@ -55,6 +55,11 @@ class Nameplates:
         if role!='gateway':raise self.Rejected('FORBIDDEN',403)
         return sid
 
+    def device_owner(self,request):
+        if request.cookies.get('summon_agent_session'):
+            return 'agent:'+self.hub.agent_dashboard.current_agent(request)
+        return self.hub.operator(request)
+
     def public(self,code):
         try:code=normalize(code)
         except ValueError as exc:raise self.Rejected('INVALID_MESSAGE',400,str(exc))
@@ -124,13 +129,19 @@ class Nameplates:
             return self.response('Nameplate',self.public(code))
         if path.startswith('/v1/nameplates'):
             if h.bearer(request):principal='gateway:'+self.gateway(request)
-            else:principal='operator:'+h.operator(request)
+            else:principal='operator:'+self.device_owner(request)
             h.rate('nameplates:'+principal,120)
-            if 'code' in request.match_info:return self.response('Nameplate',self.public(request.match_info['code']))
-            return self.response('NameplateDirectory',{'items':[self.public(r[0]) for r in self.db.execute("SELECT code FROM nameplates WHERE status='ACTIVE' ORDER BY code")]})
+            scoped=principal[len('operator:agent:'):] if principal.startswith('operator:agent:') else None
+            if 'code' in request.match_info:
+                plate=self.public(request.match_info['code'])
+                if scoped and plate['agent']['agent_id']!=scoped:raise self.Rejected('FORBIDDEN',403)
+                return self.response('Nameplate',plate)
+            items=[self.public(r[0]) for r in self.db.execute("SELECT code FROM nameplates WHERE status='ACTIVE' ORDER BY code")]
+            if scoped:items=[item for item in items if item['agent']['agent_id']==scoped]
+            return self.response('NameplateDirectory',{'items':items})
         browser=path.startswith('/v1/device-')
         shell=None if browser else self.gateway(request)
-        owner=h.operator(request) if browser else None
+        owner=self.device_owner(request) if browser else None
         if request.method=='GET':
             if path=='/v1/gateway/session':
                 sid=h.shells[shell]['current_session_id']
@@ -187,6 +198,7 @@ class Nameplates:
                     if sh['gate']=='readonly':raise self.Rejected('SHELL_DISABLED',403)
                     token=secrets.token_urlsafe(32);gid=self.uid('grant')
                     grant={'id':gid,'hash':self.digest(token),'shell_id':sh['shell_id'],'operator_id':owner,
+                           'agent_id':owner[6:] if owner.startswith('agent:') else None,
                            'capabilities':caps,'expires':time.time()+28800,'revoked':False}
                     self.grants[gid]=grant
                     p.update(status='APPROVED',grant_id=gid,claim_token=token)
@@ -202,6 +214,7 @@ class Nameplates:
             elif path=='/v1/gateway/sessions':
                 plate=self.public(body['code'])
                 if plate['agent']['agent_id']!=body['agent_id']:raise self.Rejected('IDEMPOTENCY_CONFLICT')
+                if g.get('agent_id') and g['agent_id']!=body['agent_id']:raise self.Rejected('FORBIDDEN',403)
                 caps=sorted(set(h.precheck(body['agent_id'],shell)) & set(g['capabilities']))
                 if not caps:raise self.Rejected('CAPABILITY_UNSUPPORTED',422)
                 s=await h.create_session(g['operator_id'],body['agent_id'],shell,

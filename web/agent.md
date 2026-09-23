@@ -15,7 +15,7 @@ SUMMON 让远端 Agent 使用现场设备提供的能力，并检索设备执行
 
 ## 接入前准备
 
-如果接入指令是从新版官网复制的，其中会有一次性 `onboarding token`。按正常流程注册、保存 Agent 身份并完成 WSS `hello`/`welcome` 后，使用**自己的** agent_token 向 `POST /v1/onboarding/claim` 发送 `{"token":"<网页给出的 token>"}`，请求头为 `Authorization: Bearer <agent_token>`。此机器接口不需要浏览器 Origin。网页用 `POST /v1/onboarding/status` 等待这个指定 Agent 的在线握手，再展示服务端分配的铭牌。token 30 分钟有效，只用于关联这一张网页与 Agent；它不是注册邀请、设备授权或控制凭证。认领失败不要把 agent_token 粘贴到网页或聊天中，重新从官网开始一次接入即可。
+新版官网复制接入提示词后会显示连接码输入框。按正常流程注册、保存 Agent 身份并完成 WSS `hello`/`welcome` 后，用**自己的** agent_token 请求 `POST /v1/agent-login/codes`，请求体为 `{}`，请求头为 `Authorization: Bearer <agent_token>`。此机器接口不需要浏览器 Origin。把响应中的 `code` 展示给用户，由用户亲自在网页黑色输入框填写；不要把 agent_token 交给网页。连接码有效 5 分钟、只能使用一次，仅用于打开此 Agent 的个人后台，不是注册邀请、设备授权或控制凭证。网页验证后使用 HttpOnly cookie 保持后台会话，刷新可通过 `GET /v1/agent-dashboard/me` 恢复。已有 Agent 不要重新注册，直接用保存的身份连接并生成连接码。接口契约见 [Agent 个人后台登录](https://github.com/rfdiosuao/summon-protocol/blob/main/docs/AGENT-DASHBOARD.md)。
 
 注册成功时，服务端自动为 Agent 分配唯一、固定的铭牌，例如 SMN-XXXX-XXXX，无需用户申请或自己生成。适配器必须使用自己的 agent_token 调用 `GET /v1/agents/me/nameplate`，取回并展示铭牌。用户在电脑客户端输入铭牌并完成设备授权后，Hub 仍通过原有 offer/ready/activate 流程连接双方；铭牌不替代 token。新增接口与设备侧流程见 https://github.com/rfdiosuao/summon-protocol/blob/main/docs/NAMEPLATES.md 。
 
@@ -69,6 +69,8 @@ Windows 上的 EvoX 可作为本地规划器接入：Passport 语音仍由云端
 公开修复记录与模拟验证边界：https://github.com/rfdiosuao/summon-protocol/blob/93ca0b83ba76e7024532c4cf51232fe39bb6b8a0/docs/ONBOARDING-FIXES.md 。SIMULATED 不增加 LIVE summons；计数为零不等于未握手在线。
 
 用 agent_token 请求 `GET /v1/agents/me`，确认 connected=true、agent.status=ONLINE/BUSY 且 last_handshake_at 非空。鉴权失败在 WSS 升级前返回 HTTP 401/ErrorResponse，不会先连接再发 error 帧。HTTP 404/405 同样是 JSON 错误；程序判断 code，message 仅用于诊断。
+
+官网第二入口输入固定铭牌后也要求连接码。它只用公开铭牌定位 Agent；`POST /v1/agent-login/redeem` 会同时核对连接码所属 Agent 与输入的铭牌。后台中的「配置硬件」才会展示设备接入 Skill 提示词。旧的网页 onboarding intent/claim API 为兼容保留，新官网不再使用它。
 
 复用 HTTPS 连接池和常驻 WSS；建连总超时 10 秒。重连等待从 1 秒倍增至 30 秒，随机等待 [基数,min(30,基数×1.5)] 秒，welcome 后稳定至少 10 秒才重置。401/403 停止自动重试，429 遵守 Retry-After。冷启动和热连接延迟分开实测，公网不承诺固定 200–400ms。
 

@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SUMMON · 授权电脑设备</title><link rel="stylesheet" href="/assets/device.css"><script src="/assets/device.js" defer></script></head>
 <body><main><a href="/">← SUMMON</a><h1>把身边的设备交给 Agent</h1><p>只授权你正在使用的设备。铭牌用于找到 Agent，设备授权决定它能否执行任务。</p>
-<section><h2>1 · 登录</h2><form id="login"><label>团队访问码<input id="access" type="password" autocomplete="current-password" required></label><button>登录</button></form></section>
+<section><h2>1 · 当前 Agent</h2><p id="identity">正在核对后台登录状态…</p></section>
 <section><h2>2 · 核对设备</h2><form id="lookup"><label>电脑窗口中的配对码<input id="code" maxlength="20" autocomplete="off" placeholder="XXXXX-XXXXX" required></label><button>查看设备</button></form><div id="preview" hidden><h3 id="device"></h3><p id="mode"></p><fieldset id="capabilities"><legend>允许的能力</legend></fieldset><p>授权有效 8 小时；关闭客户端或服务器重启后需重新配对。每次控制会话仍为 60 秒，不会自动续期。</p><button id="approve" type="button">确认授权这台设备</button></div></section>
 <p id="notice" role="status" aria-live="polite"></p><section id="approved" hidden><h2>设备已授权</h2><p>回到电脑窗口，输入下方 Agent 铭牌并确认连接。执行结果会上传云端，默认仅在当前账号内共享。</p><button id="revoke" type="button">撤销本次设备授权</button></section>
 <section><h2>Agent 铭牌</h2><button id="refresh" type="button">刷新铭牌目录</button><ul id="plates"></ul></section></main></body></html>

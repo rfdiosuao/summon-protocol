@@ -13,7 +13,19 @@ async function directory(){
  const data=await api('/v1/nameplates');$('plates').replaceChildren();
  for(const item of data.items){const li=document.createElement('li'),code=document.createElement('code');code.textContent=item.code;li.append(code,document.createTextNode(' · '+item.agent.name+' · '+item.agent.status));$('plates').append(li);}
 }
-$('login').onsubmit=e=>{e.preventDefault();action(e.submitter,async()=>{await api('/v1/operator-session',{access_code:$('access').value});$('access').value='';$('notice').textContent='已登录。请填写电脑窗口中的配对码。';await directory();});};
+async function identity(){
+ try{
+  const profile=await api('/v1/agent-dashboard/me');
+  $('identity').textContent=profile.agent.name+' · '+profile.nameplate;
+  $('notice').textContent='已登录。请填写电脑窗口中的配对码。';
+  await directory();
+ }catch(e){
+  $('identity').textContent='请先回到官网，使用 Agent 的一次性连接码登录。';
+  $('lookup').querySelector('button').disabled=true;
+  $('notice').textContent=e.message;
+ }
+}
+void identity();
 $('code').oninput=()=>{preview=null;$('preview').hidden=true;};
 $('lookup').onsubmit=e=>{e.preventDefault();action(e.submitter,async()=>{
  const code=$('code').value;

@@ -884,6 +884,134 @@
   z-index: 5;
 }
 
+/* Agent sign-in keeps the established SUMMON scene and uses a private code field. */
+.flow--connect.flow--agent-code .flow__orb {
+  width: 180px;
+  max-width: 180px;
+  margin-bottom: 20px;
+}
+
+.flow--connect.flow--agent-code .flow__stage {
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.flow--connect.flow--agent-code .flow__stage::-webkit-scrollbar { display: none; }
+
+.flow__code-card {
+  position: relative;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(360px, calc(100vw - 48px));
+  padding: 20px;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(18px);
+  color: #25282b;
+  font-family: Inter, 'PingFang SC', sans-serif;
+}
+
+.flow__code-target,
+.flow__code-help,
+.flow__code-error {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.flow__code-target {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.flow__code-help { font-size: 14px; }
+.flow__code-label { font-size: 14px; font-weight: 600; }
+
+.flow__code-input {
+  width: 100%;
+  height: 54px;
+  box-sizing: border-box;
+  border: 1px solid #111;
+  border-radius: 8px;
+  padding: 0 14px;
+  background: #111;
+  color: #fff;
+  font: 22px/1 'SF Mono', ui-monospace, monospace;
+  letter-spacing: 0.08em;
+  text-align: center;
+  outline-offset: 3px;
+}
+
+.flow__code-input::placeholder { color: #a7a7a7; opacity: 1; }
+
+.flow__code-submit,
+.flow__dashboard-action {
+  min-height: 50px;
+  border: 0;
+  border-radius: 8px;
+  background: #111;
+  color: #fff;
+  font: 500 17px/1.2 Inter, 'PingFang SC', sans-serif;
+  cursor: pointer;
+}
+
+.flow__code-submit:disabled { opacity: 0.45; cursor: default; }
+.flow__code-copy {
+  align-self: center;
+  border: 0;
+  padding: 5px;
+  background: transparent;
+  color: #3b444a;
+  font: 14px/1.3 Inter, 'PingFang SC', sans-serif;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.flow__code-error { color: #ab2b2b; font-size: 13px; }
+
+.flow__dashboard-panel {
+  position: absolute;
+  z-index: 5;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(440px, calc(100vw - 40px));
+  box-sizing: border-box;
+  padding: 36px;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.84);
+  backdrop-filter: blur(18px);
+  color: #22282d;
+  font-family: Inter, 'PingFang SC', sans-serif;
+}
+
+.flow__dashboard-label { margin: 0 0 28px; font-size: 14px; }
+.flow__dashboard-name { margin: 0 0 12px; font-size: clamp(28px, 5vw, 42px); overflow-wrap: anywhere; }
+.flow__dashboard-code { margin: 0 0 24px; font: 20px/1.3 'SF Mono', ui-monospace, monospace; letter-spacing: 0.05em; }
+.flow__dashboard-state { display: flex; align-items: center; gap: 8px; margin: 0 0 38px; font-size: 14px; }
+.flow__dashboard-dot { width: 9px; height: 9px; flex: 0 0 auto; border-radius: 50%; background: #888; }
+.flow__dashboard-dot.is-online { background: #b9ed08; box-shadow: 0 0 10px #b9ed08; }
+.flow__dashboard-action { width: 100%; }
+.flow__dashboard-note { margin: 14px 0 0; font-size: 13px; line-height: 1.5; }
+
+@media (max-height: 760px) {
+  .flow--connect.flow--agent-code .flow__stage { padding-top: 108px; }
+  .flow--connect.flow--agent-code .flow__orb { width: 130px; max-width: 130px; margin-bottom: 8px; }
+  .flow__dashboard-panel { padding: 24px; }
+}
+
+@media (max-height: 620px) {
+  .flow--connect.flow--agent-code .flow__stage { padding-top: 72px; padding-bottom: 12px; }
+  .flow--connect.flow--agent-code .flow__heading--dark { margin-bottom: 6px; }
+  .flow--connect.flow--agent-code .flow__orb { width: 80px; max-width: 80px; margin-bottom: 5px; }
+  .flow__code-card { gap: 8px; padding: 14px; }
+  .flow__code-input { height: 46px; }
+  .flow__code-submit { min-height: 44px; }
+}
+
 .flow__cta--choice {
   position: static;
   left: auto;

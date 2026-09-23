@@ -121,8 +121,7 @@ export default function AgentLinkPage({
           </div>
 
           <p className="flow__footnote" data-node-id="57:2868">
-            当前为邀请制开发接入，需要实现适配器。控制台访问码与 Agent
-            注册凭证不同；复制指令不会自动注册或控制设备。
+            接入后，Agent 会生成一次性连接码。把连接码填在下一页，即可打开它的后台。
           </p>
 
           <button

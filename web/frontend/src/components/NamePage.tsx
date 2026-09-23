@@ -86,7 +86,7 @@ export default function NamePage({
 
         <div className="flow__name-center">
           <p className="flow__heading" data-node-id="16:109">
-            给agent取个名字
+            输入 Agent 铭牌
           </p>
 
           <AgentOrb nodeId="36:2355" />
@@ -105,10 +105,10 @@ export default function NamePage({
                 className="flow__field-input"
                 type="text"
                 value={name}
-                maxLength={24}
+                maxLength={13}
                 autoComplete="off"
                 autoFocus
-                placeholder=""
+                placeholder="SMN-XXXX-XXXX"
                 onChange={(event) => onNameChange(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' && canConfirm) {
@@ -126,7 +126,7 @@ export default function NamePage({
             disabled={!canConfirm}
             onClick={onConfirm}
           >
-            确定名字
+            查找 Agent
           </button>
         </div>
       </div>
