@@ -263,7 +263,11 @@ class Service:
     async def socket(self,request):
         key,cfg=self.device(request,'device')
         if key in self.peers:raise web.HTTPConflict(text='Device already connected')
-        ws=web.WebSocketResponse(heartbeat=20,max_msg_size=2048)
+        # The ESP WebSocket client keeps the TCP connection and reconnects on
+        # transport loss, but does not answer aiohttp's periodic PING frames
+        # reliably through the reverse proxy. Do not turn a healthy idle link
+        # into a 60-second heartbeat timeout.
+        ws=web.WebSocketResponse(max_msg_size=2048)
         await ws.prepare(request)
         peer=Peer(self,key,cfg,ws);self.peers[key]=peer
         try:
