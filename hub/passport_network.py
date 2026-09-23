@@ -281,6 +281,8 @@ class Service:
                     try:
                         f=json.loads(message.data)
                         if not isinstance(f,dict):raise ValueError('Expected object')
+                        log.info('Passport inbound kind=%s frame_turn=%s peer_turn=%s',
+                                 f.get('type'),f.get('turn'),peer.turn)
                         await peer.consume(f)
                     except (ValueError,KeyError,TypeError):
                         log.warning('Passport invalid media frame; closing with 1008')
