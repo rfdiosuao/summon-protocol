@@ -5,6 +5,7 @@ import base64
 import hashlib
 import io
 import json
+import logging
 from pathlib import Path
 import secrets
 import sqlite3
@@ -15,6 +16,8 @@ import wave
 import aiohttp
 from aiohttp import web
 from gateway.passport_media import Recording
+
+log = logging.getLogger(__name__)
 
 
 class Speech:
@@ -167,6 +170,8 @@ class Peer:
     async def consume(self, f):
         kind=f.get('type')
         if kind=='hello':
+            heap=f.get('free_heap')
+            log.info('Passport hello free_heap=%s', heap if isinstance(heap,int) else 'unknown')
             self.turn=int(f.get('turn',0)); self.ready=True
             await self.send('status',text='云端已连接\n确定说话 · 长按上键配网')
         elif kind in ('remote.ready','play.ack','play.done','play.error') and f.get('turn')==self.turn:
@@ -188,12 +193,14 @@ class Peer:
                         pending.set_exception(RuntimeError(detail))
                     else:pending.set_result(f)
         elif kind in ('cancel','record.start'):
+            log.info('Passport recording event=%s',kind)
             if self.job and not self.job.done():
                 self.job.cancel(); await asyncio.gather(self.job,return_exceptions=True)
             self.turn=int(f['turn']); self.recording.feed(f)
         elif kind in ('record.chunk','record.end','record.cancel'):
             pcm=self.recording.feed(f)
             if pcm is not None:
+                log.info('Passport recording complete bytes=%d',len(pcm))
                 plate=self.recording.nameplate or self.config['default_plate']
                 if plate not in self.config['allowed_plates']: raise ValueError('Nameplate not authorized')
                 self.job=asyncio.create_task(self.work(uuid.uuid4().hex,pcm=pcm,plate=plate))
@@ -242,8 +249,11 @@ class Service:
                         if not isinstance(f,dict):raise ValueError('Expected object')
                         await peer.consume(f)
                     except (ValueError,KeyError,TypeError):
+                        log.warning('Passport invalid media frame; closing with 1008')
                         await ws.close(code=1008,message=b'Invalid media frame');break
         finally:
+            log.info('Passport disconnected code=%s exception=%s chunks=%d bytes=%d',
+                     ws.close_code,type(ws.exception()).__name__,peer.recording.seq,len(peer.recording.pcm))
             if peer.job:peer.job.cancel();await asyncio.gather(peer.job,return_exceptions=True)
             self.peers.pop(key,None)
         return ws
@@ -314,6 +324,7 @@ class Service:
 
 
 if __name__=='__main__':
+    logging.basicConfig(level=logging.INFO)
     p=argparse.ArgumentParser();p.add_argument('--config',type=Path,required=True);args=p.parse_args()
     cfg=json.loads(args.config.read_text(encoding='utf-8'))
     web.run_app(Service(cfg).app(),host='127.0.0.1',port=8842,access_log=None)
