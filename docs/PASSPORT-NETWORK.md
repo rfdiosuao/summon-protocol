@@ -57,4 +57,4 @@ SUMMON1 {"type":"network.configure","ssid":"<2.4GHz SSID>","password":"<Wi-Fi pa
 
 ## 2026-09-23 云端 Agent MVP
 
-服务器已启用 `summon-passport-agent.service`，复用铭牌 `SMN-CCM7-P6RF` 的现有 Agent 身份与私有模型配置；本地 EvoX Agent 已停止，电脑 Gateway 保持运行。通过真实 Hub 会话发送“查看电脑当前时间”，云端模型下达动作、电脑执行、云端返回时间均已实测。Passport 旧固件的播放链路仍出现过 ACK 超时；精简版固件 `fcf989d` 正待 CI 构建及真机验收，不能把服务器测试算作设备语音成功。
+服务器已启用 `summon-passport-agent.service`，复用铭牌 `SMN-CCM7-P6RF` 的现有 Agent 身份与私有模型配置；本地 EvoX Agent 已停止，电脑 Gateway 保持运行。通过真实 Hub 会话发送“查看电脑当前时间”，云端模型下达动作、电脑执行、云端返回时间均已实测。Passport 旧固件的播放链路仍出现过 ACK 超时；精简版固件 `526d807` 已通过静态检查和 ESP-IDF 5.5.3 构建，但尚待真机验收，不能把服务器测试算作设备语音成功。
