@@ -210,6 +210,8 @@ class Peer:
             self.turn=int(f.get('turn',0)); self.ready=True
             await self.send('status',text='云端已连接\n确定说话 · 长按上键配网')
         elif kind in ('remote.ready','play.ack','play.done','play.error') and f.get('turn')==self.turn:
+            if kind in ('play.ack','play.error','play.done'):
+                log.info('Device media event kind=%s turn=%s seq=%s',kind,self.turn,f.get('seq'))
             if kind=='play.error' and f.get('seq') is None:
                 # Playback-task failures have no chunk sequence. Fail all
                 # outstanding waits immediately rather than masking them as
