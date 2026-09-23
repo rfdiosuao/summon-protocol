@@ -132,18 +132,17 @@ class Peer:
         pcm=await self.service.speech.synthesize(text)
         log.info('Playback start turn=%d pcm_bytes=%d', self.turn, len(pcm))
         # Sliding window avoids one network RTT per 32 ms audio chunk.
-        # Send one frame at a time. The device acknowledges an accepted frame
-        # before its audio task consumes it; serializing ACKs prevents the
-        # small ESP32 Wi-Fi event/TX queues from starving during playback.
+        # Allow a few frames in flight so Wi-Fi jitter cannot stall the device's
+        # initial 384 ms playback prebuffer. Keep below its 16-frame queue.
         window=[]; seq=0
         try:
             for at in range(0, len(pcm), 1024):
                 future=asyncio.get_running_loop().create_future(); self.acks[seq]=future
                 await self.send('play.chunk', seq=seq, pcm=base64.b64encode(pcm[at:at+1024]).decode())
                 window.append((seq,future)); seq+=1
-                if len(window)>=1:
+                if len(window)>=4:
                     for old,pending in window:
-                        try: await asyncio.wait_for(pending,5)
+                        try: await asyncio.wait_for(pending,10)
                         except asyncio.TimeoutError as exc: raise TimeoutError(f'Device playback ACK timed out at chunk {old}') from exc
                         self.acks.pop(old,None)
                     # A Passport playback slot represents 1024 bytes of
@@ -152,7 +151,7 @@ class Peer:
                     # the device naturally paces frames at 32 ms each.
                     window.clear(); await asyncio.sleep(0)
             for old,pending in window:
-                try: await asyncio.wait_for(pending,5)
+                try: await asyncio.wait_for(pending,10)
                 except asyncio.TimeoutError as exc: raise TimeoutError(f'Device playback ACK timed out at chunk {old}') from exc
                 self.acks.pop(old,None)
             done=asyncio.get_running_loop().create_future(); self.acks['done']=done
