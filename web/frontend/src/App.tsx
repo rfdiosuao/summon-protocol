@@ -46,9 +46,10 @@ export default function App() {
 
   useEffect(() => {
     if (view !== 'dashboard') return;
+    void fetchAgentDashboardMe().then(setProfile).catch(() => {});
     const timer = window.setInterval(() => {
       void fetchAgentDashboardMe().then(setProfile).catch(() => {});
-    }, 15000);
+    }, 2000);
     return () => window.clearInterval(timer);
   }, [view]);
 
