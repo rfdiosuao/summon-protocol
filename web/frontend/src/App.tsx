@@ -8,7 +8,6 @@ import {
 import AgentLinkPage from './components/AgentLinkPage';
 import AgentWaitPage from './components/AgentWaitPage';
 import ChoicePage from './components/ChoicePage';
-import HardwarePage from './components/HardwarePage';
 import HomePage from './components/HomePage';
 import type { HomeEntry } from './components/HomePage';
 import NamePage from './components/NamePage';
@@ -29,7 +28,6 @@ type View =
   | 'write'
   | 'wait'
   | 'agentLink'
-  | 'hardware'
   | 'agentWait'
   | 'success';
 
@@ -205,18 +203,8 @@ export default function App() {
       <AgentLinkPage
         sceneBg={sceneBg}
         onBack={() => setView('choice')}
-        onCopied={() => setView('hardware')}
-        prompt={`${AGENT_LINK_PROMPT}\n\n完成注册和在线握手后，用你自己的 Agent token（不要发给网页）请求 POST https://summon.entermodetwo.com/v1/onboarding/claim，Authorization: Bearer <agent_token>，JSON: {"token":"${intentToken}"}。认领成功后，这个网页才会显示你真实的铭牌。接入会话 30 分钟内有效。`}
-      />
-    );
-  }
-
-  if (view === 'hardware') {
-    return (
-      <HardwarePage
-        sceneBg={sceneBg}
-        onBack={() => setView('agentLink')}
         onCopied={() => setView('agentWait')}
+        prompt={`${AGENT_LINK_PROMPT}\n\n完成注册和在线握手后，用你自己的 Agent token（不要发给网页）请求 POST https://summon.entermodetwo.com/v1/onboarding/claim，Authorization: Bearer <agent_token>，JSON: {"token":"${intentToken}"}。认领成功后，这个网页才会显示你真实的铭牌。接入会话 30 分钟内有效。`}
       />
     );
   }
@@ -224,7 +212,7 @@ export default function App() {
   if (view === 'agentWait') {
     return (
       <AgentWaitPage
-        onBack={() => setView('hardware')}
+        onBack={() => setView('agentLink')}
         token={intentToken}
         onSuccess={(name, code) => goSuccess(name, code, 'agentWait')}
       />

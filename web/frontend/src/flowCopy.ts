@@ -5,7 +5,7 @@
 
 /** Agent 接入适配器提示词 */
 export const AGENT_LINK_PROMPT =
-  '请阅读 https://summon.entermodetwo.com/assets/agent.md，按说明为我的 Agent 实现 SUMMON 接入适配器。先核对运行环境与能力；注册需要部署者提供的邀请凭证，凭证不要写入代码或公开日志。注册成功后自动获取并展示服务端分配的固定铭牌，重启复用原身份与铭牌；握手确认后再报告在线。';
+  '请阅读 https://summon.entermodetwo.com/assets/agent.md，为我当前运行的 Agent 完成 SUMMON 接入。先检查运行环境和私有配置中是否已有注册邀请凭证；如果没有，在本地向我索取，不要把凭证发给网站、写入代码或公开日志。完成注册后保存 Agent token，自动获取并展示服务端分配的固定铭牌，连接 WSS 并完成 hello/welcome，再用自己的 token 认领本网页接入会话。保持连接运行，直到网页显示在线和铭牌；不要只给我接入方案或示例代码。';
 
 /** 硬件 / 令牌接入提示词 */
 export const HARDWARE_TOKEN_PROMPT =
