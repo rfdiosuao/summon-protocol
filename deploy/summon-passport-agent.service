@@ -1,0 +1,21 @@
+[Unit]
+Description=SUMMON cloud Passport Agent
+After=network-online.target summon-hub.service
+Wants=network-online.target
+
+[Service]
+User=summon
+Group=summon
+WorkingDirectory=/opt/summon/app
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/summon/venv/bin/python -m hub.passport_agent --config /etc/summon/passport-agent.json --credentials /etc/summon/passport-agent-credentials.json
+Restart=on-failure
+RestartSec=3
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

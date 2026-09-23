@@ -2,17 +2,24 @@
 
 Passport 通过 2.4GHz Wi-Fi 直连 SUMMON 媒体桥，不需要 USB 电脑转发音频。麦克风音频经 WSS 上传，服务器调用语音识别，再提交给铭牌对应 Agent。Agent 的动作通过原 Hub 会话发送到部署者绑定的电脑；执行电脑必须运行 SUMMON 客户端。服务器将回复合成为语音，经同一连接回到 Passport。
 
-目前仍使用服务器测试 Agent，尚未接入用户现有的本地 Codex。语音识别不是决策 Agent；它只提供文字。不会因为更换联网方式就自动获得本地 Codex 能力。
+当前 MVP 由服务器上的模型 Agent 负责思考和发出动作；电脑只运行 SUMMON Gateway 客户端，负责在本机执行并回传结果。铭牌 `SMN-CCM7-P6RF` 对应这个云端 Agent，媒体桥按部署者配置把它的动作送到绑定的电脑。语音识别只负责转文字。
 
 ## 设备操作
 
-- 长按上键：打开手机配网热点；按屏幕提示打开 `192.168.4.1`，填写 Wi-Fi、密码和 Agent 铭牌。
-- 双击确定：返回；关闭配网热点，保留路由器连接。
-- 长按下键：联网；已保存 Wi-Fi 时开机自动连接。
+- 开机自动连接已保存的 2.4GHz Wi-Fi 和云端；长按下键可触发重连。
+- 双击确定：取消当前录音或播放。
 - 确定：开始说话，再按结束；静音自动提交，单段最长八秒。
 - 上下短按：调整音量。联网后可拔 USB；执行电脑上的客户端仍须在线。
 
 铭牌不是凭证。部署者给每台设备写入独立的 `device_token`，服务端绑定允许的铭牌和 `target_shell_id`。本版本采用 USB 首次注入凭证，不把凭证硬编码进公开固件。更换目标电脑或扩大铭牌范围由部署者修改私有绑定。
+
+精简固件不再启动设备热点、Wi-Fi 扫描或 `192.168.4.1` 网页。现有 NVS 中的 Wi-Fi、音量、铭牌和设备 token 在只刷应用分区时保留。需修改网络或首次配置时，用 USB 串口发送一行私有配置（不要放到公开日志或仓库）：
+
+```text
+SUMMON1 {"type":"network.configure","ssid":"<2.4GHz SSID>","password":"<Wi-Fi password>","nameplate":"SMN-XXXX-XXXX","device_token":"<private device token>"}
+```
+
+字段可省略以保留原值；设备返回 `network.configured` 并自动重启。日常语音全走 Wi-Fi，不依赖 USB。只有维护配置需要 USB。
 
 ## Agent 可调用的接口
 
@@ -36,7 +43,7 @@ Passport 通过 2.4GHz Wi-Fi 直连 SUMMON 媒体桥，不需要 USB 电脑转�
 
 ## 部署与经验声明
 
-独立进程 `python -m hub.passport_network --config /etc/summon/passport-network.json` 监听本机 8842，由现有 HTTPS 入口转发 `/v1/passport/`，不在媒体服务本机执行 shell 命令。
+媒体进程 `python -m hub.passport_network --config /etc/summon/passport-network.json` 监听本机 8842，由现有 HTTPS 入口转发 `/v1/passport/`，不在媒体服务本机执行 shell 命令。服务器 Agent 由 [systemd 单元](../deploy/summon-passport-agent.service)运行，读取私有模型配置和现有 Agent 身份；其决策走 Hub 会话和 Gateway 回执。旧的本地 EvoX Agent 必须停用，避免同一 Agent token 双连；Gateway 客户端保持在线。
 
 私有配置包括 `hub_url`、`origin`、`database`、`speech` 和 `devices`。每台设备配置 `device_token`、`sender_token`、`operator_code`、`default_plate`、`allowed_plates`、`target_shell_id`。操作者凭证保存在服务器，不下发到设备；其绑定范围由部署者确定。
 
@@ -47,3 +54,7 @@ Passport 通过 2.4GHz Wi-Fi 直连 SUMMON 媒体桥，不需要 USB 电脑转�
 服务器识别/合成 API 实测成功，公网 `/v1/passport/transcribe` 返回 HTTP 200；服务器桥通过真实 Hub 调用已授权 Windows 电脑执行时间查询，获得实际执行结果。媒体、鉴权、消息幂等和 Skill 相关 12 项测试通过。完整测试套件在原有 `GatewayIntegrationTests` 的 teardown 等待挂起，已中止；不声明全套通过。
 
 固件 `be6bc6a` 的静态检查与 ESP-IDF 构建通过，应用区已刷写且哈希校验通过。首版手机保存超时，实测当时空闲堆约 11 KB；已释放闲置 BLE 内存、缩减 Wi-Fi 缓冲并先应答保存请求再切换频道。修复版重启后空闲堆约 84 KB，音频初始化正常。手机保存、WSS 真机连接、拔 USB 后录音与远端播报仍需实物复验。
+
+## 2026-09-23 云端 Agent MVP
+
+服务器已启用 `summon-passport-agent.service`，复用铭牌 `SMN-CCM7-P6RF` 的现有 Agent 身份与私有模型配置；本地 EvoX Agent 已停止，电脑 Gateway 保持运行。通过真实 Hub 会话发送“查看电脑当前时间”，云端模型下达动作、电脑执行、云端返回时间均已实测。Passport 旧固件的播放链路仍出现过 ACK 超时；精简版固件 `fcf989d` 正待 CI 构建及真机验收，不能把服务器测试算作设备语音成功。
