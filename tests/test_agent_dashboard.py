@@ -31,6 +31,9 @@ class AgentDashboardTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(login.status, 200)
         profile = await login.json()
         self.assertEqual(profile['agent']['agent_id'], aid)
+        self.assertEqual(len(profile['devices']), 1)
+        self.assertEqual(profile['devices'][0]['kind'], 'computer')
+        self.assertFalse(profile['devices'][0]['authorized'])
         self.assertRegex(profile['nameplate'], r'^SMN-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$')
         self.assertIn('summon_agent_session=', login.headers['Set-Cookie'])
         own = await self.client.get('/v1/agent-dashboard/me')
@@ -98,6 +101,15 @@ class AgentDashboardTests(unittest.IsolatedAsyncioTestCase):
             json={'request_id': 'wrong-agent', 'code': other_plate, 'agent_id': other_id})
         self.assertEqual(wrong.status, 403)
         self.assertEqual(self.app['hub'].nameplates.grants[(await approval.json())['grant_id']]['agent_id'], aid)
+        linked = (await (await self.client.get('/v1/agent-dashboard/me')).json())['devices']
+        self.assertEqual([device['shell_id'] for device in linked], ['default-computer', 'shell_a'])
+        self.assertTrue(linked[1]['authorized'])
+        self.assertEqual(linked[1]['capabilities'], ['display.text'])
+        self.assertEqual(len(self.app['hub'].store.all('device_links')), 1)
+        self.app['hub'].nameplates.grants[(await approval.json())['grant_id']]['revoked'] = True
+        after_revoke = (await (await self.client.get('/v1/agent-dashboard/me')).json())['devices']
+        self.assertFalse(after_revoke[1]['authorized'])
+        self.assertEqual(after_revoke[1]['capabilities'], [])
         await agent.close()
         await gateway.close()
 

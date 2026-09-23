@@ -20,6 +20,7 @@ class AgentDashboard:
         return {
             'agent': {key: agent[key] for key in ('agent_id', 'name', 'status')},
             'nameplate': self.hub.nameplates.ensure(agent_id),
+            'devices': self.hub.nameplates.dashboard_devices(agent_id),
         }
 
     async def issue(self, request):

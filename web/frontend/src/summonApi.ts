@@ -74,6 +74,15 @@ export type OnboardingStatus = {
 export type AgentDashboardProfile = {
   agent: { agent_id: string; name: string; status: string };
   nameplate: string;
+  devices: Array<{
+    shell_id: string;
+    label: string;
+    kind: 'computer' | 'hardware';
+    state: string;
+    authorized: boolean;
+    capabilities: string[];
+    session_state: string | null;
+  }>;
 };
 
 export const redeemAgentLoginCode = (code: string, nameplate?: string) =>

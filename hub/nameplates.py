@@ -26,6 +26,8 @@ class Nameplates:
         self.hub,self.Rejected,self.digest,self.utc,self.uid=hub,Rejected,digest,utc,uid
         self.pairings,self.grants,self.requests={},{},{}
         self.session_auth=hub.store.all('session_authorizations')
+        # Display metadata only; grants still expire on Hub restart.
+        self.device_links=hub.store.all('device_links')
         # Pairing secrets and device grants intentionally expire on Hub restart.
         self.db=hub.store.db
         self.db.execute('CREATE TABLE IF NOT EXISTS nameplates (code TEXT PRIMARY KEY, agent_id TEXT UNIQUE NOT NULL, status TEXT NOT NULL)')
@@ -71,6 +73,34 @@ class Nameplates:
 
     def valid_grant(self,g):
         return g and not g['revoked'] and g['expires']>time.time()
+
+    def dashboard_devices(self,agent_id):
+        """Return this Agent's device map without pairing secrets."""
+        pc=next((sh for sh in self.hub.shells.values() if 'command.exec' in sh['capabilities']
+                 or 'browser.open' in sh['capabilities']),None)
+        def item(shell_id,label,default=False):
+            shell=self.hub.shells.get(shell_id) if shell_id else None
+            grants=[g for g in self.grants.values() if g['agent_id']==agent_id
+                    and g['shell_id']==shell_id and self.valid_grant(g)]
+            supported=set(self.hub.agents[agent_id]['public']['capabilities'])
+            if shell:supported &= set(shell['capabilities']) & set(shell['allowed_actions'])
+            else:supported.clear()
+            session=next((s for s in self.hub.sessions.values() if s['agent_id']==agent_id
+                          and s['shell_id']==shell_id and s['state'] in ('CONNECTING','ACTIVE','RELEASING')),None)
+            return {'shell_id':shell_id or 'default-computer','label':label,
+                    'kind':'computer' if default else 'hardware',
+                    'state':shell['state'] if shell else 'OFFLINE',
+                    'authorized':bool(grants),
+                    'capabilities':sorted({cap for g in grants for cap in g['capabilities']} & supported),
+                    'session_state':session['state'] if session else None}
+        devices=[item(pc['shell_id'] if pc else None,'电脑客户端',True)]
+        links=sorted((link for link in self.device_links.values() if link['agent_id']==agent_id),
+                     key=lambda link:(link['label'],link['shell_id']))
+        for link in links:
+            if pc and link['shell_id']==pc['shell_id']:
+                continue
+            devices.append(item(link['shell_id'],link['label']))
+        return devices
 
     def grant(self,request,shell):
         token=request.headers.get('X-Summon-Device-Grant','')
@@ -201,6 +231,11 @@ class Nameplates:
                            'agent_id':owner[6:] if owner.startswith('agent:') else None,
                            'capabilities':caps,'expires':time.time()+28800,'revoked':False}
                     self.grants[gid]=grant
+                    if grant['agent_id']:
+                        link={'agent_id':grant['agent_id'],'shell_id':sh['shell_id'],'label':sh['label']}
+                        link_key=grant['agent_id']+':'+sh['shell_id']
+                        self.device_links[link_key]=link
+                        self.hub.store.save(device_links={link_key:link})
                     p.update(status='APPROVED',grant_id=gid,claim_token=token)
                     result={'grant_id':gid,'expires_at':self.utc(grant['expires'])};result_kind='DeviceApproval'
             elif path.endswith('/claim'):
