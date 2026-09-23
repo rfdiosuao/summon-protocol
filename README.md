@@ -1,14 +1,24 @@
-# 唤名 SUMMON
+<p align="center">
+  <a href="https://summon.entermodetwo.com/">
+    <img src=".github/assets/logo-mark.png" width="88" height="88" alt="唤名 SUMMON 标志">
+  </a>
+</p>
 
-**唤一个名字，让熟悉的 Agent 来到身边。**
+<h1 align="center">唤名 SUMMON</h1>
 
-*Ghost lives on the network. Bodies can change.*
+<p align="center"><strong>唤一个名字，让熟悉的 Agent 来到身边。</strong></p>
+
+<p align="center"><em>Ghost lives on the network. Bodies can change.</em></p>
 
 SUMMON 探索一种跨设备的 Agent 体验：让运行在远端的智能体接入身边的设备，带着已保存的偏好继续与你互动。从一块随身屏幕到展台上的机械臂，交互的形态可以改变，陪你完成任务的仍是同一个 Agent。
 
 本项目为 **EvoTavern 进化酒馆黑客松 · 深圳站**（2026-09-21 ~ 09-24）赛道 01「具身与穿戴硬件」的参赛参考实现，当前提供运行平台与模拟联调。
 
-[协议文档](docs/PROTOCOL.md) · [接入指南](docs/ADAPTER.md) · [消息样例](protocol/examples/README.md)
+<p align="center">
+  <a href="docs/PROTOCOL.md">协议文档</a> ·
+  <a href="docs/ADAPTER.md">接入指南</a> ·
+  <a href="protocol/examples/README.md">消息样例</a>
+</p>
 
 ## 同一个 Agent，不同的身体
 
