@@ -987,7 +987,22 @@
   height: auto;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/** 接入 Agent / 接入硬件：保留提示词滚动能力，只隐藏滚动条外观。 */
+.flow--connect,
+.flow--connect * {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.flow--connect::-webkit-scrollbar,
+.flow--connect *::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .flow__connect-stack .flow__prompt-text {
