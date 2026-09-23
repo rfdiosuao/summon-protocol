@@ -91,7 +91,13 @@ export default function AgentDashboardPage({ sceneBg, profile, onHome, onHardwar
             </div>
             <button type="button" className="flow__starmap-add" onClick={onHardware}>＋ 配置硬件</button>
           </footer>
-          {devices.length > 8 && <p className="flow__starmap-overflow">另有 {devices.length - 8} 台设备已适配。</p>}
+          {devices.length > 8 && <div className="flow__starmap-more" aria-label="更多已适配设备">
+            {devices.slice(8).map((device) => <button key={device.shell_id} type="button"
+              className={selectedId === device.shell_id ? 'is-selected' : ''}
+              onClick={() => setSelectedId(device.shell_id)}>
+              <span aria-hidden="true">✦</span> {device.label} · {isOnline(device.state) ? '在线' : '离线'}
+            </button>)}
+          </div>}
         </section>
       </div>
     </main>

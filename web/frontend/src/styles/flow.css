@@ -1091,7 +1091,10 @@
 .flow__starmap-detail small { overflow-wrap: anywhere; }
 .flow__starmap-add { flex: 0 0 auto; min-height: 44px; padding: 0 19px; border: 0; border-radius: 8px; background: #172529; color: #fff; font: 600 13px/1 Inter, 'PingFang SC', sans-serif; cursor: pointer; }
 .flow__starmap-add:hover { background: #35494d; }
-.flow__starmap-overflow { margin: 12px 0 0; color: #627075; font-size: 12px; }
+.flow__starmap-more { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; padding-top: 14px; border-top: 1px solid rgba(55,87,94,.18); }
+.flow__starmap-more button { padding: 8px 10px; border: 1px solid rgba(55,87,94,.18); border-radius: 8px; background: rgba(255,255,255,.56); color: #40575e; font: 12px/1.2 Inter, 'PingFang SC', sans-serif; cursor: pointer; }
+.flow__starmap-more button.is-selected { border-color: #83a900; background: rgba(185,237,8,.18); }
+.flow__starmap-more button span { color: #83a900; }
 
 @media (max-width: 767px) {
   .flow__starmap { width: calc(100% - 28px); margin: 100px auto 24px; padding: 18px 16px; border-radius: 18px; }
