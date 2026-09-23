@@ -1,0 +1,19 @@
+/**
+ * CursorGrid 布局：铺满父级且不拦截指针
+ */
+.cursor-grid {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.cursor-grid__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}

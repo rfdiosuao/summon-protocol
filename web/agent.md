@@ -15,6 +15,8 @@ SUMMON 让远端 Agent 使用现场设备提供的能力，并检索设备执行
 
 ## 接入前准备
 
+如果接入指令是从新版官网复制的，其中会有一次性 `onboarding token`。按正常流程注册、保存 Agent 身份并完成 WSS `hello`/`welcome` 后，使用**自己的** agent_token 向 `POST /v1/onboarding/claim` 发送 `{"token":"<网页给出的 token>"}`，请求头为 `Authorization: Bearer <agent_token>`。此机器接口不需要浏览器 Origin。网页用 `POST /v1/onboarding/status` 等待这个指定 Agent 的在线握手，再展示服务端分配的铭牌。token 30 分钟有效，只用于关联这一张网页与 Agent；它不是注册邀请、设备授权或控制凭证。认领失败不要把 agent_token 粘贴到网页或聊天中，重新从官网开始一次接入即可。
+
 注册成功时，服务端自动为 Agent 分配唯一、固定的铭牌，例如 SMN-XXXX-XXXX，无需用户申请或自己生成。适配器必须使用自己的 agent_token 调用 `GET /v1/agents/me/nameplate`，取回并展示铭牌。用户在电脑客户端输入铭牌并完成设备授权后，Hub 仍通过原有 offer/ready/activate 流程连接双方；铭牌不替代 token。新增接口与设备侧流程见 https://github.com/rfdiosuao/summon-protocol/blob/main/docs/NAMEPLATES.md 。
 
 桌面可选能力已包括 browser.open 和 command.exec，仅在 offer 的 permitted_capabilities 包含对应能力时调用。browser.open 受本机精确 URL 白名单限制；command.exec 需独立授权，8 秒上限，回执可带 execution（退出码、有界 stdout/stderr、超时及截断标记）。命令输出会传到云端，不是只在本机显示。参考 https://github.com/rfdiosuao/summon-protocol/blob/main/docs/COMMANDS.md 。

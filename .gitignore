@@ -8,3 +8,6 @@ __pycache__/
 .env
 config.local.json
 demo-credentials.json
+web/frontend/node_modules/
+web/frontend/dist/
+web/frontend/*.tsbuildinfo

@@ -121,6 +121,8 @@ class Hub:
             self.experiences.finish(record, 'recovery')
         from hub.nameplates import Nameplates
         self.nameplates=Nameplates(self)
+        from hub.onboarding import Onboarding
+        self.onboarding=Onboarding(self)
 
     def validate(self, name, value):
         if not self.validators[name].is_valid(value):
@@ -781,13 +783,18 @@ def create_app(path, cfg):
                 response.headers['Content-Type']=mime+'; charset=utf-8'
                 response.headers['Content-Disposition']='inline'
         response.headers['Cache-Control']='no-store'
-        response.headers['Content-Security-Policy']="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; frame-ancestors 'none'"
+        response.headers['Content-Security-Policy']=(
+            "default-src 'self'; script-src 'self'; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "font-src 'self' https://fonts.gstatic.com; "
+            "connect-src 'self'; frame-ancestors 'none'")
         return response
 
     app=web.Application(middlewares=[guard],client_max_size=16384)
     app['hub']=hub
     app['machine_routes']=set()
     hub.nameplates.routes(app)
+    hub.onboarding.routes(app)
     for route in ['/v1/operator-session','/v1/agents','/v1/gateway/results','/v1/sessions','/v1/sessions/{sid}/inputs','/v1/sessions/{sid}/feedback','/v1/sessions/{sid}/release','/v1/sessions/{sid}/handoff']:
         app.router.add_post(route,hub.http)
     for route in ['/v1/catalog','/v1/agents/me','/v1/gateway/config','/v1/state','/v1/events','/v1/experiences','/v1/sessions/{sid}/experiences','/v1/sessions/{sid}/memory','/v1/commands/{cid}']:

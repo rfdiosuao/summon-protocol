@@ -144,7 +144,11 @@ def main():
     links = 0
     # 递归扫描全部 Markdown：docs/ 的子目录（如 ADR）与 firmware/ 的 README
     # 同样含本地链接，漏掉它们就会出现没人校验的死指引。
-    md_files = sorted(p for p in ROOT.rglob("*.md") if ".git" not in p.parts)
+    # The designer's Vite source has copies of Hub markdown for local preview.
+    # Its dist/ is ignored and neither copy is served as the authoritative
+    # contract; only web/*.md is installed at /assets/*.md.
+    md_files = sorted(p for p in ROOT.rglob("*.md")
+                      if ".git" not in p.parts and ROOT / 'web' / 'frontend' not in p.parents)
     for path in [ROOT / "README.md"] + md_files:
         for target in re.findall(r"\[[^\]]*\]\(([^)]+)\)", path.read_text(encoding="utf-8")):
             target = target.strip("<>")
