@@ -119,9 +119,14 @@ class Peer:
                 await self.send('play.chunk', seq=seq, pcm=base64.b64encode(pcm[at:at+1024]).decode())
                 window.append((seq,future)); seq+=1
                 if len(window)>=8:
-                    old, pending=window.pop(0); await asyncio.wait_for(pending,5); self.acks.pop(old,None)
+                    old, pending=window.pop(0)
+                    try: await asyncio.wait_for(pending,5)
+                    except asyncio.TimeoutError as exc: raise TimeoutError(f'Device playback ACK timed out at chunk {old}') from exc
+                    self.acks.pop(old,None)
             for old,pending in window:
-                await asyncio.wait_for(pending,5); self.acks.pop(old,None)
+                try: await asyncio.wait_for(pending,5)
+                except asyncio.TimeoutError as exc: raise TimeoutError(f'Device playback ACK timed out at chunk {old}') from exc
+                self.acks.pop(old,None)
             done=asyncio.get_running_loop().create_future(); self.acks['done']=done
             await self.send('play.end')
             return await asyncio.wait_for(done,8)
@@ -150,6 +155,7 @@ class Peer:
             result['status']='CANCELLED'; raise
         except Exception as exc:
             result['status']='FAILED'; result['error']=type(exc).__name__
+            result['error_detail']=str(exc)[:120]
             if not self.ws.closed: await self.send('status',text='请求未完成\n检查网络和目标电脑，确定重试')
         finally:
             result['finished_at']=time.time(); self.service.save(result)
@@ -162,7 +168,7 @@ class Peer:
         elif kind in ('remote.ready','play.ack','play.done','play.error') and f.get('turn')==self.turn:
             pending=self.acks.get('ready' if kind=='remote.ready' else 'done' if kind=='play.done' else f.get('seq'))
             if pending and not pending.done():
-                if kind=='play.error':pending.set_exception(RuntimeError('Playback failed'))
+                if kind=='play.error':pending.set_exception(RuntimeError(f"Device rejected playback frame seq={f.get('seq','unknown')}"))
                 else:pending.set_result(f)
         elif kind in ('cancel','record.start'):
             if self.job and not self.job.done():

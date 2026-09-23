@@ -89,6 +89,26 @@ class NetworkTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(r.status,409)
         await ws.close()
 
+    async def test_playback_failure_receipt_identifies_rejected_chunk(self):
+        ws=await self.connect()
+        async def reject_first_chunk():
+            while True:
+                frame=await asyncio.wait_for(ws.receive_json(),3)
+                if frame['type']=='remote.begin':
+                    await ws.send_json({'type':'remote.ready','turn':frame['turn']})
+                elif frame['type']=='play.chunk':
+                    await ws.send_json({'type':'play.error','turn':frame['turn'],'seq':frame['seq']})
+                    return
+        body={'request_id':'rejected-chunk','text':'hello'}
+        r=await self.client.post('/v1/passport/messages',headers=self.sender,json=body)
+        self.assertEqual(r.status,202)
+        await reject_first_chunk()
+        receipt=await self.receipt('rejected-chunk')
+        self.assertEqual(receipt['status'],'FAILED')
+        self.assertEqual(receipt['error'],'RuntimeError')
+        self.assertIn('seq=0',receipt['error_detail'])
+        await ws.close()
+
     async def test_microphone_cloud_reply_and_disconnect(self):
         ws=await self.connect()
         await ws.send_json({'type':'record.start','turn':1,'nameplate':'SMN-TEST-TEST'})
