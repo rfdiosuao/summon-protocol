@@ -109,6 +109,38 @@ class NetworkTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('seq=0',receipt['error_detail'])
         await ws.close()
 
+    async def test_long_playback_is_paced_to_bounded_device_queue(self):
+        async def long_speech(_text): return b'\0'*(1024*48)
+        self.service.speech.synthesize=long_speech
+        ws=await self.connect()
+        async def bounded_device():
+            queued=0.0;playing=False;last=asyncio.get_running_loop().time()
+            while True:
+                frame=await asyncio.wait_for(ws.receive_json(),4)
+                now=asyncio.get_running_loop().time()
+                if playing: queued=max(0.0,queued-(now-last)/0.032)
+                last=now
+                if frame['type']=='remote.begin':
+                    await ws.send_json({'type':'remote.ready','turn':frame['turn']})
+                elif frame['type']=='play.chunk':
+                    if queued>=16:
+                        await ws.send_json({'type':'play.error','turn':frame['turn'],'seq':frame['seq']})
+                        return
+                    queued+=1.0
+                    if queued>=12: playing=True
+                    await ws.send_json({'type':'play.ack','turn':frame['turn'],'seq':frame['seq']})
+                elif frame['type']=='play.end':
+                    await asyncio.sleep(queued*0.032)
+                    await ws.send_json({'type':'play.done','turn':frame['turn'],'bytes':1024*48,'underruns':0})
+                    return
+        body={'request_id':'paced-playback','text':'long reply'}
+        r=await self.client.post('/v1/passport/messages',headers=self.sender,json=body)
+        self.assertEqual(r.status,202)
+        await bounded_device()
+        receipt=await self.receipt('paced-playback')
+        self.assertEqual(receipt['status'],'COMPLETED')
+        await ws.close()
+
     async def test_microphone_cloud_reply_and_disconnect(self):
         ws=await self.connect()
         await ws.send_json({'type':'record.start','turn':1,'nameplate':'SMN-TEST-TEST'})

@@ -119,10 +119,14 @@ class Peer:
                 await self.send('play.chunk', seq=seq, pcm=base64.b64encode(pcm[at:at+1024]).decode())
                 window.append((seq,future)); seq+=1
                 if len(window)>=8:
-                    old, pending=window.pop(0)
-                    try: await asyncio.wait_for(pending,5)
-                    except asyncio.TimeoutError as exc: raise TimeoutError(f'Device playback ACK timed out at chunk {old}') from exc
-                    self.acks.pop(old,None)
+                    for old,pending in window:
+                        try: await asyncio.wait_for(pending,5)
+                        except asyncio.TimeoutError as exc: raise TimeoutError(f'Device playback ACK timed out at chunk {old}') from exc
+                        self.acks.pop(old,None)
+                    # A Passport playback slot represents 1024 bytes of
+                    # 16 kHz mono PCM16 (32 ms). Pace bursts to that rate so
+                    # a fast uplink cannot overrun the device's 16-frame queue.
+                    window.clear(); await asyncio.sleep(8*0.032)
             for old,pending in window:
                 try: await asyncio.wait_for(pending,5)
                 except asyncio.TimeoutError as exc: raise TimeoutError(f'Device playback ACK timed out at chunk {old}') from exc
