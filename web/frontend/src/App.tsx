@@ -19,8 +19,8 @@ import WritePage from './components/WritePage';
 /**
  * 官网视图：
  * 主页 → 功能选择
- *   ├─ 自身 agent 链接 → 复制 agent 指令 → 复制硬件指令 → 等待接入 → 链接成功
- *   └─ 写入令牌 → 取名 → 写入名牌 → NFC 贴卡等待 → 链接成功
+ *   ├─ 提示词接入硬件与 Agent → 复制接入指令 → 等待接入 → 链接成功
+ *   └─ 找到自己的 Agent → 查询铭牌 → 写入名牌 → NFC 贴卡等待 → 链接成功
  */
 type View =
   | 'home'
@@ -35,7 +35,7 @@ type View =
 
 /**
  * 唤名官方站入口
- * 开始召唤先进功能选择，再按分支分流。
+ * 首页入口先进功能选择，再按分支分流。
  */
 export default function App() {
   const [view, setView] = useState<View>('home');

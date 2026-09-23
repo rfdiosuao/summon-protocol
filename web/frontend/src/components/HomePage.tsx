@@ -563,7 +563,7 @@ export default function HomePage({ entryMode = 'fresh', onStart }: HomePageProps
             disabled={phase !== 'ready'}
             onClick={handleStart}
           >
-            开始召唤
+            接入 Agent
           </button>
         </div>
       </div>

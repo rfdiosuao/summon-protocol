@@ -8,15 +8,15 @@ type ChoicePageProps = {
   sceneBg: string;
   /** 返回主页 */
   onBack: () => void;
-  /** 选择自身 Agent 链接 */
+  /** 进入 Agent 与硬件提示词接入 */
   onAgentLink: () => void;
-  /** 选择写入令牌（进入取名 → NFC 名牌链路） */
+  /** 查找已有 Agent 并进入 NFC 名牌链路 */
   onWriteToken: () => void;
 };
 
 /**
  * 功能选择页：对齐 Figma Frame 33
- * 开始召唤后首先进入；二选一：自身 agent 链接 / 写入令牌（NFC）
+ * 首页入口后的功能选择：提示词接入硬件与 Agent / 查找已有 Agent
  */
 export default function ChoicePage({
   sceneBg,
@@ -89,7 +89,7 @@ export default function ChoicePage({
             data-node-id="57:2921"
             onClick={onAgentLink}
           >
-            自身agent链接
+            提示词接入硬件与 Agent
           </button>
           <button
             type="button"
@@ -97,7 +97,7 @@ export default function ChoicePage({
             data-node-id="57:2923"
             onClick={onWriteToken}
           >
-            写入令牌
+            找到自己的 Agent
           </button>
         </div>
       </div>
