@@ -53,7 +53,7 @@ class GatewayIntegrationTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.tmp=tempfile.TemporaryDirectory()
         self.profile={'model':'PC Terminal','firmware':'host','adapter_version':'terminal-1'}
-        cfg={'origin':'https://test.local','operator_codes':{'access':'owner'},'invite':'invite',
+        cfg={'origin':'https://test.local','operator_codes':{'access':'owner'},
              'gateway_tokens':{'pc':'gateway-secret','other':'other-secret'},'mode':'SIMULATED','secure_cookie':False,
              'device_profiles':{'pc':self.profile},'shell_policies':{'pc':{'identity_gates':['web'],'stop_kind':'local_disable'}}}
         self.app=create_app(Path(self.tmp.name)/'hub.db',cfg)
@@ -65,7 +65,7 @@ class GatewayIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.gateway=Gateway({'hub_url':self.base,'shell_id':'pc','database':str(Path(self.tmp.name)/'gateway.db'),
             'profile':self.profile,'enabled':True,'mode':'SIMULATED','experience_upload':True},'gateway-secret',TerminalAdapter(output=self.output))
         self.task=asyncio.create_task(self.gateway.run())
-        self.fleet=DemoFleet(self.base,'invite',{})
+        self.fleet=DemoFleet(self.base,{})
         await self.fleet.start()
         await self.wait(lambda:self.app['hub'].shells['pc']['state']=='IDLE' and bool(self.app['hub'].agents) and next(iter(self.app['hub'].agents.values()))['public']['status']=='ONLINE')
 

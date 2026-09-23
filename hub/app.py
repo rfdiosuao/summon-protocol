@@ -397,11 +397,8 @@ class Hub:
                 self.experiences.retrieved(s,result['total'])
             return web.json_response(result)
         if path=='/v1/agents':
-            if not self.bearer(request):
-                raise Rejected('UNAUTHORIZED',401,'Missing Authorization: Bearer <invite> header.')
-            if not secrets.compare_digest(self.bearer(request),self.cfg['invite']):
-                raise Rejected('UNAUTHORIZED',401,'Invalid registration invite; obtain the current invite from the deployment owner.')
-            principal='invite'
+            self.validate('RegisterAgent',body)
+            principal='public-registration'
         elif method=='GET' and path.startswith('/v1/sessions/') and path.endswith('/memory'):
             return web.json_response(self.memory(self.access(request,request.match_info['sid'],True)))
         elif method=='GET' and path.startswith('/v1/commands/'):
@@ -428,6 +425,10 @@ class Hub:
                 return web.json_response(previous['result'],status=previous['status'])
             status=202
             if path=='/v1/agents':
+                # The Hub binds localhost behind Nginx, which overwrites X-Real-IP.
+                # Using request.remote here would group every public signup as 127.0.0.1.
+                source=request.headers.get('X-Real-IP') if request.remote in ('127.0.0.1','::1') else None
+                self.rate('register-ip:'+str(source or request.remote),5,3600)
                 self.rate('register',5)
                 name=unicodedata.normalize('NFC',body['name'])
                 if any(a['public']['name']==name for a in self.agents.values()):

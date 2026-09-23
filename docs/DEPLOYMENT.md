@@ -4,7 +4,7 @@ Hub 使用 aiohttp 与 SQLite，运行单进程、单 worker。安装依赖：`p
 
 Ubuntu 部署脚本见 deploy/install.sh；安装位置为 /opt/summon/app，配置 /etc/summon/config.json，数据库 /var/lib/summon/hub.db。脚本生成随机凭证；配置不能进入 Git 或静态网站。Nginx 配置模板位于 deploy，证书和 DNS 按自己的域名设置。
 
-配置要求 origin、mode、database、invite、operator_codes、gateway_tokens；可选 shell_labels、device_profiles、port、secure_cookie。生产 origin 必须与实际 HTTPS 入口一致。SIMULATED 才允许启动 `python -m hub.simulator`，不得让模拟客户端接入 LIVE 系统。
+配置要求 origin、mode、database、operator_codes、gateway_tokens；不再生成或使用注册邀请码。可选 shell_labels、device_profiles、port、secure_cookie。生产 origin 必须与实际 HTTPS 入口一致。SIMULATED 才允许启动 `python -m hub.simulator`，不得让模拟客户端接入 LIVE 系统。
 
 可选 shell_policies 按 shell_id 配置 capabilities、allowed_actions、identity_gates、stop_kind、gate；Hub 启动校验字段及白名单子集。没有配置时保留旧显示壳默认值。demo_shell_ids 明确限制模拟器身份，混合部署必须排除现场 Gateway 使用的 shell。独立运行与经验上传声明见 [GATEWAY.md](GATEWAY.md)。
 

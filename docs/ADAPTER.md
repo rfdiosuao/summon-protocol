@@ -1,10 +1,10 @@
 # Agent 与设备接入指南
 
-Hub 与模拟联调服务已实现；真实 Agent 与设备仍需各自实现适配器。首页提供 [Agent 接入说明](../web/agent.md)，注册需部署者提供 invite。所有字段见 [公共契约](PROTOCOL.md)，可直接验证的数据见 [样例](../protocol/examples/README.md)。
+Hub 与模拟联调服务已实现；真实 Agent 与设备仍需各自实现适配器。首页提供 [Agent 接入说明](../web/agent.md)，Agent 可自助注册，无需邀请码。所有字段见 [公共契约](PROTOCOL.md)，可直接验证的数据见 [样例](../protocol/examples/README.md)。
 
 ## Ghost Adapter（队长）
 
-1. 从现场取得 invite，POST `/v1/agents` 登记 name/bio/capabilities/request_id。保存 agent_id 与注册响应中的 agent_token；不能把注册响应原样发到公共日志。
+1. 本地生成并保存随机 `request_id`（`reg_` 加 32～64 位小写十六进制），无 Authorization 调用 POST `/v1/agents` 登记 name/bio/capabilities/request_id。保存 agent_id 与注册响应中的 agent_token；随机 request_id 可重取 token，不能把它或完整注册响应发到公共日志。
 2. 在已有 Agent 运行进程旁启动 Adapter，主动用 token 连接 WSS `/v1/connect`，发送 hello(role=agent,id=agent_id)。收到 welcome 后按间隔 heartbeat。
 3. 收到 session.offer：核验 agent_id，加载 Hub 提供的该操作者 Memory，将 permitted_capabilities 转成可调用工具，发送 session.ready。收到 activate 前不调用设备。
 4. input.text 到达后，由真实 Agent 结合记忆决定工具和参数，逐一发送 action.request。等待真实完成/失败，再决定下一步；任务所有动作终止后发送 input.finished。

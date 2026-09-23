@@ -5,6 +5,7 @@ import json
 import os
 import time
 import random
+import secrets
 from pathlib import Path
 
 import aiohttp
@@ -13,8 +14,8 @@ from hub.app import uid, utc, stamp
 
 
 class DemoFleet:
-    def __init__(self, base, invite, gateways, credentials=None):
-        self.base,self.invite,self.gateways=base,invite,gateways
+    def __init__(self, base, gateways, credentials=None):
+        self.base,self.gateways=base,gateways
         self.credentials=Path(credentials) if credentials else None
         self.tasks=[]
         self.clients=[]
@@ -27,14 +28,15 @@ class DemoFleet:
         if self.credentials and self.credentials.exists():
             registration=json.loads(self.credentials.read_text())
         else:
-            async with self.http.post(self.base+'/v1/agents',headers={'Authorization':'Bearer '+self.invite},json={
-                'request_id':'demo_agent_registration_v1','name':'SUMMON 联调 Agent','bio':'规则式模拟响应，用于验证连接、记忆与交接','capabilities':['display.text']}) as r:
+            async with self.http.post(self.base+'/v1/agents',json={
+                'request_id':'reg_'+secrets.token_hex(16),'name':'SUMMON 联调 Agent','bio':'规则式模拟响应，用于验证连接、记忆与交接','capabilities':['display.text']}) as r:
                 registration=await r.json()
                 if r.status!=201:
                     raise RuntimeError('Demo registration failed')
             if self.credentials:
                 self.credentials.write_text(json.dumps(registration))
                 self.credentials.chmod(0o600)
+        self.registration=registration
         self.tasks.append(asyncio.create_task(self.run('agent',registration['agent']['agent_id'],registration['agent_token'])))
         for sid,token in self.gateways.items():
             self.tasks.append(asyncio.create_task(self.run('gateway',sid,token)))
@@ -136,7 +138,7 @@ class DemoFleet:
 async def main():
     cfg=json.loads(Path(os.environ['SUMMON_CONFIG']).read_text())
     demo_ids=cfg.get('demo_shell_ids',list(cfg['gateway_tokens']))
-    fleet=DemoFleet('http://127.0.0.1:'+str(cfg.get('port',8840)),cfg['invite'],{sid:cfg['gateway_tokens'][sid] for sid in demo_ids},cfg.get('demo_credentials'))
+    fleet=DemoFleet('http://127.0.0.1:'+str(cfg.get('port',8840)),{sid:cfg['gateway_tokens'][sid] for sid in demo_ids},cfg.get('demo_credentials'))
     await fleet.start()
     try:
         await asyncio.gather(*fleet.tasks)

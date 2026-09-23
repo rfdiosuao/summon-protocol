@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import re
+import secrets
 import time
 
 import aiohttp
@@ -90,14 +91,21 @@ async def run(config_path,credentials_path):
     async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10),headers={'User-Agent':'SUMMON-Passport-Agent/0.1'}) as http:
         if path.exists():registered=json.loads(path.read_text())
         else:
-            body={'request_id':cfg.get('registration_id','summon_passport_voice_agent_v1'),'name':cfg.get('name','唤名 · Passport 语音 Agent'),
+            pending=path.with_name(path.name+'.registration')
+            if pending.exists():registration_id=pending.read_text(encoding='ascii').strip()
+            else:
+                registration_id='reg_'+secrets.token_hex(16)
+                fd=os.open(pending,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
+                with os.fdopen(fd,'w',encoding='ascii') as f:f.write(registration_id)
+            body={'request_id':registration_id,'name':cfg.get('name','唤名 · Passport 语音 Agent'),
                   'bio':cfg.get('bio','Passport 语音入口；未配置模型时仅支持公开列出的有限指令。'),
                   'capabilities':['display.text','browser.open','command.exec']}
-            async with http.post(base+'/v1/agents',headers={'Authorization':'Bearer '+cfg['invite']},json=body) as r:
+            async with http.post(base+'/v1/agents',json=body) as r:
                 if r.status!=201:raise RuntimeError('Registration HTTP '+str(r.status))
                 registered=await r.json()
             fd=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
             with os.fdopen(fd,'w') as f:json.dump(registered,f)
+            pending.unlink(missing_ok=True)
         auth={'Authorization':'Bearer '+registered['agent_token']}
         async with http.get(base+'/v1/agents/me/nameplate',headers=auth) as r:
             r.raise_for_status();plate=await r.json()

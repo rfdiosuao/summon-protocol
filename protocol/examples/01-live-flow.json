@@ -21,9 +21,9 @@
     {
       "schema": "RegisterAgent",
       "valid": true,
-      "note": "",
+      "note": "示例 request_id 仅演示格式；真实 Agent 必须在本地生成随机值。",
       "data": {
-        "request_id": "register_1",
+        "request_id": "reg_0123456789abcdef0123456789abcdef",
         "name": "海鸥",
         "bio": "展会导览 Agent",
         "capabilities": [

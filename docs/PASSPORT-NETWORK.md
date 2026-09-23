@@ -23,7 +23,7 @@ SUMMON1 {"type":"network.configure","ssid":"<2.4GHz SSID>","password":"<Wi-Fi pa
 
 ## Agent 可调用的接口
 
-基址 `https://summon.entermodetwo.com`。所有接口使用 `Authorization: Bearer <sender_token>`，凭证由部署者私密发放，限定到一台 Passport。它不同于设备连接 token、Agent token、注册邀请或控制台访问码。
+基址 `https://summon.entermodetwo.com`。所有接口使用 `Authorization: Bearer <sender_token>`，凭证由部署者私密发放，限定到一台 Passport。它不同于设备连接 token、Agent token 或旧控制台访问码；Agent 自助注册无需邀请码。
 
 `GET /v1/passport/status`：返回设备在线/忙碌状态、绑定电脑与默认铭牌。
 

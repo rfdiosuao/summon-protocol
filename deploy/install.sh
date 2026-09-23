@@ -12,7 +12,7 @@ if [ ! -f /etc/summon/config.json ]; then
   python3 - <<'PY'
 import json,secrets,os
 config={'origin':'https://summon.entermodetwo.com','mode':'SIMULATED','secure_cookie':True,
-        'database':'/var/lib/summon/hub.db','port':8840,'invite':secrets.token_urlsafe(32),
+        'database':'/var/lib/summon/hub.db','port':8840,
         'operator_codes':{secrets.token_urlsafe(18):'operator_team'},
         'gateway_tokens':{s:secrets.token_urlsafe(32) for s in ('shell_a','shell_b')},
         'shell_labels':{'shell_a':'模拟设备 A','shell_b':'模拟设备 B'},

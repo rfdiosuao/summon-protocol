@@ -4,7 +4,7 @@
 
 ## 用户操作
 
-Agent 适配器注册后必须自动查询 `GET /v1/agents/me/nameplate`，使用自己的 agent_token，校验响应的 `agent.agent_id`，并把 `code` 展示给用户。注册返回值仍是 `agent`、`agent_token`、`address`，不增加字段以免破坏旧客户端。取铭牌失败只重试查询，不重复创建 Agent；重启复用持久化身份。铭牌可以分享，邀请凭证和 Agent token 不可公开。
+Agent 适配器自助注册后必须自动查询 `GET /v1/agents/me/nameplate`，使用自己的 agent_token，校验响应的 `agent.agent_id`，并把 `code` 展示给用户。注册返回值仍是 `agent`、`agent_token`、`address`，不增加字段以免破坏旧客户端。取铭牌失败只重试查询，不重复创建 Agent；重启复用持久化身份。铭牌可以分享，随机注册 request_id 和 Agent token 不可公开。
 
 双击桌面启动入口，A 申请配对 → B 打开 [设备授权页](https://summon.entermodetwo.com/assets/device.html) → 使用团队访问码登录 → 输入终端配对码 → 核对设备与允许能力 → 确认授权。回到终端，L 查看铭牌目录，M 输入铭牌，核对身份后 C 连接；双端握手完成显示 ACTIVE 后，T 输入任务。R 停止并释放后可切换铭牌。Q 停止退出。输入模式下 Q/B 为文字，Enter 提交、Esc 返回。
 

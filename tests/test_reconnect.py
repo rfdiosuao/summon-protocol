@@ -8,7 +8,7 @@ from hub.simulator import DemoFleet
 
 class ReconnectTests(unittest.IsolatedAsyncioTestCase):
     async def test_short_connections_back_off_and_stable_connection_resets(self):
-        fleet=DemoFleet('http://unused','',{})
+        fleet=DemoFleet('http://unused',{})
         waits=[]
         async def connect(role,identifier,token,timing):
             # First two fail before welcome; third remained healthy for 11 seconds.
@@ -25,7 +25,7 @@ class ReconnectTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(waits,[1,2,1,2])
 
     async def test_invalid_credentials_stop_reconnect(self):
-        fleet=DemoFleet('http://unused','',{})
+        fleet=DemoFleet('http://unused',{})
         async def connect(*args):
             raise aiohttp.WSServerHandshakeError(None,(),status=401)
         fleet.connection=connect

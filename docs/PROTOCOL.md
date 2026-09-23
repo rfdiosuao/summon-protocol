@@ -33,14 +33,14 @@ ID 使用 ASCII 字母、数字、下划线、短横线，1–80 字符。时间
 
 ## 2. 认证与权限
 
-- Hub 部署时配置短期接入邀请、operator 访问码、Gateway 凭证；不实现通用账号/密码系统，但不是无认证系统。
-- `POST /v1/agents` 带 `Authorization: Bearer <invite>`。注册响应含 `agent_token`，绑定 agent_id；同一已授权幂等请求在保留期内可重取原响应，其他查询不再返回凭证。该 token 仅允许自身连接和当前获准会话动作。名字重复 409，邀请不能充当动作 token。
+- Hub 允许 Agent 自助注册，无需部署者发放邀请码；已有 Agent、后台和 Gateway 仍分别使用自己的身份凭证。
+- `POST /v1/agents` 不要求 Authorization。Agent 本地生成并私密保存 `reg_` 加 32～64 位小写十六进制随机数作为 request_id；相同 request_id 与相同请求体在保留期内可重取原响应，因此这个随机 ID 不能公开或复用给别的 Agent。注册响应含 `agent_token`，绑定 agent_id；其他查询不再返回 token。该 token 仅允许自身连接和当前获准会话动作；名字重复返回 409。
 - `POST /v1/operator-session` 用现场访问码换 cookie，返回服务端绑定的 operator_id。cookie 为 Secure、HttpOnly、SameSite=Strict；写接口验证精确 Origin，CORS 仅允许指定前端源。失败返回 401，生产日志不记录访问码/凭证。
 - Gateway 凭证由部署者配置并限定 shell_id。壳策略和动作限额在 Gateway 本地配置，Hub 保留镜像。Agent 的 capability 声明不扩大设备权限。
 - 公开只读目录 `/v1/catalog` 不含 session、operator_id、任务或记忆。`/v1/state`、SSE、召唤/输入/反馈仅 operator 会话访问，并过滤到其允许的壳和自己的会话。
 - WSS 客户端在 TLS 握手的 Authorization 头携带专用 token；不把 token 放 URL。握手后的 hello.id/role 必须匹配 token。浏览器不直接连接这条 WSS。
 - 现场开放策略仍要求短期 operator 授权；readonly 只允许查询状态，不允许任何执行器动作，包括语音播放。展示模式选择不能绕过授权。
-- 邀请注册限流，建议每邀请每分钟最多 5 次；错误码 RATE_LIMITED。具体部署限额可更严，不对外开放任意设备注册或任意代码执行。
+- 自助注册限流：每源 IP 每小时最多 5 个新 Agent，服务端每分钟最多 5 个，当前总量上限 100；超额返回 RATE_LIMITED。自助注册不自动授权任何设备或代码执行。
 
 ## 3. HTTP 接口
 
@@ -51,7 +51,7 @@ Origin 校验先于 POST 写接口的凭证校验（使用机器凭证的 /v1/ag
 | 方法 / 路径 | 身份 | 请求 `$defs` | 成功 | 响应 `$defs` |
 |---|---|---|---|---|
 | POST /v1/operator-session | 现场访问码 | OperatorLogin | 200 | OperatorLoginResult + cookie |
-| POST /v1/agents | invite | RegisterAgent | 201 | RegisteredAgent |
+| POST /v1/agents | 无；随机 request_id 用于幂等重试 | RegisterAgent | 201 | RegisteredAgent |
 | GET /v1/catalog | 公开 | 无 | 200 | Catalog |
 | GET /healthz | 公开 | 无 | 200 | Health |
 | GET /v1/catalog?details=1 | 公开 | 无 | 200 | CatalogDetailed |
@@ -195,7 +195,7 @@ ErrorResponse：`error.code, message, retryable, request_id`；WSS error 另有 
 
 为保持 wire v1 兼容，action.failed.error 继续使用完整 ErrorResponse；其中 request_id 使用 command_id，memory.failed 使用 update_id，异步会话失败使用 session_id。收到旧实现的 unknown 也应兼容。WSS error.reply_to 指向被拒消息的 message_id，其内层 request_id 同值；无法解析 message_id 时为 unknown。offer 超时是异步 session.revoke（reason=connect timeout），随后停止或 session.failed，不伪造指向某条入站消息的 error。HTTP 无法取得有效 request_id 时返回 unknown。
 
-无效 WSS 凭证在 HTTP Upgrade 前返回 401/ErrorResponse，不要等待 WebSocket error 帧。当前 agent/gateway token 无内置到期时间，不能把无效 token 诊断成“已过期”；operator cookie 有明确到期时间。注册 invite 轮换后旧 invite 不再有效。
+无效 WSS 凭证在 HTTP Upgrade 前返回 401/ErrorResponse，不要等待 WebSocket error 帧。当前 agent/gateway token 无内置到期时间，不能把无效 token 诊断成“已过期”；operator cookie 有明确到期时间。
 
 | HTTP | 代码 | 处理 |
 |---|---|---|

@@ -90,7 +90,7 @@ python scripts/probe_hardware.py --output hardware-probe.json
 
 已有 ESP-IDF 模板是未真机验证骨架，不是成品二进制；需审查驱动、网络、凭证、证书、时钟、内存与停止逻辑。不要声称只改一处就支持任意开发板。
 
-凭证分为 operator 访问码、Agent 注册 invite/agent_token、shell 的 gateway token、板桥 device token；只能申请所需凭证，不拿网页访问码冒充设备凭证，不放在前端、Git、URL 或报告中。缺少生产凭证时继续本地模拟验证并说明未上线。
+Agent 注册无需邀请码；新 Agent 自行生成并私密保存随机注册 request_id，注册后获得 agent_token。其他凭证包括旧 operator 访问码、shell 的 gateway token 和板桥 device token；只使用所需凭证，不拿网页会话冒充设备凭证，不放在前端、Git、URL 或报告中。缺少设备生产凭证时继续本地模拟验证并说明未上线。
 
 ## 4. 构建、刷写与恢复
 
@@ -110,7 +110,7 @@ python scripts/probe_hardware.py --output hardware-probe.json
 
 Agent 需要语音转文字时，可用部署者发放的受限 sender_token 调用 `POST /v1/passport/transcribe`，上传 16 kHz 单声道 PCM16 WAV（0.1–8 秒）。返回文字不代表执行命令，Agent 必须自行判断再调用已授权设备能力。STT/TTS 服务 API key 留在服务器，不写入固件、网页或日志。
 
-从远端给 Passport 发消息使用 `POST /v1/passport/messages`，区别 `announce`（仅播报）和 `agent`（交给绑定 Agent 处理）。查询消息回执直到完成或失败，HTTP 202 不代表已播放；离线、忙碌、UNKNOWN 不得自动重放。设备 token 与 sender_token、Agent token、注册 invite 相互独立。
+从远端给 Passport 发消息使用 `POST /v1/passport/messages`，区别 `announce`（仅播报）和 `agent`（交给绑定 Agent 处理）。查询消息回执直到完成或失败，HTTP 202 不代表已播放；离线、忙碌、UNKNOWN 不得自动重放。设备 token、sender_token 与 Agent token 相互独立。
 
 Windows 可把本地 EvoX CLI 配成铭牌 Agent 的规划器；详见 [EvoX 本地接入](https://github.com/rfdiosuao/summon-protocol/blob/main/docs/EVOX-INTEGRATION.zh_CN.md)。单独验证 CLI/model，再复用已登记的 Agent credential；不能另注册或让两份进程同时使用同一 token。Planner 禁用本机工具，由桌面 SUMMON 客户端按当前会话 capability 执行命令；未知回执停止。需要运行项目里的 `hub/passport_agent.py`，不只是安装此 Skill。EvoX 当前是每轮临时 CLI 对话，不会自动复用桌面历史或持久记忆。只有目标 shell ONLINE 才能完成整链路。
 
@@ -209,7 +209,7 @@ HTTP 与 WSS 握手必须携带非空真实产品 User-Agent，例如 `SUMMON-Ad
 
 `wss://summon.entermodetwo.com/v1/connect` 是 GET Upgrade 的 WebSocket 入口，不接受 POST。仓库固定 websockets==13.1：使用 `websockets.connect(url, extra_headers={"Authorization": "Bearer " + token}, user_agent_header="SUMMON-Adapter/0.1")`；不要照搬其他版本的 additional_headers。InvalidStatusCode 可读 status_code/headers，但没有响应体。握手失败时保留状态和 ray id；必要时用相同 UA、Authorization 发一次普通 GET /v1/connect 辅助排障，并校验 HTTP 响应结构；该新请求只能作为辅助证据，不能证明上次握手的根因。有效凭证的普通 GET 也不能建立会话。禁止把 403 单独判成 token 无效。
 
-operator 的 POST 写接口需要精确 `Origin: https://summon.entermodetwo.com`；Origin 校验先于凭证，缺失/不匹配返回 403 FORBIDDEN 并说明 Origin 原因。Agent 注册使用 invite，不要求 Origin；Gateway 使用 WSS，不通过 operator 登录接口冒充用户。
+旧 operator 的 POST 写接口需要精确 `Origin: https://summon.entermodetwo.com`；Origin 校验先于凭证，缺失/不匹配返回 403 FORBIDDEN 并说明 Origin 原因。Agent 自助注册不要求 Origin 或邀请码，但必须提交本地生成的高随机性 request_id；Gateway 使用 WSS，不通过 operator 登录接口冒充用户。
 
 从技能目录回到仓库根目录后验证（Windows 也可直接切换到仓库绝对路径）：
 

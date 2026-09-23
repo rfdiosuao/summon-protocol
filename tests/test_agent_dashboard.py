@@ -1,6 +1,6 @@
 import unittest
 
-from tests.test_hub import HubTests
+from tests.test_hub import HubTests, REG_RAW
 
 
 class AgentDashboardTests(unittest.IsolatedAsyncioTestCase):
@@ -12,7 +12,7 @@ class AgentDashboardTests(unittest.IsolatedAsyncioTestCase):
     async def test_online_agent_issues_one_time_code_for_its_own_dashboard(self):
         self.client.session.cookie_jar.clear()
         aid, agent, gateway, _, _ = await self.raw_clients()
-        registration = self.app['hub'].idem['invite:/v1/agents:raw']['result']
+        registration = self.app['hub'].idem['public-registration:/v1/agents:'+REG_RAW]['result']
         auth = {'Authorization': 'Bearer ' + registration['agent_token']}
 
         issue = await self.client.post('/v1/agent-login/codes', json={}, headers=auth)
@@ -60,7 +60,7 @@ class AgentDashboardTests(unittest.IsolatedAsyncioTestCase):
     async def test_dashboard_session_can_approve_a_device_only_for_its_agent(self):
         self.client.session.cookie_jar.clear()
         aid, agent, gateway, _, _ = await self.raw_clients()
-        registration = self.app['hub'].idem['invite:/v1/agents:raw']['result']
+        registration = self.app['hub'].idem['public-registration:/v1/agents:'+REG_RAW]['result']
         auth = {'Authorization': 'Bearer ' + registration['agent_token']}
         issued = await self.client.post('/v1/agent-login/codes', json={}, headers=auth)
         code = (await issued.json())['code']
@@ -70,8 +70,7 @@ class AgentDashboardTests(unittest.IsolatedAsyncioTestCase):
         own_plate = (await signed_in.json())['nameplate']
 
         other = await self.client.post('/v1/agents',
-            headers={'Authorization': 'Bearer test-invite'},
-            json={'request_id': 'other-agent', 'name': 'Other agent',
+            json={'request_id': 'reg_'+'d'*32, 'name': 'Other agent',
                   'bio': '', 'capabilities': ['display.text']})
         self.assertEqual(other.status, 201)
         other_id = (await other.json())['agent']['agent_id']

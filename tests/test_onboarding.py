@@ -1,7 +1,7 @@
 import unittest
 import re
 
-from tests.test_hub import HubTests
+from tests.test_hub import HubTests, REG_RAW
 
 
 class OnboardingTests(unittest.IsolatedAsyncioTestCase):
@@ -36,7 +36,7 @@ class OnboardingTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await self.client.post('/v1/onboarding/claim',
                          headers={'Authorization': 'Bearer ga'}, json={'token': token})).status, 403)
         aid, agent, gateway, _, _ = await self.raw_clients()
-        registration = self.app['hub'].idem['invite:/v1/agents:raw']['result']
+        registration = self.app['hub'].idem['public-registration:/v1/agents:'+REG_RAW]['result']
         claim = await self.client.post('/v1/onboarding/claim',
             headers={'Authorization': 'Bearer ' + registration['agent_token']},
             json={'token': token})

@@ -5,7 +5,7 @@
 
 /** Agent 接入适配器提示词 */
 export const AGENT_LINK_PROMPT =
-  '请阅读 https://summon.entermodetwo.com/assets/agent.md，为我当前运行的 Agent 完成 SUMMON 接入。先检查运行环境和私有配置；如无注册邀请，请在本地向我索取。凭证不要发给网页、写入代码或公开日志。注册后保存 Agent token，获取固定铭牌，建立常驻 WSS 连接并完成 hello/welcome。在线后用自己的 Agent token 请求 POST https://summon.entermodetwo.com/v1/agent-login/codes，JSON 为 {}，把返回的五分钟一次性连接码展示给我，让我在网页黑色输入框填写。不要把 Agent token 给网页，也不要只给我方案或示例代码。';
+  '请阅读 https://summon.entermodetwo.com/assets/agent.md，为我当前运行的 Agent 完成 SUMMON 接入。先检查运行环境和私有配置；已有 Agent 身份就复用，不要重复注册。新 Agent 在本地生成随机注册 request_id，直接注册，无需邀请码；保存 Agent token，取回服务端随机分配的固定铭牌，建立常驻 WSS 连接并完成 hello/welcome。在线后用自己的 Agent token 请求 POST https://summon.entermodetwo.com/v1/agent-login/codes，JSON 为 {}，把返回的五分钟一次性连接码展示给我，让我在网页黑色输入框填写。不要把 Agent token 写入代码、公开日志或交给网页，也不要只给我方案或示例代码。';
 
 /** 硬件 / 令牌接入提示词 */
 export const HARDWARE_TOKEN_PROMPT =

@@ -105,10 +105,9 @@ class NameplateTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status,403)
 
     async def test_registration_automatically_allocates_stable_nameplate(self):
-        headers={'Authorization':'Bearer invite'}
-        body={'request_id':'auto-nameplate-test','name':'Automatic nameplate test',
+        body={'request_id':'reg_'+'c'*32,'name':'Automatic nameplate test',
               'bio':'Integration test','capabilities':['display.text']}
-        response=await self.client.post('/v1/agents',headers=headers,json=body)
+        response=await self.client.post('/v1/agents',json=body)
         self.assertEqual(response.status,201)
         registered=await response.json()
         aid=registered['agent']['agent_id']
@@ -119,7 +118,7 @@ class NameplateTests(unittest.IsolatedAsyncioTestCase):
         plate=await (await self.client.get('/v1/agents/me/nameplate',headers=auth)).json()
         self.assertEqual(plate['code'],row[0])
         self.assertEqual(plate['agent']['agent_id'],aid)
-        repeated=await (await self.client.post('/v1/agents',headers=headers,json=body)).json()
+        repeated=await (await self.client.post('/v1/agents',json=body)).json()
         self.assertEqual(repeated,registered)
         self.assertEqual(self.app['hub'].store.db.execute('SELECT COUNT(*) FROM nameplates WHERE agent_id=?',(aid,)).fetchone()[0],1)
         from hub.app import Hub

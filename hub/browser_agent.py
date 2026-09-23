@@ -2,6 +2,7 @@
 import asyncio
 import json
 import os
+import secrets
 from pathlib import Path
 import time
 
@@ -25,8 +26,8 @@ async def run(config_path,credentials_path):
         else:raise RuntimeError('Hub did not become ready')
         if path.exists():registration=json.loads(path.read_text())
         else:
-            async with http.post(base+'/v1/agents',headers={'Authorization':'Bearer '+cfg['invite']},json={
-                'request_id':'summon_browser_test_agent_v1','name':'海鸥 · 浏览器联调 Agent',
+            async with http.post(base+'/v1/agents',json={
+                'request_id':'reg_'+secrets.token_hex(16),'name':'海鸥 · 浏览器联调 Agent',
                 'bio':'固定规则测试：打开官网，或执行 powershell: 后的命令，非大模型',
                 'capabilities':['browser.open','command.exec']}) as r:
                 if r.status!=201:raise RuntimeError('Browser test agent registration failed: '+str(r.status))

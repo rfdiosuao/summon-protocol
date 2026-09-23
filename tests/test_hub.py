@@ -8,13 +8,15 @@ from aiohttp.test_utils import TestClient, TestServer
 
 from hub.app import create_app
 
+REG_RAW = 'reg_' + 'a' * 32
+
 
 class HubTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.app = create_app(Path(self.tmp.name) / 'hub.db', {
             'origin': 'https://summon.test', 'operator_codes': {'test-access': 'operator_a', 'other-access': 'operator_b'},
-            'invite': 'test-invite', 'gateway_tokens': {'shell_a': 'ga', 'shell_b': 'gb'},
+            'gateway_tokens': {'shell_a': 'ga', 'shell_b': 'gb'},
             'mode': 'SIMULATED', 'secure_cookie': False,
         })
         self.client = TestClient(TestServer(self.app))
@@ -79,7 +81,7 @@ class HubTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_connection_self_check(self):
         aid,agent,gateway,send,receive=await self.raw_clients()
-        registration=self.app['hub'].idem['invite:/v1/agents:raw']['result']
+        registration=self.app['hub'].idem['public-registration:/v1/agents:'+REG_RAW]['result']
         headers={'Authorization':'Bearer '+registration['agent_token']}
         r=await self.client.get('/v1/agents/me',headers=headers)
         body=await r.json()
@@ -95,20 +97,20 @@ class HubTests(unittest.IsolatedAsyncioTestCase):
         await gateway.close()
 
     async def test_registration_idempotency(self):
-        body = {'request_id':'reg','name':'Test','bio':'','capabilities':['display.text']}
-        headers = {'Authorization':'Bearer test-invite'}
-        r = await self.client.post('/v1/agents', json=body, headers=headers)
+        body = {'request_id':'reg_'+'b'*32,'name':'Test','bio':'','capabilities':['display.text']}
+        r = await self.client.post('/v1/agents', json=body)
         self.assertEqual(r.status, 201)
         first = await r.json()
-        r = await self.client.post('/v1/agents', json=body, headers=headers)
+        r = await self.client.post('/v1/agents', json=body)
         self.assertEqual(await r.json(), first)
         body['name'] = 'Other'
-        r = await self.client.post('/v1/agents', json=body, headers=headers)
+        r = await self.client.post('/v1/agents', json=body)
         self.assertEqual(r.status, 409)
+        self.assertEqual((await self.client.post('/v1/agents',json={**body,'request_id':'raw'})).status,400)
 
     async def test_complete_simulated_handoff(self):
         from hub.simulator import DemoFleet
-        fleet = DemoFleet(str(self.client.make_url('')).rstrip('/'), 'test-invite', {'shell_a':'ga','shell_b':'gb'})
+        fleet = DemoFleet(str(self.client.make_url('')).rstrip('/'), {'shell_a':'ga','shell_b':'gb'})
         await fleet.start()
         try:
             for _ in range(100):
@@ -156,7 +158,7 @@ class HubTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(target[0]['memory_version'], 1)
             old = next(s for s in state['sessions'] if s['session_id']==sid)
             self.assertEqual(old['state'], 'RELEASED')
-            registration=self.app['hub'].idem['invite:/v1/agents:demo_agent_registration_v1']['result']
+            registration=fleet.registration
             cid=state['commands'][-1]['request']['command_id']
             r=await self.client.get('/v1/commands/'+cid,headers={'Authorization':'Bearer '+registration['agent_token']})
             self.assertEqual(r.status,200)
@@ -180,7 +182,7 @@ class HubTests(unittest.IsolatedAsyncioTestCase):
 
     async def raw_clients(self):
         from hub.app import uid, utc
-        r=await self.client.post('/v1/agents',headers={'Authorization':'Bearer test-invite'},json={'request_id':'raw','name':'Raw','bio':'','capabilities':['display.text']})
+        r=await self.client.post('/v1/agents',json={'request_id':REG_RAW,'name':'Raw','bio':'','capabilities':['display.text']})
         registration=await r.json()
         aid=registration['agent']['agent_id']
         agent=await self.client.ws_connect('/v1/connect',headers={'Authorization':'Bearer '+registration['agent_token']})
