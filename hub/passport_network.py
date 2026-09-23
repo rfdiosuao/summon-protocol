@@ -132,24 +132,24 @@ class Peer:
         pcm=await self.service.speech.synthesize(text)
         log.info('Playback start turn=%d pcm_bytes=%d', self.turn, len(pcm))
         # Sliding window avoids one network RTT per 32 ms audio chunk.
-        # Keep the in-flight burst below the Passport Wi-Fi RX/event queue.
-        # The device acknowledges an accepted frame before its audio task
-        # consumes it, so a large burst can fill the queue and starve ACKs.
+        # Send one frame at a time. The device acknowledges an accepted frame
+        # before its audio task consumes it; serializing ACKs prevents the
+        # small ESP32 Wi-Fi event/TX queues from starving during playback.
         window=[]; seq=0
         try:
             for at in range(0, len(pcm), 1024):
                 future=asyncio.get_running_loop().create_future(); self.acks[seq]=future
                 await self.send('play.chunk', seq=seq, pcm=base64.b64encode(pcm[at:at+1024]).decode())
                 window.append((seq,future)); seq+=1
-                if len(window)>=2:
+                if len(window)>=1:
                     for old,pending in window:
                         try: await asyncio.wait_for(pending,5)
                         except asyncio.TimeoutError as exc: raise TimeoutError(f'Device playback ACK timed out at chunk {old}') from exc
                         self.acks.pop(old,None)
                     # A Passport playback slot represents 1024 bytes of
-                    # 16 kHz mono PCM16 (32 ms). Pace short bursts to that
-                    # rate so a fast uplink cannot overrun the device queue.
-                    window.clear(); await asyncio.sleep(2*0.032)
+                    # 16 kHz mono PCM16 (32 ms). Keep the media cadence close
+                    # to real time so a fast uplink cannot overrun the device.
+                    window.clear(); await asyncio.sleep(0.032)
             for old,pending in window:
                 try: await asyncio.wait_for(pending,5)
                 except asyncio.TimeoutError as exc: raise TimeoutError(f'Device playback ACK timed out at chunk {old}') from exc
