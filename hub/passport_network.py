@@ -195,7 +195,8 @@ class Peer:
         kind=f.get('type')
         if kind=='hello':
             heap=f.get('free_heap')
-            log.info('Passport hello free_heap=%s', heap if isinstance(heap,int) else 'unknown')
+            log.info('Passport hello free_heap=%s audio_ready=%s firmware=%s',
+                     heap if isinstance(heap,int) else 'unknown',f.get('audio_ready'),f.get('firmware'))
             self.turn=int(f.get('turn',0)); self.ready=True
             await self.send('status',text='云端已连接\n确定说话 · 长按上键配网')
         elif kind in ('remote.ready','play.ack','play.done','play.error') and f.get('turn')==self.turn:
@@ -262,14 +263,17 @@ class Service:
 
     async def socket(self,request):
         key,cfg=self.device(request,'device')
-        if key in self.peers:raise web.HTTPConflict(text='Device already connected')
         # The ESP WebSocket client keeps the TCP connection and reconnects on
         # transport loss, but does not answer aiohttp's periodic PING frames
         # reliably through the reverse proxy. Do not turn a healthy idle link
         # into a 60-second heartbeat timeout.
         ws=web.WebSocketResponse(max_msg_size=2048)
         await ws.prepare(request)
-        peer=Peer(self,key,cfg,ws);self.peers[key]=peer
+        peer=Peer(self,key,cfg,ws)
+        previous=self.peers.get(key);self.peers[key]=peer
+        if previous:
+            log.info('Passport connection replaced device=%s',key)
+            await previous.ws.close(code=1012,message=b'Replaced by reconnect')
         try:
             await peer.send('hello')
             async for message in ws:
@@ -285,7 +289,7 @@ class Service:
             log.info('Passport disconnected code=%s exception=%s chunks=%d bytes=%d',
                      ws.close_code,type(ws.exception()).__name__,peer.recording.seq,len(peer.recording.pcm))
             if peer.job:peer.job.cancel();await asyncio.gather(peer.job,return_exceptions=True)
-            self.peers.pop(key,None)
+            if self.peers.get(key) is peer:self.peers.pop(key,None)
         return ws
 
     async def messages(self,request):

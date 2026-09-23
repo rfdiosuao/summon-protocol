@@ -61,6 +61,17 @@ class NetworkTests(unittest.IsolatedAsyncioTestCase):
         r=await self.client.post('/v1/passport/messages',headers=self.sender,json={'request_id':'a','text':'hi'})
         self.assertEqual(r.status,503)
 
+    async def test_reconnect_replaces_stale_socket(self):
+        first=await self.connect()
+        second=await self.client.ws_connect('/v1/passport/connect',headers={'Authorization':'Bearer device-test'})
+        self.assertEqual((await second.receive_json())['type'],'hello')
+        await second.send_json({'type':'hello','turn':0})
+        self.assertEqual((await second.receive_json())['type'],'status')
+        await asyncio.sleep(.05)
+        self.assertTrue(first.closed or (await first.receive()).type.name in ('CLOSE','CLOSED'))
+        self.assertTrue(self.service.peers['passport'].ready)
+        await second.close()
+
     async def test_transcription_is_separate_from_execution(self):
         data=io.BytesIO()
         with wave.open(data,'wb') as w:
