@@ -131,32 +131,22 @@ class Peer:
         await self.send('status', text=text[:140])
         pcm=await self.service.speech.synthesize(text)
         log.info('Playback start turn=%d pcm_bytes=%d', self.turn, len(pcm))
-        # Sliding window avoids one network RTT per 32 ms audio chunk.
-        # Allow a few frames in flight so Wi-Fi jitter cannot stall the device's
-        # initial 384 ms playback prebuffer. Keep below its 16-frame queue.
-        window=[]; seq=0
+        # A 1024-byte PCM frame is 32 ms at 16 kHz / 16 bit / mono. Pace the
+        # server-to-device stream at that rate and only wait for the final
+        # receipt. Avoiding a write ACK for every frame keeps the ESP TLS
+        # connection half-duplex while audio is being delivered.
+        done=asyncio.get_running_loop().create_future(); self.acks['done']=done
+        started=asyncio.get_running_loop().time(); seq=0
         try:
             for at in range(0, len(pcm), 1024):
-                future=asyncio.get_running_loop().create_future(); self.acks[seq]=future
+                if done.done(): await done
                 await self.send('play.chunk', seq=seq, pcm=base64.b64encode(pcm[at:at+1024]).decode())
-                window.append((seq,future)); seq+=1
-                if len(window)>=4:
-                    for old,pending in window:
-                        try: await asyncio.wait_for(pending,10)
-                        except asyncio.TimeoutError as exc: raise TimeoutError(f'Device playback ACK timed out at chunk {old}') from exc
-                        self.acks.pop(old,None)
-                    # A Passport playback slot represents 1024 bytes of
-                    # Let the device playback queue provide backpressure. It
-                    # fills the initial buffer quickly, then xQueueSend on
-                    # the device naturally paces frames at 32 ms each.
-                    window.clear(); await asyncio.sleep(0)
-            for old,pending in window:
-                try: await asyncio.wait_for(pending,10)
-                except asyncio.TimeoutError as exc: raise TimeoutError(f'Device playback ACK timed out at chunk {old}') from exc
-                self.acks.pop(old,None)
-            done=asyncio.get_running_loop().create_future(); self.acks['done']=done
+                seq+=1
+                deadline=started+seq*.032
+                await asyncio.sleep(max(0,deadline-asyncio.get_running_loop().time()))
+            if done.done(): await done
             await self.send('play.end')
-            receipt=await asyncio.wait_for(done,8)
+            receipt=await asyncio.wait_for(done,max(8,len(pcm)/32000+5))
             log.info('Playback complete turn=%d', self.turn)
             return receipt
         finally:
@@ -221,7 +211,7 @@ class Peer:
                     if not pending.done(): pending.set_exception(error)
             else:
                 seq=f.get('seq')
-                key='ready' if kind=='remote.ready' or (kind=='play.error' and seq==-1) else 'done' if kind=='play.done' else seq
+                key='ready' if kind=='remote.ready' or (kind=='play.error' and seq==-1) else 'done' if kind in ('play.done','play.error') else seq
                 pending=self.acks.get(key)
                 if pending and not pending.done():
                     if kind=='play.error':

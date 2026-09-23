@@ -127,8 +127,7 @@ class NetworkTests(unittest.IsolatedAsyncioTestCase):
                         await ws.send_json({'type':'play.error','turn':frame['turn'],'seq':frame['seq']})
                         return
                     queued+=1.0
-                    if queued>=12: playing=True
-                    await ws.send_json({'type':'play.ack','turn':frame['turn'],'seq':frame['seq']})
+                    if queued>=4: playing=True
                 elif frame['type']=='play.end':
                     await asyncio.sleep(queued*0.032)
                     await ws.send_json({'type':'play.done','turn':frame['turn'],'bytes':1024*48,'underruns':0})
