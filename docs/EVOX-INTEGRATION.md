@@ -23,6 +23,8 @@ Keep the private JSON configuration and credentials outside Git and shared folde
 
 Configure `model` with `backend: "evox"`, the CLI executable, private EvoX runtime directory, provider name, and model ID. Start the existing Agent identity:
 
+Set `conversation_log` to a private local JSONL path. The optional “SUMMON · EvoX Cloud Conversation” window tails this log and displays incoming text, EvoX replies, and redacted action status; it excludes shell commands and command output. The launcher `D:/desktop/启动 SUMMON EvoX 云端会话.cmd` starts this window and the local Agent. The SUMMON Gateway desktop client remains a separate process and must also be running.
+
 ```powershell
 python -m hub.passport_agent --config C:/path/private/evox-agent.json --credentials C:/path/private/passport-agent-credentials.json
 ```
@@ -34,6 +36,8 @@ Only one active connection may use an Agent token at a time. Stop the server-sid
 Confirm the target shell is online. Send a low-risk observation request from Passport and correlate the EvoX plan, shell receipt, final response, Passport `play.done`, and cloud experience record. A task is complete only after its real receipt and audible response are confirmed. Never replay an unknown action.
 
 The integration invokes EvoX as an ephemeral CLI planner. It does not attach to EvoX's desktop conversation, long-lived history, or cross-session memory. SUMMON experiences remain uploaded by the desktop client. A turn is bounded to four actions and each EvoX call to 12 seconds. A timeout stops that child process. Results depend on the target machine's granted capabilities and execution policy.
+
+The separate conversation window shows the local SUMMON event log, not EvoX's internal desktop conversation. Closing the window does not stop the Agent; reopening it loads the retained local events.
 
 ## Acceptance status
 

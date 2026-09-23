@@ -26,6 +26,7 @@ Windows 私有配置示例：
 {
   "hub_url": "https://summon.entermodetwo.com",
   "name": "唤名 · Passport 语音 Agent",
+  "conversation_log": "C:/Users/you/AppData/Local/SUMMON/conversation.jsonl",
   "model": {
     "backend": "evox",
     "executable": "C:/Users/you/AppData/Local/evox/bin/evox.exe",
@@ -51,7 +52,9 @@ python -m hub.passport_agent --config C:/path/private/evox-agent.json --credenti
 
 先通过桌面 Gateway 确认目标 shell ONLINE。然后从 Passport 发送低风险观察命令，确认 EvoX 规划、客户端回执、最终回复、Passport `play.done` 及云端 experience 记录全部对应同一请求。只有听到播报和看到目标应用/命令真实回执才算完成。任何未知执行结果都不得重放。
 
-当前集成使用 EvoX 单次 CLI 对话，没有接管 EvoX 桌面会话、长期历史或跨会话记忆；SUMMON 经验仍由客户端上传到 Hub。Planner 当前每轮最多4次动作、每次 EvoX 调用最多12秒。超时会结束本次本地 EvoX 子进程，报告任务未完成。执行成功与否取决于目标客户端授权的 capability 和本机策略。
+启动 [SUMMON · EvoX 云端会话窗口](https://github.com/rfdiosuao/summon-protocol/blob/main/hub/evox_viewer.py)，并将 `conversation_log` 指向本机私有日志。窗口即时展示 Hub 转来的文字、EvoX 回复和脱敏执行状态，不展示 PowerShell 命令或输出。可用 `D:/desktop/启动 SUMMON EvoX 云端会话.cmd` 同时启动窗口和本地 Agent；Gateway 客户端需另行运行。窗口退出不影响 Agent，重新打开后会读取本机保留的最近会话事件。
+
+当前集成使用 EvoX 单次 CLI 对话，没有接管 EvoX 桌面应用的内部会话、长期历史或跨会话记忆；独立 SUMMON 会话窗口展示本地记录。SUMMON 经验仍由客户端上传到 Hub。Planner 当前每轮最多4次动作、每次 EvoX 调用最多12秒。超时会结束本次本地 EvoX 子进程，报告任务未完成。执行成功与否取决于目标客户端授权的 capability 和本机策略。
 
 ## 当前验收状态
 
