@@ -45,12 +45,16 @@ Start-Process explorer.exe -ArgumentList 'shell:AppsFolder\\实际AppID'; Start-
     for step in range(5):
         remaining=deadline-time.monotonic()
         if remaining<2:break
-        async with http.post(model['base_url'].rstrip('/')+'/chat/completions',
+        if model.get('backend')=='evox':
+            from hub.evox_backend import complete
+            content=await complete(model,messages,min(12,remaining))
+        else:
+            async with http.post(model['base_url'].rstrip('/')+'/chat/completions',
                 headers={'Authorization':'Bearer '+model['api_key']},
                 json={'model':model['name'],'messages':messages,'max_tokens':650,'temperature':0.1},
                 timeout=aiohttp.ClientTimeout(total=min(12,remaining))) as r:
-            if r.status!=200:raise RuntimeError('Model service unavailable')
-            content=(await r.json())['choices'][0]['message']['content']
+                if r.status!=200:raise RuntimeError('Model service unavailable')
+                content=(await r.json())['choices'][0]['message']['content']
         plan=json.loads(re.sub(r'^```(?:json)?\s*|\s*```$','',content.strip()))
         if not isinstance(plan,dict):raise ValueError('Invalid model plan')
         command,url=plan.get('command'),plan.get('url')
@@ -78,8 +82,8 @@ async def run(config_path,credentials_path):
     async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10),headers={'User-Agent':'SUMMON-Passport-Agent/0.1'}) as http:
         if path.exists():registered=json.loads(path.read_text())
         else:
-            body={'request_id':'summon_passport_voice_agent_v1','name':'唤名 · Passport 语音 Agent',
-                  'bio':'Passport 语音入口；未配置模型时仅支持公开列出的有限指令。',
+            body={'request_id':cfg.get('registration_id','summon_passport_voice_agent_v1'),'name':cfg.get('name','唤名 · Passport 语音 Agent'),
+                  'bio':cfg.get('bio','Passport 语音入口；未配置模型时仅支持公开列出的有限指令。'),
                   'capabilities':['display.text','browser.open','command.exec']}
             async with http.post(base+'/v1/agents',headers={'Authorization':'Bearer '+cfg['invite']},json=body) as r:
                 if r.status!=201:raise RuntimeError('Registration HTTP '+str(r.status))
@@ -90,7 +94,7 @@ async def run(config_path,credentials_path):
         async with http.get(base+'/v1/agents/me/nameplate',headers=auth) as r:
             r.raise_for_status();plate=await r.json()
             if plate['agent']['agent_id']!=registered['agent']['agent_id']:raise RuntimeError('Identity mismatch')
-            print('Passport Agent nameplate:',plate['code'],'mode:','model' if cfg.get('model') else 'limited-intents',flush=True)
+            print('Passport Agent nameplate:',plate['code'],'mode:',cfg.get('model',{}).get('backend','model') if cfg.get('model') else 'limited-intents',flush=True)
         delay=1
         while True:
             sessions={};pending={};jobs={};sequences={}
@@ -113,6 +117,7 @@ async def run(config_path,credentials_path):
                         finally:pending.pop(cid,None)
                     async def process(p):
                         s=sessions[p['session_id']]
+                        print('Input received:',p['input_id'],'backend:',cfg.get('model',{}).get('backend','model'),flush=True)
                         try:
                             if cfg.get('model'):
                                 async def execute(cap,args):return await action(s,p['input_id'],cap,args)

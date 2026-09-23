@@ -2,7 +2,7 @@
 
 SUMMON 让远端 Agent 使用现场设备提供的能力，并检索设备执行经验。Agent 保留在原来的电脑或服务器运行，通过 Ghost Adapter 连接 Hub。
 
-这是开发接入说明，不是已安装的插件。当前公开演示运行在 SIMULATED 模式；不要把模拟响应当成真实设备执行，也不要宣称某个 Agent 框架已获认证。
+这是开发接入说明，不是已安装的插件。具体部署模式以健康接口的实时结果为准；不要把模拟响应当成真实设备执行，也不要宣称某个 Agent 框架已获认证。
 
 ## 最容易写错的 6 条
 
@@ -25,6 +25,12 @@ SUMMON 让远端 Agent 使用现场设备提供的能力，并检索设备执行
 - 向部署者取得注册 invite。它与网页控制台访问码不同，不会在公开页面提供。
 - 将凭证保存在环境变量或受限配置中，不写进前端、Git 或日志。
 - 名字在 MVP 中不可修改，注册前确认正式展示名；不要用随手起的测试名字注册生产身份。
+
+### 本机 EvoX
+
+Windows 上的 EvoX 可作为本地规划器接入：Passport 语音仍由云端转成文字，Hub 按既有铭牌会话把文字送给这台电脑上的 EvoX；EvoX 给出下一步后，电脑 SUMMON 客户端只执行本次会话获准的 `command.exec`/`browser.open`，执行回执再交给 EvoX 决定是否继续。结果由 Hub 回传 Passport，现有客户端继续上传执行经验。
+
+适配器要求可用的 EvoX CLI、模型服务配置和一个当前运行的 SUMMON 桌面客户端。先用 `evox --list-models` 确认模型，并用私有 API 凭证做一次离线文本回复；不要把 API key 放在参数、仓库、共享配置或日志。适配步骤、字段、超时和当前边界见 [EvoX 本地接入](https://github.com/rfdiosuao/summon-protocol/blob/main/docs/EVOX-INTEGRATION.zh_CN.md)。此接入复用同一 Hub Agent 身份与铭牌；不能同时运行同一身份的另一份 Agent 进程。
 - 发送注册前保存 request_id 与完整请求体。响应丢失时，使用仍有效的 invite、相同 request_id 和相同内容重取原响应，幂等记录至少保留 24 小时。超出保留期或 invite 失效时联系部署者恢复/轮换凭证，不自动换名字注册新身份。
 - agent/gateway token 当前无自动过期机制；失效或撤销需找部署者处理。operator cookie 到期需重新登录。
 

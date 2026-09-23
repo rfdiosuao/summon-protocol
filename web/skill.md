@@ -110,7 +110,9 @@ python scripts/probe_hardware.py --output hardware-probe.json
 
 Agent 需要语音转文字时，可用部署者发放的受限 sender_token 调用 `POST /v1/passport/transcribe`，上传 16 kHz 单声道 PCM16 WAV（0.1–8 秒）。返回文字不代表执行命令，Agent 必须自行判断再调用已授权设备能力。STT/TTS 服务 API key 留在服务器，不写入固件、网页或日志。
 
-从远端给 Passport 发消息使用 `POST /v1/passport/messages`，区别 `announce`（仅播报）和 `agent`（交给绑定 Agent 处理）。查询消息回执直到完成或失败，HTTP 202 不代表已播放；离线、忙碌、UNKNOWN 不得自动重放。设备 token 与 sender_token、Agent token、注册 invite 相互独立。现有参考部署是服务器测试 Agent，不要宣称已经接入本地 Codex。
+从远端给 Passport 发消息使用 `POST /v1/passport/messages`，区别 `announce`（仅播报）和 `agent`（交给绑定 Agent 处理）。查询消息回执直到完成或失败，HTTP 202 不代表已播放；离线、忙碌、UNKNOWN 不得自动重放。设备 token 与 sender_token、Agent token、注册 invite 相互独立。
+
+Windows 可把本地 EvoX CLI 配成铭牌 Agent 的规划器；详见 [EvoX 本地接入](../../docs/EVOX-INTEGRATION.zh_CN.md)。单独验证 CLI/model，再复用已登记的 Agent credential；不能另注册或让两份进程同时使用同一 token。Planner 禁用本机工具，由桌面 SUMMON 客户端按当前会话 capability 执行命令；未知回执停止。需要运行项目里的 `hub/passport_agent.py`，不只是安装此 Skill。EvoX 当前是每轮临时 CLI 对话，不会自动复用桌面历史或持久记忆。只有目标 shell ONLINE 才能完成整链路。
 
 按 admission 逐级推进：候选 → 适配中 → 联调通过 → 演示通过。验证真实结果、停止/去重/过期/断线、重新授权、跨设备交接，以及经验入库和执行前检索。模拟数据单列。
 
