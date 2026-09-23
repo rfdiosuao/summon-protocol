@@ -25,6 +25,7 @@ class Speech:
         self.config = config
 
     async def transcribe(self, pcm):
+        log.info('STT start pcm_bytes=%d duration_ms=%d', len(pcm), len(pcm) // 32)
         data = io.BytesIO()
         with wave.open(data, 'wb') as w:
             w.setnchannels(1); w.setsampwidth(2); w.setframerate(16000); w.writeframes(pcm)
@@ -34,9 +35,13 @@ class Speech:
         async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as http:
             async with http.post(self.config['base_url']+'/audio/transcriptions', data=form,
                                  headers={'Authorization': 'Bearer '+self.config['api_key']}) as r:
-                if r.status != 200: raise RuntimeError('Speech recognition unavailable')
+                if r.status != 200:
+                    log.warning('STT failed http_status=%d', r.status)
+                    raise RuntimeError('Speech recognition unavailable')
                 text = (await r.json()).get('text', '').strip()
-                if not text or len(text) > 2000: raise ValueError('Empty or oversized transcription')
+                log.info('STT complete text_chars=%d', len(text))
+                if not text: raise ValueError('No speech detected')
+                if len(text) > 2000: raise ValueError('Oversized transcription')
                 return text
 
     async def synthesize(self, text):
@@ -52,6 +57,7 @@ class Speech:
                     data.extend(chunk)
                     if len(data) > 16000*2*60: raise ValueError('Speech exceeds 60 seconds')
                 if not data or len(data) % 2: raise ValueError('Invalid PCM')
+                log.info('TTS complete pcm_bytes=%d text_chars=%d', len(data), len(text))
                 return bytes(data)
 
 
@@ -60,6 +66,7 @@ class HubChannel:
     def __init__(self, config): self.config = config
 
     async def ask(self, device, plate, text):
+        log.info('Hub ask start plate=%s shell=%s text_chars=%d', plate, device['target_shell_id'], len(text))
         base = self.config['hub_url'].rstrip('/')
         jar = aiohttp.CookieJar(unsafe=True, treat_as_secure_origin=[base])
         async with aiohttp.ClientSession(cookie_jar=jar, timeout=aiohttp.ClientTimeout(total=10),
@@ -76,6 +83,7 @@ class HubChannel:
             session = (await call('POST', '/v1/sessions',
                 {'agent_id': name['agent']['agent_id'], 'shell_id': device['target_shell_id']}))['session']
             sid = session['session_id']
+            log.info('Hub session created sid=%s', sid)
             try:
                 for _ in range(24):
                     state = await call('GET', '/v1/state')
@@ -83,8 +91,12 @@ class HubChannel:
                     if active and active['state'] == 'ACTIVE': break
                     if active and active['state'] in ('FAILED', 'RELEASED'): raise RuntimeError('Session failed')
                     await asyncio.sleep(.25)
-                else: raise RuntimeError('Agent or target computer offline')
+                else:
+                    log.warning('Hub session activation timed out sid=%s', sid)
+                    raise RuntimeError('Agent or target computer offline')
+                log.info('Hub session active sid=%s', sid)
                 inp = await call('POST', '/v1/sessions/'+sid+'/inputs', {'text': text})
+                log.info('Hub input accepted sid=%s input=%s', sid, inp['input_id'])
                 for _ in range(90):
                     state = await call('GET', '/v1/state')
                     for command in state['commands']:
@@ -93,9 +105,13 @@ class HubChannel:
                         if req['action']['capability'] != 'display.text': continue
                         outcome = command.get('outcome')
                         if outcome and outcome['status'] == 'COMPLETED':
+                            log.info('Hub command completed sid=%s command=%s', sid, command['request']['command_id'])
                             return req['action']['args']['text'], sid
-                        if outcome and outcome['status'] in ('FAILED','UNKNOWN'): raise RuntimeError('Reply did not complete')
+                        if outcome and outcome['status'] in ('FAILED','UNKNOWN'):
+                            log.warning('Hub command failed sid=%s status=%s', sid, outcome['status'])
+                            raise RuntimeError('Reply did not complete')
                     await asyncio.sleep(.5)
+                log.warning('Hub command timed out sid=%s input=%s', sid, inp['input_id'])
                 raise RuntimeError('Agent response timed out')
             finally:
                 # Releasing a session stops its target; never release somebody else's session.
@@ -114,6 +130,7 @@ class Peer:
     async def speak(self, text):
         await self.send('status', text=text[:140])
         pcm=await self.service.speech.synthesize(text)
+        log.info('Playback start turn=%d pcm_bytes=%d', self.turn, len(pcm))
         # Sliding window avoids one network RTT per 32 ms audio chunk.
         window=[]; seq=0
         try:
@@ -136,7 +153,9 @@ class Peer:
                 self.acks.pop(old,None)
             done=asyncio.get_running_loop().create_future(); self.acks['done']=done
             await self.send('play.end')
-            return await asyncio.wait_for(done,8)
+            receipt=await asyncio.wait_for(done,8)
+            log.info('Playback complete turn=%d', self.turn)
+            return receipt
         finally:
             self.acks.clear()
 
@@ -144,6 +163,8 @@ class Peer:
         result={'request_id':request_id, 'device_id':self.device_id, 'status':'RUNNING', 'started_at':time.time()}
         self.service.save(result)
         try:
+            log.info('Request start id=%s mode=%s pcm_bytes=%s plate=%s', request_id,
+                     'announce' if announce else 'agent', len(pcm) if pcm is not None else 0, plate or self.config['default_plate'])
             if pcm is None:
                 ready=asyncio.get_running_loop().create_future(); self.acks['ready']=ready
                 await self.send('remote.begin')
@@ -151,10 +172,12 @@ class Peer:
             if pcm is not None:
                 await self.send('status',text='云端正在识别…')
                 text=await self.service.speech.transcribe(pcm)
+                log.info('Request STT ok id=%s text_chars=%d', request_id, len(text))
             if not announce:
                 await self.send('status',text='已上传，Agent 正在处理…')
                 text,sid=await self.service.channel.ask(self.config,plate or self.config['default_plate'],text)
                 result['session_id']=sid
+                log.info('Request Agent ok id=%s sid=%s reply_chars=%d', request_id, sid, len(text))
             result['playback']=await self.speak(text)
             result['status']='COMPLETED'
             await self.send('status',text='播报完成\n确定继续说话')
@@ -163,7 +186,15 @@ class Peer:
         except Exception as exc:
             result['status']='FAILED'; result['error']=type(exc).__name__
             result['error_detail']=str(exc)[:120]
-            if not self.ws.closed: await self.send('status',text='请求未完成\n检查网络和目标电脑，确定重试')
+            log.warning('Request failed id=%s error=%s detail=%s', request_id, type(exc).__name__, str(exc)[:120])
+            if not self.ws.closed:
+                if isinstance(exc, ValueError) and str(exc) == 'No speech detected':
+                    message='没有识别到语音\n请靠近麦克风再说一次'
+                elif isinstance(exc, RuntimeError) and str(exc) in ('Agent or target computer offline', 'Agent response timed out'):
+                    message='目标电脑或 Agent 离线\n请确认 EvoX 客户端已连接'
+                else:
+                    message='请求未完成\n检查网络和目标电脑，确定重试'
+                await self.send('status',text=message)
         finally:
             result['finished_at']=time.time(); self.service.save(result)
 
