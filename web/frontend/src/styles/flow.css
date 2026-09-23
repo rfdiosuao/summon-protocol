@@ -890,6 +890,8 @@
   top: auto;
   transform: none;
   width: 260px;
+  font-size: 18px;
+  white-space: nowrap;
 }
 
 .flow__cta--copy {
