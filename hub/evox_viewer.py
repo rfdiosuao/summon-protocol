@@ -11,8 +11,8 @@ class ConversationWindow:
         self.path = Path(path)
         self.offset = 0
         self.root = tk.Tk()
-        self.root.title('SUMMON · EvoX 云端会话')
-        self.root.geometry('760x620')
+        self.root.title('SUMMON · EvoX 本地 Agent')
+        self.root.geometry('900x680')
         self.root.minsize(520, 400)
         self.root.lift()
         self.root.focus_force()
@@ -25,8 +25,8 @@ class ConversationWindow:
         style.configure('Hint.TLabel', background='#10151d', foreground='#9aa9bb', font=('Segoe UI', 9))
         outer = ttk.Frame(self.root, padding=18)
         outer.pack(fill='both', expand=True)
-        ttk.Label(outer, text='SUMMON · EvoX 云端会话', style='Header.TLabel').pack(anchor='w')
-        ttk.Label(outer, text='Passport / 云端 Agent 的消息与本地 EvoX 回复 · 仅保存在本机', style='Hint.TLabel').pack(anchor='w', pady=(4, 12))
+        ttk.Label(outer, text='EvoX 本地 Agent', style='Header.TLabel').pack(anchor='w')
+        ttk.Label(outer, text='SUMMON Passport 实时会话 · 云端消息由本机 EvoX 处理 · 会话记录保存在本机', style='Hint.TLabel').pack(anchor='w', pady=(4, 12))
         body = ttk.Frame(outer)
         body.pack(fill='both', expand=True)
         self.text = tk.Text(body, wrap='word', state='disabled', padx=16, pady=14,
@@ -40,7 +40,7 @@ class ConversationWindow:
         self.text.tag_configure('user', foreground='#76d6b0', font=('Segoe UI', 10, 'bold'))
         self.text.tag_configure('agent', foreground='#94baff', font=('Segoe UI', 10, 'bold'))
         self.text.tag_configure('system', foreground='#ffc978', font=('Segoe UI', 9))
-        ttk.Label(outer, text='保持此窗口打开，即可查看后续云端对话。电脑命令及输出不会显示在这里。', style='Hint.TLabel').pack(anchor='w', pady=(10, 0))
+        ttk.Label(outer, text='EvoX 回复会实时显示在这里。电脑命令及执行输出不会显示在会话窗。', style='Hint.TLabel').pack(anchor='w', pady=(10, 0))
         self.root.after(250, self.refresh)
 
     def refresh(self):

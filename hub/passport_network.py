@@ -170,10 +170,23 @@ class Peer:
             self.turn=int(f.get('turn',0)); self.ready=True
             await self.send('status',text='云端已连接\n确定说话 · 长按上键配网')
         elif kind in ('remote.ready','play.ack','play.done','play.error') and f.get('turn')==self.turn:
-            pending=self.acks.get('ready' if kind=='remote.ready' else 'done' if kind=='play.done' else f.get('seq'))
-            if pending and not pending.done():
-                if kind=='play.error':pending.set_exception(RuntimeError(f"Device rejected playback frame seq={f.get('seq','unknown')}"))
-                else:pending.set_result(f)
+            if kind=='play.error' and f.get('seq') is None:
+                # Playback-task failures have no chunk sequence. Fail all
+                # outstanding waits immediately rather than masking them as
+                # a later per-chunk ACK timeout.
+                targets=list(self.acks.values())
+                error=RuntimeError('Device playback task failed')
+                for pending in targets:
+                    if not pending.done(): pending.set_exception(error)
+            else:
+                seq=f.get('seq')
+                key='ready' if kind=='remote.ready' or (kind=='play.error' and seq==-1) else 'done' if kind=='play.done' else seq
+                pending=self.acks.get(key)
+                if pending and not pending.done():
+                    if kind=='play.error':
+                        detail='Device rejected remote playback request' if seq==-1 else f'Device rejected playback frame seq={seq}'
+                        pending.set_exception(RuntimeError(detail))
+                    else:pending.set_result(f)
         elif kind in ('cancel','record.start'):
             if self.job and not self.job.done():
                 self.job.cancel(); await asyncio.gather(self.job,return_exceptions=True)
