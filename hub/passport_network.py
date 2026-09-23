@@ -147,9 +147,10 @@ class Peer:
                         except asyncio.TimeoutError as exc: raise TimeoutError(f'Device playback ACK timed out at chunk {old}') from exc
                         self.acks.pop(old,None)
                     # A Passport playback slot represents 1024 bytes of
-                    # 16 kHz mono PCM16 (32 ms). Keep the media cadence close
-                    # to real time so a fast uplink cannot overrun the device.
-                    window.clear(); await asyncio.sleep(0.032)
+                    # Let the device playback queue provide backpressure. It
+                    # fills the initial buffer quickly, then xQueueSend on
+                    # the device naturally paces frames at 32 ms each.
+                    window.clear(); await asyncio.sleep(0)
             for old,pending in window:
                 try: await asyncio.wait_for(pending,5)
                 except asyncio.TimeoutError as exc: raise TimeoutError(f'Device playback ACK timed out at chunk {old}') from exc
