@@ -6,6 +6,7 @@ import json
 import os
 import secrets
 import sqlite3
+import sys
 import time
 import unicodedata
 from collections import deque
@@ -15,6 +16,12 @@ from pathlib import Path
 from aiohttp import web, WSMsgType
 from jsonschema import Draft202012Validator, FormatChecker
 from hub.experience import ExperienceLedger
+
+# `python -m hub.app` runs this module as __main__.  Other hub modules import
+# hub.app for Rejected and helpers; keep both names bound to the same module so
+# middleware can catch their exceptions in the production entrypoint.
+if __name__ == '__main__':
+    sys.modules['hub.app'] = sys.modules[__name__]
 
 ROOT = Path(__file__).resolve().parents[1]
 
