@@ -98,13 +98,19 @@ async def serve(config_path: Path, run_dir: Path, cross_device: bool = False) ->
     async def demo_page(request: web.Request) -> web.FileResponse:
         return web.FileResponse(ROOT / "web" / "arm-demo.html")
 
+    status_http = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=2), trust_env=False)
+
     async def demo_status(request: web.Request) -> web.Response:
         hub["hub"].operator(request)
-        state = arm.state or {}
+        try:
+            async with status_http.get(config["adapter"]["url"].rstrip("/") + "/api/state") as response:
+                state = await response.json() if response.status == 200 else {}
+        except (aiohttp.ClientError, asyncio.TimeoutError):
+            state = {}
         return web.json_response({
             "model": config["model"].get("name", "configured model"),
-            "connected": state.get("connected") is True,
-            "fault": state.get("fault"),
+            "connected": state.get("mode") == "hardware" and state.get("connected") is True,
+            "fault": state.get("fault") or ("控制台不可达" if not state else None),
             "sample_age_ms": state.get("sampleAgeMs"),
             "joints": [{key: joint.get(key) for key in
                         ("id", "actualDeg", "targetDeg", "stressRatio", "rotorTempC", "enabled", "fault")}
@@ -242,6 +248,7 @@ async def serve(config_path: Path, run_dir: Path, cross_device: bool = False) ->
             await asyncio.gather(*tasks, return_exceptions=True)
         for gateway in gateways:
             gateway.close()
+        await status_http.close()
         await runner.cleanup()
 
 

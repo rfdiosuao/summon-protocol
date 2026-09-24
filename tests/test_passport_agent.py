@@ -156,6 +156,11 @@ class ArmPlannerTests(unittest.IsolatedAsyncioTestCase):
         async def model_reply(request):
             body = await request.json()
             self.assertIn('hand_xyz_mm', str(body['messages']))
+            membership = str(body['messages'])
+            self.assertIn('"J1": {"actual_deg": -22', membership)
+            self.assertIn('"J3": {"actual_deg": -54', membership)
+            self.assertIn('"inside": false', membership)
+            self.assertIn('"inside": true', membership)
             return web.json_response({'choices':[{'message':{'content':next(replies)}}]})
         server = TestServer(web.Application())
         server.app.router.add_post('/chat/completions', model_reply)
@@ -165,13 +170,14 @@ class ArmPlannerTests(unittest.IsolatedAsyncioTestCase):
             calls.append((cap,args))
             if cap == 'arm.observe':
                 return {'status':'COMPLETED','evidence':'controller_feedback',
-                        'result':'{"joints_deg":{"J4":-12},"hand_xyz_mm":[260,0,205]}'}
+                        'result':'{"joints_deg":{"J1":-22,"J3":-54,"J4":-12},"hand_xyz_mm":[260,0,205]}'}
             return {'status':'COMPLETED','evidence':'controller_feedback'}
         try:
             async with aiohttp.ClientSession() as http:
                 answer = await plan_and_execute(http,{'base_url':str(server.make_url('')).rstrip('/'),
                     'name':'test','api_key':'test'},'请招手',['arm.observe','arm.motion'],execute,
-                    motion_policy={'absolute_joint_windows_deg':{'J4':[-20,-5]},'max_speed_dps':8})
+                    motion_policy={'absolute_joint_windows_deg':{'J1':[-5,10],
+                                   'J3':[-70,-10],'J4':[-20,-5]},'max_speed_dps':8})
             self.assertEqual([item[0] for item in calls], ['arm.observe','arm.motion'])
             self.assertEqual(calls[1][1]['waypoints'], [{'J4':-4},{'J4':0}])
             self.assertIn('实机回执', answer)

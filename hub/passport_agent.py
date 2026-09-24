@@ -94,6 +94,7 @@ Gateway 会独立检查模型碰撞、现场预设和电机反馈。收到真实
         prompt+='\n本轮用户没有明确要求肢体动作，只能对话；motion 和 gesture 都必须为 null。'
     if 'arm.motion' in capabilities and {'J1','J4','J5'}.issubset(windows):
         prompt+='\n用户要求明显、有表达力的动作时，可组合开放的六轴；若明确要求六轴协同，应让六轴都在首个路点产生非零运动，J2/J3 承重，速度须遵守各轴上限。当前某轴位于绝对窗口下界时，可以朝窗口上界移动，反之亦然。J1 转向、J4 抬腕和 J5 摆腕提供主要可见幅度，J6 可辅助。大幅动作优先用 2 个路点形成摆动和回位，避免多个路点耗尽执行时间。观测中的约 1.5 mm 模型净空是当前官方网格的静态基线；只要仍高于现场已验证阈值，不能仅因这个基线把整段动作缩成不可见幅度。Gateway 还会独立精确预检每一段。'
+        prompt+='\n若某些轴的实测起点已超出各自的局部验证窗口，不得命令这些轴；这不表示其他轴也不可用。可以只选起点位于窗口内的轴做短动作，并让窗口外的轴保持原位。仅当所需动作无法由剩余轴完成或 Gateway 预检拒绝时，才说明本次不能动作。'
         prompt+='\n一次动作含摆出和回位，总预计时间必须小于 6 秒。估算时 J1/J2/J3/J6 有效速度最多 3°/s，J4/J5 最多 10°/s；因此若需六轴协同，肩肘单程约 1–3°、底座约 4–7°、腕俯仰约 3–6°、腕偏航约 8–15°、腕旋转约 1–3°，再回到起点。根据实际姿态调整方向与幅度，不要照抄固定路点。'
     backend_label='EvoX' if model.get('backend')=='evox' else '云端 Agent'
     messages=[{'role':'system','content':prompt},{'role':'user','content':text}]
@@ -106,6 +107,23 @@ Gateway 会独立检查模型碰撞、现场预设和电机反馈。收到真实
             return '无法确认机械臂当前姿态，本轮没有发送运动目标。'
         if on_event:on_event('system','实机观测：'+str(observed.get('result',''))[:500])
         messages.append({'role':'system','content':'本轮最新实机观测（控制器回执）：'+str(observed.get('result',''))[:500]})
+        try:
+            joint_positions = json.loads(observed['result']).get('joints_deg', {})
+            window_membership = {}
+            for axis, bounds in windows.items():
+                position = joint_positions.get(axis)
+                if (isinstance(position, (int, float)) and not isinstance(position, bool)
+                        and isinstance(bounds, (list, tuple)) and len(bounds) == 2):
+                    window_membership[axis] = {
+                        'actual_deg': position, 'window_deg': bounds,
+                        'inside': bounds[0] <= position <= bounds[1],
+                    }
+            if window_membership:
+                messages.append({'role':'system','content':
+                    '由程序逐轴比较实测角度与局部验证窗口所得结果（inside 仅表示该轴角度在窗口内，仍须通过 Gateway 碰撞及应力校验）：'
+                    + json.dumps(window_membership, ensure_ascii=False)})
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+            pass
     for step in range(5):
         remaining=deadline-time.monotonic()
         if remaining<2:break
