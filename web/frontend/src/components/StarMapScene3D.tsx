@@ -69,28 +69,43 @@ export default function StarMapScene3D({ agentName, devices, online, selectedId,
       }
       const glowTexture = new T.CanvasTexture(glowCanvas);
       const glowMaterial = new T.SpriteMaterial({ map: glowTexture, transparent: true, depthWrite: false, blending: T.AdditiveBlending });
+      const computerTexture = new T.TextureLoader().load('/assets/computer-3d.png');
+      computerTexture.colorSpace = T.SRGBColorSpace;
+      const computerMaterial = new T.SpriteMaterial({ map: computerTexture, transparent: true, depthWrite: false, toneMapped: false });
+      const iconCanvas = document.createElement('canvas');
+      iconCanvas.width = 512;
+      iconCanvas.height = 256;
+      const iconContext = iconCanvas.getContext('2d');
+      if (iconContext) {
+        // The front of SphereGeometry is U=.25; print the mark on the surface, not in HTML.
+        iconContext.fillStyle = '#264b58';
+        iconContext.beginPath();
+        iconContext.moveTo(128, 91);
+        iconContext.quadraticCurveTo(136, 119, 165, 128);
+        iconContext.quadraticCurveTo(136, 136, 128, 165);
+        iconContext.quadraticCurveTo(120, 136, 91, 128);
+        iconContext.quadraticCurveTo(120, 119, 128, 91);
+        iconContext.fill();
+      }
+      const iconTexture = new T.CanvasTexture(iconCanvas);
+      const iconMaterial = new T.MeshBasicMaterial({ map: iconTexture, transparent: true, depthWrite: false });
       const core = new T.Mesh(
         new T.IcosahedronGeometry(.82, 5),
-        new T.MeshPhysicalMaterial({ color: 0xd9edf3, metalness: .55, roughness: .2, clearcoat: .8, emissive: 0x244b53, emissiveIntensity: .42 }),
+        new T.MeshPhysicalMaterial({ color: 0xc9e3eb, metalness: .28, roughness: .26, clearcoat: .7, emissive: 0x244b53, emissiveIntensity: .32 }),
       );
       scene.add(core);
-      const coreWire = new T.LineSegments(
-        new T.WireframeGeometry(new T.IcosahedronGeometry(.91, 2)),
-        new T.LineBasicMaterial({ color: 0xb9ed08, transparent: true, opacity: .29 }),
-      );
-      scene.add(coreWire);
       const coreGlow = new T.Sprite(glowMaterial);
-      coreGlow.scale.set(3.3, 3.3, 1);
+      coreGlow.scale.set(2.9, 2.9, 1);
       scene.add(coreGlow);
 
       const ringPoints = Array.from({ length: 145 }, (_, index) => {
         const angle = index / 144 * Math.PI * 2;
         return new T.Vector3(Math.cos(angle), Math.sin(angle), Math.sin(angle) * .32);
       });
-      const rings = [1, .72].map((factor, index) => {
+      const rings = [1].map((factor) => {
         const ring = new T.LineLoop(
           new T.BufferGeometry().setFromPoints(ringPoints),
-          new T.LineBasicMaterial({ color: index ? 0x76a1ad : 0x9bc0c6, transparent: true, opacity: index ? .17 : .32 }),
+          new T.LineBasicMaterial({ color: 0x9bc0c6, transparent: true, opacity: .13 }),
         );
         ring.rotation.x = .35;
         ring.userData.factor = factor;
@@ -113,19 +128,26 @@ export default function StarMapScene3D({ agentName, devices, online, selectedId,
       scene.add(particles);
 
       const objects = visible.map((device, index) => {
-        const sphere = new T.Mesh(
-          new T.IcosahedronGeometry(index === 0 ? .4 : .31, 3),
-          new T.MeshPhysicalMaterial({ color: 0xb6dce5, metalness: .62, roughness: .19, clearcoat: .7, emissive: 0x254954, emissiveIntensity: .65 }),
-        );
-        scene.add(sphere);
+        const body = index === 0
+          ? new T.Sprite(computerMaterial)
+          : new T.Mesh(
+              new T.SphereGeometry(.31, 48, 32),
+              new T.MeshPhysicalMaterial({ color: 0xd8edf1, metalness: .28, roughness: .3, clearcoat: .65, emissive: 0x254954, emissiveIntensity: .34 }),
+            );
+        if (index === 0) body.scale.set(1.55, 1.55, 1);
+        else {
+          const printedMark = new T.Mesh(new T.SphereGeometry(.319, 48, 32), iconMaterial);
+          body.add(printedMark);
+        }
+        scene.add(body);
         const aura = new T.Sprite(glowMaterial);
-        aura.scale.setScalar(index === 0 ? 1.65 : 1.25);
+        aura.scale.setScalar(index === 0 ? 1.15 : 1.05);
         scene.add(aura);
         const geometry = new T.BufferGeometry();
         geometry.setAttribute('position', new T.BufferAttribute(new Float32Array(6), 3));
         const line = new T.Line(geometry, new T.LineBasicMaterial({ color: 0x87b7bf, transparent: true, opacity: .45 }));
         scene.add(line);
-        return { id: device.shell_id, index, sphere, aura, line };
+        return { id: device.shell_id, index, body, aura, line };
       });
 
       let radiusX = 3;
@@ -173,27 +195,26 @@ export default function StarMapScene3D({ agentName, devices, online, selectedId,
         camera.lookAt(0, 0, 0);
         core.rotation.y = time * .12;
         core.rotation.x = time * .055;
-        (core.material as InstanceType<typeof T.MeshPhysicalMaterial>).emissiveIntensity = onlineRef.current ? .42 : .12;
-        (coreWire.material as InstanceType<typeof T.LineBasicMaterial>).opacity = onlineRef.current ? .29 : .1;
-        coreWire.rotation.y = -time * .08;
-        coreWire.rotation.z = time * .025;
+        (core.material as InstanceType<typeof T.MeshPhysicalMaterial>).emissiveIntensity = onlineRef.current ? .32 : .08;
         particles.rotation.y = time * .002;
-        rings.forEach((ring, index) => { ring.rotation.z = time * (index ? -.025 : .018); });
-        objects.forEach(({ id, index, sphere, aura, line }) => {
+        rings.forEach((ring) => { ring.rotation.z = Math.sin(time * .14) * .025; });
+        objects.forEach(({ id, index, body, aura, line }) => {
           const device = devicesRef.current.find((item) => item.shell_id === id);
           const base = T.MathUtils.degToRad(angles[index]);
           const angle = base + Math.sin(time * .28 + index * 1.7) * .055;
           const bob = Math.sin(time * .86 + index * 1.8) * .09;
-          sphere.position.set(radiusX * Math.cos(angle), 1.72 * Math.sin(angle) + bob, Math.sin(angle + time * .15) * .44);
-          sphere.rotation.y = time * .22 + index;
-          aura.position.copy(sphere.position);
+          body.position.set(radiusX * Math.cos(angle), 1.72 * Math.sin(angle) + bob, Math.sin(angle + time * .15) * .44);
+          if (index > 0) body.rotation.y = Math.sin(time * .25 + index) * .09;
+          aura.position.copy(body.position);
           const active = Boolean(device && isOnline(device.state));
-          const material = sphere.material as InstanceType<typeof T.MeshPhysicalMaterial>;
-          material.color.setHex(active ? 0xe5f9ea : 0xa6c4ce);
-          material.emissive.setHex(active ? 0x5d740b : 0x254954);
+          if (body instanceof T.Mesh) {
+            const material = body.material as InstanceType<typeof T.MeshPhysicalMaterial>;
+            material.color.setHex(active ? 0xe5f9ea : 0xa6c4ce);
+            material.emissive.setHex(active ? 0x405216 : 0x254954);
+          }
           (line.material as InstanceType<typeof T.LineBasicMaterial>).opacity = active && device?.authorized ? .78 : .29;
           const positions = line.geometry.getAttribute('position') as InstanceType<typeof T.BufferAttribute>;
-          positions.setXYZ(1, sphere.position.x, sphere.position.y, sphere.position.z);
+          positions.setXYZ(1, body.position.x, body.position.y, body.position.z);
           positions.needsUpdate = true;
         });
         renderer.render(scene, camera);
@@ -214,6 +235,10 @@ export default function StarMapScene3D({ agentName, devices, online, selectedId,
         });
         glowMaterial.dispose();
         glowTexture.dispose();
+        computerMaterial.dispose();
+        computerTexture.dispose();
+        iconMaterial.dispose();
+        iconTexture.dispose();
         renderer.dispose();
         renderer.domElement.remove();
       };
@@ -229,11 +254,11 @@ export default function StarMapScene3D({ agentName, devices, online, selectedId,
       const angle = TAngle(index);
       return <button key={device.shell_id} type="button"
         ref={(element) => { if (element) buttonRefs.current.set(device.shell_id, element); else buttonRefs.current.delete(device.shell_id); }}
-        className={`flow__starmap-node flow__starmap-node--3d ${isOnline(device.state) ? 'is-online' : ''} ${selectedId === device.shell_id ? 'is-selected' : ''}`}
+        className={`flow__starmap-node flow__starmap-node--3d ${device.kind === 'computer' ? 'flow__starmap-node--computer' : ''} ${isOnline(device.state) ? 'is-online' : ''} ${selectedId === device.shell_id ? 'is-selected' : ''}`}
         style={{ left: `${50 + 33 * Math.cos(angle)}%`, top: `${50 + 34 * Math.sin(angle)}%` }}
         onClick={() => onSelect(device.shell_id)}
         aria-label={`${device.label}，${isOnline(device.state) ? '在线' : '离线'}，${device.authorized ? '已授权' : '待授权'}`}>
-        <span className="flow__starmap-node-star" aria-hidden="true">{device.kind === 'computer' ? '⌘' : '✦'}</span>
+        <span className="flow__starmap-node-star" aria-hidden="true">{device.kind === 'computer' ? <img src="/assets/computer-3d.png" alt="" /> : '✦'}</span>
         <span className="flow__starmap-node-label">{device.label}</span>
         <span className="flow__starmap-node-state">{isOnline(device.state) ? '在线' : '离线'} · {device.authorized ? '已授权' : '待授权'}</span>
       </button>;

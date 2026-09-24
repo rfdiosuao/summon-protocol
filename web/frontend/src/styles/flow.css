@@ -1095,10 +1095,10 @@
 .flow__starmap-agent-label small { color: #c3e0dc; font: 10px/1.2 'SF Mono', ui-monospace, monospace; letter-spacing: .12em; }
 .flow__starmap-node--3d { color: #e6f9f7; text-shadow: 0 1px 12px rgba(0,0,0,.9); }
 .flow__starmap-node--3d .flow__starmap-node-star { border-color: rgba(221,250,250,.6); background: radial-gradient(circle at 35% 25%, #e9f9fc, #77a6b1 61%, #214552); color: #133743; }
+.flow__starmap-node--computer .flow__starmap-node-star { width: 82px; height: 68px; border: 0; background: none; box-shadow: none; }
+.flow__starmap-node--computer .flow__starmap-node-star img { display: block; width: 82px; height: 68px; object-fit: contain; }
 .flow__starmap-canvas--3d.is-ready .flow__starmap-node { transform: translate(-50%, -29px); }
-.flow__starmap-canvas--3d.is-ready .flow__starmap-node-star { border: 0; background: transparent; color: #f4ffff; box-shadow: none; font-size: 21px; text-shadow: 0 0 9px #6ad6ee, 0 0 20px #a8ebf2; }
-.flow__starmap-canvas--3d.is-ready .flow__starmap-node.is-online .flow__starmap-node-star { box-shadow: none; color: #e5ff9f; text-shadow: 0 0 9px #a4e700, 0 0 22px #a4e700; }
-.flow__starmap-canvas--3d.is-ready .flow__starmap-node:hover .flow__starmap-node-star, .flow__starmap-canvas--3d.is-ready .flow__starmap-node.is-selected .flow__starmap-node-star { transform: scale(1.17); box-shadow: none; }
+.flow__starmap-canvas--3d.is-ready .flow__starmap-node-star { visibility: hidden; }
 .flow__starmap-node--3d .flow__starmap-node-state { color: #bcd6d7; opacity: .9; }
 
 @media (max-width: 767px) {
@@ -1110,6 +1110,7 @@
   .flow__starmap-canvas { height: min(42vh, 340px); min-height: 270px; margin: 14px 0; }
   .flow__starmap-node { width: 92px; }
   .flow__starmap-node-star { width: 42px; height: 42px; font-size: 18px; }
+  .flow__starmap-node--computer .flow__starmap-node-star, .flow__starmap-node--computer .flow__starmap-node-star img { width: 64px; height: 58px; }
   .flow__starmap-node-label { max-width: 88px; font-size: 10px; }
   .flow__starmap-node-state { font-size: 9px; }
   .flow__starmap-fallback-ring::after { width: 86px; height: 86px; }
