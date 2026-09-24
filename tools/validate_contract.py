@@ -147,8 +147,10 @@ def main():
     # The designer's Vite source has copies of Hub markdown for local preview.
     # Its dist/ is ignored and neither copy is served as the authoritative
     # contract; only web/*.md is installed at /assets/*.md.
+    generated_dirs = {".git", ".venv", "node_modules", "dist", ".vite", "__pycache__"}
     md_files = sorted(p for p in ROOT.rglob("*.md")
-                      if ".git" not in p.parts and ROOT / 'web' / 'frontend' not in p.parents)
+                      if not generated_dirs.intersection(p.relative_to(ROOT).parts)
+                      and ROOT / 'web' / 'frontend' not in p.parents)
     for path in [ROOT / "README.md"] + md_files:
         for target in re.findall(r"\[[^\]]*\]\(([^)]+)\)", path.read_text(encoding="utf-8")):
             target = target.strip("<>")

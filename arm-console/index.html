@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#080b0a" />
+    <title>SUMMON / ARM CONSOLE</title>
+  </head>
+  <body>
+    <div id="app">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="SUMMON Arm Console">
+          <span class="brand-mark">S</span>
+          <span><b>SUMMON</b><small>ARM CONSOLE / B601-DM</small></span>
+        </a>
+        <div class="system-status" aria-live="polite">
+          <span id="stream-dot" class="status-dot"></span>
+          <span id="stream-label">正在连接本地控制器</span>
+          <span class="divider"></span>
+          <span id="clock">--:--:--</span>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <section class="viewport-panel" aria-label="机械臂三维视图">
+          <canvas id="arm-canvas"></canvas>
+          <div class="viewport-vignette"></div>
+          <div class="viewport-head">
+            <div>
+              <span class="eyebrow">SPATIAL DIGITAL TWIN</span>
+              <h1>reBot B601-DM <em>HOLO</em></h1>
+            </div>
+            <div class="view-actions" aria-label="相机视角">
+              <button class="icon-button" data-view="iso" title="透视视角">3D</button>
+              <button class="icon-button" data-view="front" title="正视图">FR</button>
+              <button class="icon-button" data-view="side" title="侧视图">SD</button>
+              <button class="icon-button" data-view="top" title="俯视图">TP</button>
+              <button class="icon-button active" id="risk-toggle" title="显示或隐藏碰撞风险定位">RISK</button>
+              <button class="icon-button" id="fit-view" title="适应画面">⌖</button>
+            </div>
+          </div>
+          <div id="safety-hud" class="safety-hud safe">
+            <span>LIVE COLLISION BOUNDARY / MODEL PREDICTION</span>
+            <b id="safety-hud-state">实时模型无重合</b>
+            <small id="safety-hud-detail">正在计算当前模型状态</small>
+          </div>
+          <div class="holo-help"><i></i><span>拖动关节光环调节目标角度</span><span>双击轴进入轴视图 · 双击空白退出</span><span>左键旋转 · 右键平移 · 滚轮缩放</span></div>
+          <div class="pose-legend" aria-label="模型图例"><span class="solid-swatch"></span>实像 / 实机姿态 <span class="ghost-swatch"></span>虚像 / 目标姿态</div>
+          <div class="model-loading" id="model-loading">
+            <span class="loader-ring"></span>
+            <span id="model-loading-label">正在载入官方 URDF</span>
+          </div>
+          <div class="viewport-foot">
+            <div class="coordinate-readout">
+              <span>TCP / MODEL</span>
+              <b id="tcp-position">X 0.000 · Y 0.000 · Z 0.000 m</b>
+            </div>
+            <div class="pose-strip" aria-label="仿真预设姿态">
+              <button data-pose="folded">折叠</button>
+              <button data-pose="ready" class="active">待机</button>
+              <button data-pose="inspect">展示</button>
+            </div>
+          </div>
+        </section>
+
+        <aside class="control-panel">
+          <section class="mode-card">
+            <div class="mode-heading">
+              <div>
+                <span class="eyebrow">CONTROL MODE</span>
+                <div class="mode-title"><span id="mode-indicator" class="mode-indicator"></span><strong id="mode-label">仿真模式</strong></div>
+              </div>
+              <span id="port-label" class="port-label">LOCAL SIM</span>
+            </div>
+            <p id="mode-detail">关节指令只驱动数字模型，不会写入串口。</p>
+            <div class="mode-actions">
+              <button id="hardware-toggle" class="primary-button">连接 COM6 实机</button>
+              <button id="resync-button" class="secondary-button" disabled>读取实机</button>
+            </div>
+          </section>
+
+          <section class="telemetry-strip" aria-label="实时遥测摘要">
+            <div><span>已上锁</span><b id="enabled-count">0 / 7</b></div>
+            <div><span>峰值应力</span><b id="max-stress">0%</b></div>
+            <div><span>最高温度</span><b id="max-temp">-- °C</b></div>
+            <div><span>实机刷新</span><b id="feedback-rate">-- Hz</b></div>
+          </section>
+
+          <nav class="panel-tabs" aria-label="控制面板">
+            <button class="active" data-tab="joints">关节控制</button>
+            <button data-tab="system">系统与安全</button>
+          </nav>
+
+          <section id="joints-panel" class="tab-panel active">
+            <div class="section-heading">
+              <div><span class="eyebrow">SERVO CONTROL</span><h2>伺服关节</h2></div>
+              <label class="speed-control">速度 <input id="global-speed" type="number" min="0.2" max="25" step="0.1" value="3.0" /><span>°/s</span></label>
+            </div>
+            <div class="preview-actions">
+              <div><strong>目标姿态预演</strong><small id="speed-warning">确认时自动使能，完成后保持扭矩锁定</small></div>
+              <button id="confirm-targets" class="primary-button" disabled>确认并执行目标</button>
+            </div>
+            <div id="joint-list" class="joint-list"></div>
+
+            <article class="gripper-card">
+              <div class="joint-topline">
+                <div><span class="joint-index">G</span><strong>平行夹爪</strong><small id="gripper-subtitle">模型开合</small></div>
+                <span id="gripper-value" class="joint-value">60.0 mm</span>
+              </div>
+              <div class="slider-row">
+                <span>0</span><input id="gripper-slider" type="range" min="0" max="100" step="1" value="60" /><span>100</span>
+              </div>
+              <div class="gripper-visual" aria-hidden="true"><i id="finger-left"></i><i id="finger-right"></i><span></span></div>
+              <div class="joint-actions">
+                <button id="gripper-lock" class="lock-button"><span></span>上锁 J7</button>
+                <button id="gripper-apply" class="apply-button">确认开合</button>
+              </div>
+            </article>
+          </section>
+
+          <section id="system-panel" class="tab-panel">
+            <div class="section-heading"><div><span class="eyebrow">SAFETY STATE</span><h2>系统与安全</h2></div></div>
+            <div class="safety-grid">
+              <article><span>串口</span><b id="serial-state">未占用</b><small id="serial-detail">COM6 / 921600</small></article>
+              <article><span>模型</span><b>官方 DM URDF</b><small>6R + parallel gripper</small></article>
+              <article><span>写入权限</span><b id="write-state">关闭</b><small>启动参数 --allow-hardware</small></article>
+              <article><span>保护状态</span><b id="fault-state">正常</b><small id="fault-detail">无活动故障</small></article>
+              <article><span>反馈链路</span><b id="feedback-state">等待采样</b><small id="feedback-detail">刷新率 / 延迟</small></article>
+              <article><span>手动引导模式</span><b id="gravity-state">未启用</b><small id="gravity-detail">全轴 MIT 柔顺控制</small></article>
+              <article><span>轨迹重力前馈</span><b id="motion-assist-state">待机</b><small id="motion-assist-detail">承重轴 MIT 力矩辅助</small></article>
+              <article class="fence-card"><span>实时碰撞边界</span><b id="fence-state">计算中</b><small id="fence-detail">连杆净空 / 夹爪 / 底座 / 桌面</small></article>
+            </div>
+            <div class="safety-note">
+              <strong>实时模型碰撞边界</strong>
+              <p>按官方 collision STL 和当前关节姿态检测实体网格重合；重合时立即冻结角度并阻止下发，20 mm 内给出接近预警。目标指令还会按最大 1° 步长检查整段轨迹。</p>
+            </div>
+            <label class="support-confirm"><input id="support-confirm" type="checkbox" /><span>我已确认机械臂受到支撑，可解除承重轴</span></label>
+            <div class="system-actions">
+              <button id="gravity-toggle" class="primary-button" disabled>开启手动引导</button>
+              <button id="stop-motion" class="secondary-button">停止轨迹并保持</button>
+              <button id="unlock-all" class="danger-button">全轴解锁</button>
+            </div>
+            <p class="hardware-estop">软件按钮不替代现场物理急停。</p>
+          </section>
+        </aside>
+      </main>
+
+      <div id="toast-region" class="toast-region" aria-live="assertive"></div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

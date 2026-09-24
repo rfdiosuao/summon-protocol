@@ -11,3 +11,8 @@ demo-credentials.json
 web/frontend/node_modules/
 web/frontend/dist/
 web/frontend/*.tsbuildinfo
+arm-console/node_modules/
+arm-console/dist/
+arm-console/.vite/
+arm-console/diagnostics/*.jsonl
+arm-console/diagnostics/*.log

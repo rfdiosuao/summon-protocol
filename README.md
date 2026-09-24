@@ -62,6 +62,19 @@ flowchart LR
 
 当前版本为 **契约 v0.1.0**。仓库提供 Hub、Web 控制台、模拟 Agent/设备、SQLite 记忆与设备经验库。可以验证召唤、交接、偏好保存、执行证据入库与执行前检索；当前在线演示为 SIMULATED，尚未接入真实模型和硬件。首个实物方向是 FoloToy AI Passport，机械臂接入作为后续扩展。
 
+### B601-DM 机械臂本地工具
+
+[`arm-console/`](arm-console/README.md) 提供基于仓库内 DM URDF/STL 的三维控制台、仿真和 MotorBridge 实机驱动。本机 Agent 可用 JSON CLI 查询 J1–J7 参数、状态和故障，离线预演 J1–J6 的整段轨迹；预演按不超过 1° 采样模型自碰撞与桌面边界，模型检查失败时不提交目标。
+
+```powershell
+.\tools\summon_arm.ps1 describe
+.\tools\summon_arm.ps1 preview J3=-6 --from-pose folded
+.\tools\summon_arm.ps1 status
+.\tools\summon_arm.ps1 move J3=-8 --speed 3 --execute
+```
+
+`describe` 和指定起点的 `preview` 无需连接硬件。实机写入需现场控制台已显式连接，并为每个动作添加 `--execute`；超过 10°/s 还需 `--confirm-risk`。多轴使能会先保持 J4，再依次处理 J3/J2；重力模式通过现有后端实验开关调用。CLI 是 Shell Gateway 旁的本地工具，尚未接入 Hub 的租约/回执链路；直接访问控制台 REST 接口也不会经过 CLI 的模型预演。完整命令、现场限制与验证方法见 [Arm Console Agent CLI](arm-console/README.md#agent-cli离线可用)。
+
 设备经验按账号、设备、能力、运行模式和版本匹配，提供历史结果与统计建议；它不代表模型训练或已验证的运动技能。见 [经验库接入](docs/EXPERIENCE.md) 与 [部署说明](docs/DEPLOYMENT.md)。
 
 开发者可以先阅读 [接入指南](docs/ADAPTER.md)，使用 [场景样例](protocol/examples/README.md) 对齐消息与状态，再接入具体的 Agent 或设备。
@@ -92,6 +105,7 @@ python tools/validate_contract.py
 | [固件经验沉淀](docs/FIRMWARE-EXPERIENCE.md) | 手机配网、Agent 铭牌、双击确认返回及验证状态 |
 | [铭牌与电脑客户端](docs/NAMEPLATES.md) | 已实现的铭牌、浏览器配对授权与 Windows TUI；[原设计](docs/NAMEPLATE-DESIGN.md) |
 | [电脑命令执行](docs/COMMANDS.md) | 单独授权的 PowerShell、超时停止、退出码与有界输出 |
+| [机械臂控制台与 Agent CLI](arm-console/README.md) | B601-DM 模型、碰撞预演、状态读取与本地执行 |
 | [云端打开浏览器](docs/BROWSER-TEST.md) | 精确 URL 白名单和真实桌面测试记录 |
 | [项目方案](docs/方案书.md) | 应用场景与设计方向 |
 | [执行计划](docs/PLAN.md) | 三人分工、倒排与范围边界 |
