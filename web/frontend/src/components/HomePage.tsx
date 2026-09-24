@@ -32,6 +32,8 @@ type FrameManifest = {
 
 /** SUMMON 慢揭示时长 */
 const TITLE_REVEAL_MS = 2200;
+/** 慢网络下也要及时开放首页操作。 */
+const MAX_FIRST_VISIT_WAIT_MS = 5000;
 
 /**
  * 加载图片
@@ -102,6 +104,8 @@ export default function HomePage({ entryMode = 'fresh', onStart }: HomePageProps
 
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let cancelled = false;
+    let releaseRemainingFrames: () => void = () => undefined;
+    const videoHandoff = new Promise<void>((resolve) => { releaseRemainingFrames = resolve; });
 
     /**
      * 画单张图到 canvas
@@ -141,6 +145,7 @@ export default function HomePage({ entryMode = 'fresh', onStart }: HomePageProps
       const frames = breathFramesRef.current;
       const last = frames.length - 1;
       if (last < 1) {
+        breathRafRef.current = requestAnimationFrame(tickBreath);
         return;
       }
 
@@ -243,9 +248,7 @@ export default function HomePage({ entryMode = 'fresh', onStart }: HomePageProps
       slapRafRef.current = requestAnimationFrame(tick);
     };
 
-    /**
-     * 预加载呼吸 + 下拍帧
-     */
+    /** 先准备交接所需的首帧，交接后再下载其余动画。 */
     const loadFrames = async () => {
       const [breathRes, slapRes] = await Promise.all([
         fetch(ASSETS.introBreathManifest),
@@ -257,9 +260,35 @@ export default function HomePage({ entryMode = 'fresh', onStart }: HomePageProps
       breathHalfMsRef.current = breathManifest.halfMs || 1350;
       slapDurationMsRef.current = Math.max(slapManifest.durationMs || 450, 450);
 
+      const firstBreath = await loadImage(`${ASSETS.introBreathBase}${breathManifest.files[0]}`);
+      if (cancelled) {
+        return;
+      }
+      breathFramesRef.current = [firstBreath];
+      drawBreathFrame(0);
+      if (reduced) {
+        intro.pause();
+        prearmBreath();
+        setCover('none');
+        setPhase('ready');
+      } else if (!isReturn && (intro.currentTime >= INTRO_HANDOFF || videoFailed)) {
+        handoffToBreath();
+        if (videoFailed) {
+          setPhase('ready');
+        }
+      }
+
+      // 首次进入时先让视频拿到带宽；交接到首帧后再加载后续动画。
+      if (!isReturn && !reduced) {
+        await videoHandoff;
+      }
+      if (cancelled) {
+        return;
+      }
+
       const [breathImgs, slapImgs] = await Promise.all([
         Promise.all(
-          breathManifest.files.map((file) => loadImage(`${ASSETS.introBreathBase}${file}`)),
+          breathManifest.files.slice(1).map((file) => loadImage(`${ASSETS.introBreathBase}${file}`)),
         ),
         Promise.all(
           slapManifest.files.map((file) => loadImage(`${ASSETS.introSlapBase}${file}`)),
@@ -269,9 +298,11 @@ export default function HomePage({ entryMode = 'fresh', onStart }: HomePageProps
       if (cancelled) {
         return;
       }
-      breathFramesRef.current = breathImgs;
+      breathFramesRef.current = [firstBreath, ...breathImgs];
       slapFramesRef.current = slapImgs;
-      drawBreathFrame(0);
+      if (isReturn && !reduced) {
+        bootReturn();
+      }
     };
 
     /**
@@ -293,6 +324,10 @@ export default function HomePage({ entryMode = 'fresh', onStart }: HomePageProps
       if (cancelled || handedOffRef.current) {
         return;
       }
+      if (!breathFramesRef.current.length) {
+        intro.pause();
+        return;
+      }
       handedOffRef.current = true;
       if (!prearmedRef.current) {
         prearmBreath();
@@ -300,6 +335,7 @@ export default function HomePage({ entryMode = 'fresh', onStart }: HomePageProps
       intro.pause();
       setCover('none');
       startBreath();
+      releaseRemainingFrames();
       if (phaseRef.current === 'intro') {
         setPhase('title');
       }
@@ -335,7 +371,11 @@ export default function HomePage({ entryMode = 'fresh', onStart }: HomePageProps
 
     intro.addEventListener('timeupdate', onTimeUpdate);
 
+    let videoFailed = false;
     const bootFresh = () => {
+      if (cancelled) {
+        return;
+      }
       try {
         intro.currentTime = 0;
       } catch {
@@ -343,47 +383,48 @@ export default function HomePage({ entryMode = 'fresh', onStart }: HomePageProps
       }
       intro.playbackRate = 1;
       intro.play()?.catch(() => {
-        prearmBreath();
-        handoffToBreath();
-        setPhase('ready');
+        videoFailed = true;
+        if (breathFramesRef.current.length) {
+          handoffToBreath();
+          setPhase('ready');
+        }
       });
     };
 
-    void loadFrames()
-      .then(() => {
-        if (cancelled) {
-          return;
-        }
-        if (reduced) {
-          intro.pause();
-          prearmBreath();
-          setCover('none');
-          setPhase('ready');
-          return;
-        }
+    if (!isReturn && !reduced) {
+      if (intro.readyState >= 1) {
+        bootFresh();
+      } else {
+        intro.addEventListener('loadedmetadata', bootFresh, { once: true });
+      }
+    }
 
-        if (isReturn) {
-          bootReturn();
-          return;
-        }
-
-        if (intro.readyState >= 1) {
-          bootFresh();
-        } else {
-          intro.addEventListener('loadedmetadata', bootFresh, { once: true });
-        }
-      })
-      .catch(() => {
+    void loadFrames().catch(() => {
+      if (!cancelled) {
+        intro.pause();
+        setCover('none');
         setPhase('ready');
-      });
+      }
+    });
+
+    const firstVisitTimer = !isReturn && !reduced
+      ? window.setTimeout(() => {
+        if (!cancelled) {
+          setPhase((current) => current === 'intro' || current === 'title' ? 'ready' : current);
+        }
+      }, MAX_FIRST_VISIT_WAIT_MS)
+      : 0;
 
     return () => {
       cancelled = true;
+      window.clearTimeout(firstVisitTimer);
+      releaseRemainingFrames();
       stopBreath();
       if (slapRafRef.current) {
         cancelAnimationFrame(slapRafRef.current);
       }
       intro.removeEventListener('timeupdate', onTimeUpdate);
+      intro.removeEventListener('loadedmetadata', bootFresh);
     };
   }, [isReturn]);
 

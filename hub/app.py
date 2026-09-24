@@ -792,7 +792,17 @@ def create_app(path, cfg):
             if mime:
                 response.headers['Content-Type']=mime+'; charset=utf-8'
                 response.headers['Content-Disposition']='inline'
-        response.headers['Cache-Control']='no-store'
+            name=Path(request.path).name
+            if suffix in ('.js','.css') and (name.startswith('index-') or name.startswith('three.module-')):
+                response.headers['Cache-Control']='public, max-age=31536000, immutable'
+            elif suffix in ('.png','.webp','.jpg','.jpeg','.svg','.mp4','.woff2'):
+                response.headers['Cache-Control']='public, max-age=86400'
+            elif suffix=='.json':
+                response.headers['Cache-Control']='public, max-age=3600'
+            else:
+                response.headers['Cache-Control']='no-store'
+        else:
+            response.headers['Cache-Control']='no-store'
         response.headers['Content-Security-Policy']=(
             "default-src 'self'; script-src 'self'; "
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
