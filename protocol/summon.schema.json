@@ -491,6 +491,8 @@
                     "display.text",
                     "speech.say",
                     "arm.gesture",
+                    "arm.observe",
+                    "arm.motion",
                     "browser.open",
                     "command.exec"
                   ]
@@ -541,6 +543,8 @@
                     "display.text",
                     "speech.say",
                     "arm.gesture",
+                    "arm.observe",
+                    "arm.motion",
                     "browser.open",
                     "command.exec"
                   ]
@@ -716,6 +720,8 @@
               "display.text",
               "speech.say",
               "arm.gesture",
+              "arm.observe",
+              "arm.motion",
               "browser.open",
               "command.exec"
             ]
@@ -792,6 +798,8 @@
               "display.text",
               "speech.say",
               "arm.gesture",
+              "arm.observe",
+              "arm.motion",
               "browser.open",
               "command.exec"
             ]
@@ -808,6 +816,8 @@
               "display.text",
               "speech.say",
               "arm.gesture",
+              "arm.observe",
+              "arm.motion",
               "browser.open",
               "command.exec"
             ]
@@ -1011,13 +1021,7 @@
               "properties": {
                 "name": {
                   "type": "string",
-                  "enum": [
-                    "nod",
-                    "wave",
-                    "point_left",
-                    "point_center",
-                    "point_right"
-                  ]
+                  "pattern": "^[a-z][a-z0-9_]{1,31}$"
                 },
                 "repeat": {
                   "type": "integer",
@@ -1029,6 +1033,64 @@
                 "name",
                 "repeat"
               ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "capability",
+            "args"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "capability": {
+              "const": "arm.observe"
+            },
+            "args": {
+              "type": "object",
+              "properties": {},
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "capability",
+            "args"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "capability": {
+              "const": "arm.motion"
+            },
+            "args": {
+              "type": "object",
+              "properties": {
+                "intent": {"type": "string", "minLength": 1, "maxLength": 120},
+                "speed_dps": {"type": "number", "minimum": 0.5, "maximum": 10},
+                "waypoints": {
+                  "type": "array",
+                  "minItems": 2,
+                  "maxItems": 4,
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "J1": {"type": "number", "minimum": -10, "maximum": 10},
+                      "J2": {"type": "number", "minimum": -10, "maximum": 10},
+                      "J3": {"type": "number", "minimum": -10, "maximum": 10},
+                      "J4": {"type": "number", "minimum": -10, "maximum": 10},
+                      "J5": {"type": "number", "minimum": -10, "maximum": 10},
+                      "J6": {"type": "number", "minimum": -10, "maximum": 10}
+                    },
+                    "minProperties": 1,
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": ["intent", "speed_dps", "waypoints"],
               "additionalProperties": false
             }
           },
@@ -1405,6 +1467,8 @@
               "display.text",
               "speech.say",
               "arm.gesture",
+              "arm.observe",
+              "arm.motion",
               "browser.open",
               "command.exec"
             ]
@@ -1492,6 +1556,8 @@
                     "display.text",
                     "speech.say",
                     "arm.gesture",
+                    "arm.observe",
+                    "arm.motion",
                     "browser.open",
                     "command.exec"
                   ]
@@ -1979,6 +2045,8 @@
                       "display.text",
                       "speech.say",
                       "arm.gesture",
+                      "arm.observe",
+                      "arm.motion",
                       "browser.open",
                       "command.exec"
                     ]

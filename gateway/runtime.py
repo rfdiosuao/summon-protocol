@@ -13,6 +13,7 @@ from jsonschema import Draft202012Validator,FormatChecker
 
 from gateway.store import Journal,failed,fingerprint
 from gateway.commands import CommandFailure
+from gateway.errors import MotionRejected
 
 ROOT=Path(__file__).resolve().parents[1]
 LOG=logging.getLogger('summon.gateway')
@@ -132,6 +133,10 @@ class Gateway:
             outcome=failed(request,'DRIVER_ERROR')
             outcome['error']['error']['message']='Command timed out or exited with a nonzero status; see execution.'
             outcome['execution']=exc.result
+            self.validators['ActionFailed'].validate(outcome)
+        except MotionRejected:
+            outcome=failed(request,'ACTION_NOT_ALLOWED')
+            outcome['error']['error']['message']='Local arm model or verified motion window rejected the plan before motor write.'
             self.validators['ActionFailed'].validate(outcome)
         except Exception:
             outcome=failed(request)

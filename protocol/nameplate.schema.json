@@ -62,6 +62,8 @@
               "display.text",
               "speech.say",
               "arm.gesture",
+              "arm.observe",
+              "arm.motion",
               "browser.open",
               "command.exec"
             ]
@@ -153,6 +155,8 @@
                   "display.text",
                   "speech.say",
                   "arm.gesture",
+                  "arm.observe",
+                  "arm.motion",
                   "browser.open",
                   "command.exec"
                 ]
@@ -280,6 +284,8 @@
               "display.text",
               "speech.say",
               "arm.gesture",
+              "arm.observe",
+              "arm.motion",
               "browser.open",
               "command.exec"
             ]
@@ -347,6 +353,8 @@
               "display.text",
               "speech.say",
               "arm.gesture",
+              "arm.observe",
+              "arm.motion",
               "browser.open",
               "command.exec"
             ]

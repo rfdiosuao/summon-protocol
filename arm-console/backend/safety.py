@@ -167,12 +167,40 @@ class ModelSafety:
             "links": closest_links,
         }
 
+    def end_effector_pose(self, joints: dict[int, float]) -> dict[str, list[float]]:
+        """Measured joint pose -> URDF end-link position and orientation."""
+        q = self.np.zeros(self.model.nq)
+        for axis in range(1, 7):
+            angle = float(joints[axis])
+            if not math.isfinite(angle):
+                raise ValueError(f"J{axis} is not finite")
+            q[self.q_indices[axis]] = math.radians(angle)
+        self.pin.framesForwardKinematics(self.model, self.data, q)
+        frame = self.model.getFrameId("end_link")
+        transform = self.data.oMf[frame]
+        return {
+            "xyz_mm": [round(float(value) * 1000, 1) for value in transform.translation],
+            "rpy_deg": [round(math.degrees(float(value)), 1)
+                        for value in self.pin.rpy.matrixToRpy(transform.rotation)],
+        }
+
+    def end_effector_mm(self, joints: dict[int, float]) -> list[float]:
+        """Measured joint pose -> URDF end-link origin in base coordinates."""
+        return self.end_effector_pose(joints)["xyz_mm"]
+
     def trajectory(self, start: dict[int, float], target: dict[int, float], gripper_mm: float = 60.0) -> dict[str, Any]:
-        steps = max(1, math.ceil(max(abs(target[id] - start[id]) for id in range(1, 7))))
+        # The controller advances each axis at the same configured angular
+        # speed. Shorter-travel axes arrive first; straight-line joint-space
+        # interpolation would miss those intermediate combinations.
+        travel = {axis: target[axis] - start[axis] for axis in range(1, 7)}
+        longest = max(abs(value) for value in travel.values())
+        steps = max(1, math.ceil(longest))
         worst: dict[str, Any] | None = None
         for step in range(steps + 1):
             fraction = step / steps
-            pose = {id: start[id] + (target[id] - start[id]) * fraction for id in range(1, 7)}
+            distance = longest * fraction
+            pose = {axis: start[axis] + math.copysign(min(abs(travel[axis]), distance), travel[axis])
+                    for axis in range(1, 7)}
             report = self.evaluate(pose, gripper_mm)
             report["atFraction"] = round(fraction, 5)
             if worst is None or report["clearanceMm"] < worst["clearanceMm"]:

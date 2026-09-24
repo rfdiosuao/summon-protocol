@@ -1,12 +1,14 @@
 """B601-DM arm adapter for the existing SUMMON Gateway lease and receipt flow.
 
 The local console owns the serial port. This adapter only talks to its loopback
-API and exposes configured short gestures, never remote raw motor commands.
+API and exposes locally bounded short motions and gestures.
 """
 from __future__ import annotations
 
 import asyncio
+import json
 import math
+import re
 import sys
 import time
 from pathlib import Path
@@ -14,16 +16,18 @@ from urllib.parse import urlsplit
 
 import aiohttp
 
+from gateway.errors import MotionRejected
+
 
 ARM_CONSOLE = Path(__file__).resolve().parents[1] / "arm-console"
 if str(ARM_CONSOLE) not in sys.path:
     sys.path.insert(0, str(ARM_CONSOLE))
 
-from backend.arm import checked_target  # noqa: E402
+from backend.arm import ArmError, checked_target  # noqa: E402
 from backend.safety import ModelSafety  # noqa: E402
 
 
-GESTURE_NAMES = frozenset({"nod", "wave", "point_left", "point_center", "point_right"})
+GESTURE_NAME = re.compile(r"[a-z][a-z0-9_]{1,31}\Z")
 
 
 class ArmConsoleAdapter:
@@ -43,10 +47,41 @@ class ArmConsoleAdapter:
             raise ValueError("Arm Gateway requires a verified, reachable physical emergency stop")
         if config.get("motion_profiles_verified") is not True:
             raise ValueError("Arm Gateway requires locally verified gesture profiles")
+        clearance = config.get("min_clearance_mm", 20)
+        if (isinstance(clearance, bool) or not isinstance(clearance, (int, float))
+                or not math.isfinite(clearance) or not 0.5 <= clearance <= 20):
+            raise ValueError("min_clearance_mm must be 0.5..20 based on verified local geometry")
+        self.min_clearance_mm = float(clearance)
         gestures = config.get("gestures")
-        if not isinstance(gestures, dict) or not gestures or set(gestures) - GESTURE_NAMES:
-            raise ValueError("Configure at least one supported arm.gesture profile")
+        if (not isinstance(gestures, dict) or not 1 <= len(gestures) <= 8
+                or any(not isinstance(name, str) or not GESTURE_NAME.fullmatch(name) for name in gestures)):
+            raise ValueError("Configure 1..8 named arm.gesture profiles")
         self.gestures = {name: self._checked_profile(profile) for name, profile in gestures.items()}
+        raw_bounds = config.get("motion_bounds")
+        self.motion_bounds: dict[int, tuple[float, float]] = {}
+        self.max_motion_speed_dps = 0.0
+        if raw_bounds is not None:
+            if not isinstance(raw_bounds, dict) or not raw_bounds or len(raw_bounds) > 6:
+                raise ValueError("motion_bounds must name locally verified J1..J6 windows")
+            for name, window in raw_bounds.items():
+                if (name not in {f"J{axis}" for axis in range(1, 7)} or not isinstance(window, list)
+                        or len(window) != 2 or any(isinstance(value, bool) or not isinstance(value, (int, float))
+                                                    or not math.isfinite(value) for value in window)
+                        or window[0] >= window[1]):
+                    raise ValueError("Invalid local motion window")
+                axis = int(name[1:])
+                for endpoint in window:
+                    try:
+                        checked_target(axis, float(endpoint), hardware=True)
+                    except ArmError as exc:
+                        raise ValueError("Local motion window exceeds hardware joint limits") from exc
+                self.motion_bounds[axis] = (float(window[0]), float(window[1]))
+            maximum = config.get("max_motion_speed_dps", 8)
+            if (isinstance(maximum, bool) or not isinstance(maximum, (int, float))
+                    or not math.isfinite(maximum) or not 0.5 <= maximum <= 10):
+                raise ValueError("max_motion_speed_dps must be 0.5..10")
+            self.max_motion_speed_dps = float(maximum)
+        self.capabilities = ["arm.gesture"] + (["arm.observe", "arm.motion"] if self.motion_bounds else [])
         self.url = address.rstrip("/")
         self.http: aiohttp.ClientSession | None = None
         self.safety: ModelSafety | None = None
@@ -58,8 +93,13 @@ class ArmConsoleAdapter:
 
     @staticmethod
     def _checked_profile(value: object) -> dict:
-        if not isinstance(value, dict) or set(value) != {"speed_dps", "waypoints"}:
-            raise ValueError("Gesture profile needs speed_dps and waypoints")
+        if not isinstance(value, dict) or set(value) not in ({"speed_dps", "waypoints"},
+                                                               {"description", "speed_dps", "waypoints"}):
+            raise ValueError("Gesture profile needs speed_dps and waypoints; description is optional")
+        description = value.get("description", "Locally verified arm gesture")
+        if (not isinstance(description, str) or not 1 <= len(description.strip()) <= 160
+                or any(ord(char) < 32 for char in description)):
+            raise ValueError("Gesture description must be 1..160 printable characters")
         speed = value["speed_dps"]
         if isinstance(speed, bool) or not isinstance(speed, (int, float)) or not math.isfinite(speed) or not 0.5 <= speed <= 10:
             raise ValueError("Gateway gestures must use 0.5..10 degrees/s")
@@ -85,7 +125,8 @@ class ArmConsoleAdapter:
             raise ValueError("Gesture must contain a nonzero motion")
         if any(steps[-1].get(axis, 0) != 0 for axis in axes):
             raise ValueError("Last waypoint must return every moved axis to its starting angle")
-        return {"speed_dps": float(speed), "waypoints": steps, "axes": sorted(axes)}
+        return {"description": description.strip(), "speed_dps": float(speed),
+                "waypoints": steps, "axes": sorted(axes)}
 
     async def _json(self, path: str, payload: dict | None = None) -> dict:
         if self.http is None:
@@ -167,20 +208,25 @@ class ArmConsoleAdapter:
         current = start
         for target in plan:
             report = self.safety.trajectory(current, target, width)
-            # A remote, potentially unattended gesture needs clearance rather
-            # than merely non-overlap; the CLI may display this as a warning.
-            if not report["safe"] or report["closest"]["clearanceMm"] < 20:
+            if not report["safe"] or report["closest"]["clearanceMm"] < self.min_clearance_mm:
                 closest = report["closest"]
-                raise RuntimeError(f"Arm gesture blocked by {closest['reason'] or 'LOW_CLEARANCE'}: {closest['links']}")
+                raise MotionRejected(f"Arm motion blocked by {closest['reason'] or 'LOW_CLEARANCE'}: {closest['links']}")
             current = target
 
-    async def _wait_target(self, target: dict[int, float], axes: list[int], deadline: float) -> None:
+    async def _wait_target(self, target: dict[int, float], axes: list[int], start: dict[int, float], deadline: float) -> None:
         consecutive = 0
         while time.monotonic() < deadline:
             state = await self._read()
             if not self._operational(state):
                 raise RuntimeError("Arm feedback became stale or faulted during motion")
             angles = self._angles(state)
+            if any(abs(angles[axis] - start[axis]) > 0.5 for axis in range(1, 7) if axis not in axes):
+                raise RuntimeError("An uncontrolled arm axis drifted during the gesture")
+            assert self.safety is not None
+            report = await asyncio.get_running_loop().run_in_executor(
+                None, self.safety.evaluate, angles, float(state["gripper"]["widthMm"]))
+            if not report["safe"] or report["clearanceMm"] < self.min_clearance_mm:
+                raise RuntimeError("Measured arm pose crossed the model safety boundary")
             joints = {joint["id"]: joint for joint in state["joints"]}
             if any(abs(float(joints[axis]["targetDeg"]) - target[axis]) > 0.5 for axis in axes):
                 raise RuntimeError("Arm target changed outside the Gateway")
@@ -191,15 +237,58 @@ class ArmConsoleAdapter:
             await asyncio.sleep(0.08)
         raise TimeoutError("Arm did not reach the configured gesture waypoint")
 
+    async def observe(self) -> dict:
+        state = await self._read(refresh=True)
+        if not self._operational(state):
+            raise RuntimeError("Arm feedback is unavailable")
+        angles = self._angles(state)
+        assert self.safety is not None
+        width = float(state["gripper"]["widthMm"])
+        report = await asyncio.get_running_loop().run_in_executor(None, self.safety.evaluate, angles, width)
+        hand = await asyncio.get_running_loop().run_in_executor(None, self.safety.end_effector_pose, angles)
+        observed = {
+            "joints_deg": {f"J{axis}": round(value, 2) for axis, value in angles.items()},
+            "hand_xyz_mm": hand["xyz_mm"],
+            "hand_rpy_deg": hand["rpy_deg"],
+            "clearance_mm": report["clearanceMm"],
+            "boundary": report.get("reason") or "CLEAR",
+            "enabled_axes": [joint["id"] for joint in state["joints"][:6] if joint["enabled"]],
+            "stress_pct": {f"J{joint['id']}": round(float(joint.get("stressRatio", 0)) * 100)
+                           for joint in state["joints"][:6]},
+        }
+        return {"evidence": "controller_feedback", "result": json.dumps(observed, separators=(",", ":"))}
+
+    def _motion_profile(self, args: dict, start: dict[int, float]) -> dict:
+        if not self.motion_bounds or not isinstance(args, dict) or set(args) != {"intent", "speed_dps", "waypoints"}:
+            raise MotionRejected("Free-form motion is not locally enabled")
+        intent = args["intent"]
+        if not isinstance(intent, str) or not 1 <= len(intent.strip()) <= 120:
+            raise MotionRejected("Motion intent is missing")
+        try:
+            profile = self._checked_profile({"description": intent, "speed_dps": args["speed_dps"],
+                                             "waypoints": args["waypoints"]})
+        except (ValueError, KeyError, TypeError) as exc:
+            raise MotionRejected("Invalid generated motion plan") from exc
+        if profile["speed_dps"] > self.max_motion_speed_dps:
+            raise MotionRejected("Generated motion exceeds locally verified speed")
+        if set(profile["axes"]) - self.motion_bounds.keys():
+            raise MotionRejected("Generated motion uses an unverified axis")
+        for waypoint in profile["waypoints"]:
+            for axis in profile["axes"]:
+                target = start[axis] + waypoint.get(axis, 0.0)
+                low, high = self.motion_bounds[axis]
+                if not low <= target <= high:
+                    raise MotionRejected("Generated motion exits the locally verified joint window")
+        return profile
+
     async def execute(self, request: dict) -> dict:
         action = request["action"]
-        if action["capability"] != "arm.gesture":
-            raise ValueError("Only arm.gesture is supported")
+        capability = action["capability"]
+        if capability == "arm.observe" and self.motion_bounds:
+            return await self.observe()
+        if capability not in ("arm.gesture", "arm.motion"):
+            raise MotionRejected("Arm capability is not enabled")
         args = action["args"]
-        name, repeat = args["name"], args["repeat"]
-        if name not in self.gestures or type(repeat) is not int or not 1 <= repeat <= 3:
-            raise ValueError("Gesture is not locally configured")
-        profile = self.gestures[name]
         state = await self._read(refresh=True)
         if not self._operational(state) or any(joint.get("moving") for joint in state["joints"][:6]):
             raise RuntimeError("Arm is not idle and fault-free")
@@ -207,19 +296,27 @@ class ArmConsoleAdapter:
         if any(abs(float(joint["targetDeg"]) - start[joint["id"]]) > 0.5 for joint in state["joints"] if joint["id"] <= 6):
             raise RuntimeError("Arm already has an unfinished target")
         width = float(state["gripper"]["widthMm"])
+        if capability == "arm.gesture":
+            name, repeat = args["name"], args["repeat"]
+            if name not in self.gestures or type(repeat) is not int or not 1 <= repeat <= 3:
+                raise MotionRejected("Gesture is not locally configured")
+            profile = self.gestures[name]
+        else:
+            profile = self._motion_profile(args, start)
+            name, repeat = args["intent"], 1
         steps = [{axis: start[axis] + offset.get(axis, 0.0) for axis in range(1, 7)}
                  for offset in profile["waypoints"]] * repeat
         previous = start
         estimated = 0.0
         for target in steps:
-            for axis, value in target.items():
-                checked_target(axis, value, hardware=True)
+            for axis in profile["axes"]:
+                checked_target(axis, target[axis], hardware=True)
             estimated += max(abs(target[axis] - previous[axis]) for axis in profile["axes"]) / profile["speed_dps"]
             previous = target
         # Gateway has a hard 10-second execution window. Reserve room for the
         # final feedback sample and a stop attempt; never start a long action.
         if estimated > 5.0:
-            raise ValueError("Gesture exceeds the Gateway short-action budget")
+            raise MotionRejected("Motion exceeds the Gateway short-action budget")
         deadline = time.monotonic() + 8.0
         await asyncio.get_running_loop().run_in_executor(None, self._preview, start, steps, width)
         state = await self._read(refresh=True)
@@ -237,7 +334,7 @@ class ArmConsoleAdapter:
                 self.state = acknowledged
                 self.last_poll = time.monotonic()
                 self.expected_targets = {axis: target[axis] for axis in profile["axes"]}
-                await self._wait_target(target, profile["axes"], deadline)
+                await self._wait_target(target, profile["axes"], start, deadline)
             return {"evidence": "controller_feedback",
                     "result": f"B601-DM confirmed {name} ({repeat} repetition(s)) at measured joint positions."}
         finally:

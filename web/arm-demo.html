@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>SUMMON · 机械臂 Agent 实机演示</title>
+  <style>
+    :root{color-scheme:dark;font-family:Inter,"Segoe UI",sans-serif;background:#081117;color:#dcecf1}
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 20% 8%,#123442 0,#081117 45%)}
+    main{max-width:1180px;margin:auto;padding:28px 24px 52px}header{display:flex;justify-content:space-between;align-items:center;gap:20px;border-bottom:1px solid #23505e;padding-bottom:18px}
+    h1{font-size:28px;margin:0;color:#a8faff;letter-spacing:.04em}h2{font-size:16px;color:#8fdde5;margin:0 0 16px}.sub{color:#8fa9b1;font-size:13px;margin:8px 0 0}
+    .badge{border:1px solid #328597;border-radius:99px;color:#80e7ed;padding:8px 14px;font-size:12px;white-space:nowrap}
+    .layout{display:grid;grid-template-columns:380px minmax(0,1fr);gap:18px;margin-top:22px}.card{background:#0e1e26d9;border:1px solid #24515d;border-radius:14px;padding:20px;box-shadow:0 12px 35px #0004}
+    .left{display:grid;gap:18px;align-content:start}.status{display:flex;align-items:center;gap:10px;font-size:14px}.dot{width:9px;height:9px;border-radius:50%;background:#a6c83a;box-shadow:0 0 12px #a6c83a}.dot.off{background:#ff6b6b;box-shadow:0 0 12px #ff6b6b}
+    label{display:block;color:#a9c2c8;font-size:13px;margin:14px 0 6px}input,textarea{width:100%;background:#08151b;border:1px solid #346471;border-radius:8px;color:#e6f6fa;padding:11px 12px;font:inherit}textarea{min-height:78px;resize:vertical}
+    button{border:1px solid #3ca9b8;background:#13505e;color:#dbfbff;border-radius:8px;padding:10px 15px;font:inherit;cursor:pointer}button:disabled{opacity:.45;cursor:default}button:hover:not(:disabled){background:#1c6878}
+    .row{display:flex;gap:9px;flex-wrap:wrap;margin-top:12px}.hint{font-size:12px;color:#99afb5;line-height:1.6}.presets{display:grid;gap:8px}.preset{border:1px solid #2d5964;border-radius:9px;padding:10px}.preset strong{color:#b6faff;font-size:13px}.preset small{display:block;color:#a1b7bc;margin-top:4px;line-height:1.4}
+    .joint{display:grid;grid-template-columns:35px 1fr auto;gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid #25424a;font-size:13px}.joint b{color:#8dd7e6}.joint small{color:#9bb2b9}
+    #trace{display:grid;gap:10px;max-height:690px;overflow:auto;padding-right:5px}.event{border-left:3px solid #448a9c;background:#102831;padding:11px 13px;border-radius:3px 8px 8px 3px;line-height:1.5}.event.user{border-color:#69dfab}.event.agent{border-color:#9aafff}.event.system{border-color:#f6c367}.event .time{font-size:11px;color:#839ea7;margin-bottom:3px}.event .text{white-space:pre-wrap;word-break:break-word;font-size:14px}
+    .error{color:#ff9a9a}a{color:#8be4f2}#login{max-width:420px;margin:60px auto}#workspace[hidden],#login[hidden]{display:none}
+    @media(max-width:830px){.layout{grid-template-columns:1fr}header{align-items:flex-start;flex-direction:column}}
+  </style>
+</head>
+<body><main>
+  <header><div><h1>SUMMON / B601-DM</h1><p class="sub">大模型选择现场录制预设 · Gateway 检查边界 · 控制器反馈确认</p></div><span class="badge" id="model">LIVE · 连接中</span></header>
+  <section id="login" class="card"><h2>演示控制台访问码</h2><input id="access" type="password" autocomplete="off" placeholder="从私有 secrets.json 获取"><div class="row"><button id="loginButton">进入演示</button></div><p id="loginMessage" class="hint"></p></section>
+  <section id="workspace" hidden class="layout">
+    <div class="left">
+      <div class="card"><h2>机械臂实机</h2><div class="status"><span id="dot" class="dot off"></span><span id="hardware">读取状态中</span></div><div id="joints"></div><p class="hint">此处显示控制器测量角度。<a href="http://127.0.0.1:8870/" target="_blank" rel="noopener">打开 3D 机械臂控制台</a></p></div>
+      <div class="card"><h2>已录制的动作</h2><div id="presets" class="presets"></div><p class="hint">模型只能从这些现场预设中选择，不能传入任意电机轨迹。</p></div>
+      <div class="card"><h2>让 Agent 操作</h2><textarea id="prompt" placeholder="例如：我在远处，请明显地向我招手一次"></textarea><div class="row"><button id="send">发送并执行</button><button id="release">结束会话</button></div><p id="notice" class="hint"></p></div>
+    </div>
+    <div class="card"><h2>决策与实机回执</h2><div id="trace"></div><p class="hint">这里展示动作选择依据和可核对的执行状态，不展示模型内部推理过程。</p></div>
+  </section>
+</main><script src="/assets/arm-demo.js" defer></script></body>
+</html>

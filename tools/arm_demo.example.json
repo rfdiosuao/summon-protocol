@@ -1,18 +1,18 @@
 {
-  "hub_url": "https://summon.entermodetwo.com",
-  "shell_id": "your_arm_shell_id",
-  "token_env": "SUMMON_GATEWAY_TOKEN",
-  "mode": "LIVE",
-  "database": "arm-gateway-state.db",
-  "enabled": true,
-  "experience_upload": true,
-  "profile": {"model": "Seeed reBot B601-DM", "firmware": "MotorBridge DM", "adapter_version": "arm-console-1"},
+  "origin": "http://127.0.0.1:8840",
+  "model": {
+    "base_url": "https://your-openai-compatible-model.example/v1",
+    "name": "your-model-id",
+    "api_key": "PUT_KEY_ONLY_IN_PRIVATE_COPY"
+  },
   "adapter": {
     "kind": "arm-console",
     "url": "http://127.0.0.1:8870",
     "physical_estop_confirmed": false,
     "motion_profiles_verified": false,
     "min_clearance_mm": 20,
+    "motion_bounds": {"J4": [-9, -2.5]},
+    "max_motion_speed_dps": 8,
     "gestures": {
       "wave_short": {"description": "小幅招手，现场录制后替换角度", "speed_dps": 8, "waypoints": [{"J4": -3}, {"J4": 0}]},
       "wave_wide": {"description": "明显招手，现场录制后替换角度", "speed_dps": 8, "waypoints": [{"J4": -6}, {"J4": 0}]}

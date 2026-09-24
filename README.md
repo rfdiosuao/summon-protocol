@@ -70,7 +70,7 @@ flowchart LR
 
 ## 开发进展
 
-当前版本为 **契约 v0.1.0**。仓库提供 Hub、Web 控制台、模拟 Agent/设备、SQLite 记忆与设备经验库。可以验证召唤、交接、偏好保存、执行证据入库与执行前检索。公开网页仍展示 SIMULATED 环境；Passport 到 B601-DM 的语音控制已完成实物联调，复现时需要按现场配置连接机械臂并授权对应设备能力。
+当前版本为 **契约 v0.1.0**。仓库提供 Hub、Web 控制台、模拟 Agent/设备、SQLite 记忆与设备经验库。可以验证召唤、交接、偏好保存、执行证据入库与执行前检索。公开网页仍展示 SIMULATED 环境；Passport 到 B601-DM 的语音控制已完成实物联调。B601-DM 可运行[本地 LIVE Agent 实机演示](docs/ARM-LIVE-DEMO.md)：模型先读取六轴实测姿态，再在现场开放的角度窗口内生成动作，笔记本 Gateway 检查模型边界并等待控制器实测回执。跨设备使用按 [Gateway 部署说明](docs/GATEWAY.md#笔记本作为-b601-dm-gateway) 配置 HTTPS Hub 权限。
 
 ### B601-DM 机械臂本地工具
 
@@ -84,6 +84,8 @@ flowchart LR
 ```
 
 `describe` 和指定起点的 `preview` 无需连接硬件。实机写入需现场控制台已显式连接，并为每个动作添加 `--execute`；超过 10°/s 还需 `--confirm-risk`。多轴使能会先保持 J4，再依次处理 J3/J2；重力模式通过现有后端实验开关调用。本地 CLI 仍可单独使用；远端 Agent 的 `arm.gesture` 则经 [B601-DM Gateway 适配器](docs/GATEWAY.md#笔记本作为-b601-dm-gateway) 进入同一控制台，并在 Gateway 侧重新做模型轨迹检查、租约校验和实机回执确认。完整命令、现场限制与验证方法见 [Arm Console Agent CLI](arm-console/README.md#agent-cli离线可用)。
+
+现场演示通过 [`tools/arm_gesture.py`](tools/arm_gesture.py) 从实机反馈录制相对动作，再以 [`tools/arm_demo.py`](tools/arm_demo.py) 启动私有 LIVE Hub、笔记本 Gateway 和模型 Agent。`arm.observe` 让模型读取六轴状态，`arm.motion` 在现场验证的各轴窗口内规划短动作；[`tools/arm102_teleop.py`](tools/arm102_teleop.py) 提供 COM9 主臂到 COM6 从臂的六轴遥操入口。8°/s 的小幅/明显招手预设已分别由 `deepseek-flash` 选择并在实机收到 `controller_feedback` 完成回执；浏览器页面显示选择依据、关节状态和回执。[启动与录制步骤](docs/ARM-LIVE-DEMO.md) 中的密钥和访问码只存仓库外私有配置。
 
 设备经验按账号、设备、能力、运行模式和版本匹配，提供历史结果与统计建议；它不代表模型训练或已验证的运动技能。见 [经验库接入](docs/EXPERIENCE.md) 与 [部署说明](docs/DEPLOYMENT.md)。
 

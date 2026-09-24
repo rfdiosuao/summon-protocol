@@ -73,6 +73,62 @@ class PassportAgentTests(unittest.IsolatedAsyncioTestCase):
 
 
 class ArmPlannerTests(unittest.IsolatedAsyncioTestCase):
+    async def test_model_observes_body_before_generating_motion(self):
+        replies = iter([
+            '{"motion":{"intent":"向观众挥手","speed_dps":8,"waypoints":[{"J4":-4},{"J4":0}]},"reason":"当前手腕在-12度，向负方向摆动后返回"}',
+            '{"reply":"已根据实机回执完成挥手。","motion":null}',
+        ])
+        async def model_reply(request):
+            body = await request.json()
+            self.assertIn('hand_xyz_mm', str(body['messages']))
+            return web.json_response({'choices':[{'message':{'content':next(replies)}}]})
+        server = TestServer(web.Application())
+        server.app.router.add_post('/chat/completions', model_reply)
+        await server.start_server()
+        calls = []
+        async def execute(cap, args):
+            calls.append((cap,args))
+            if cap == 'arm.observe':
+                return {'status':'COMPLETED','evidence':'controller_feedback',
+                        'result':'{"joints_deg":{"J4":-12},"hand_xyz_mm":[260,0,205]}'}
+            return {'status':'COMPLETED','evidence':'controller_feedback'}
+        try:
+            async with aiohttp.ClientSession() as http:
+                answer = await plan_and_execute(http,{'base_url':str(server.make_url('')).rstrip('/'),
+                    'name':'test','api_key':'test'},'请招手',['arm.observe','arm.motion'],execute,
+                    motion_policy={'absolute_joint_windows_deg':{'J4':[-20,-5]},'max_speed_dps':8})
+            self.assertEqual([item[0] for item in calls], ['arm.observe','arm.motion'])
+            self.assertEqual(calls[1][1]['waypoints'], [{'J4':-4},{'J4':0}])
+            self.assertIn('实机回执', answer)
+        finally:
+            await server.close()
+
+    async def test_model_selects_only_recorded_catalog_name(self):
+        async def model_reply(request):
+            body = await request.json()
+            self.assertIn('wave_wide', body['messages'][0]['content'])
+            return web.json_response({'choices':[{'message':{'content':
+                '{"gesture":{"name":"wave_wide","repeat":1},"reason":"远距离需要明显招手"}'}}]})
+        server = TestServer(web.Application())
+        server.app.router.add_post('/chat/completions', model_reply)
+        await server.start_server()
+        calls = []
+        async def execute(cap, args):
+            calls.append(args)
+            return {'status':'FAILED','evidence':'none'}
+        events = []
+        try:
+            async with aiohttp.ClientSession() as http:
+                answer = await plan_and_execute(http, {'base_url':str(server.make_url('')).rstrip('/'),
+                    'name':'test','api_key':'test'}, '请明显招手', ['arm.gesture'], execute,
+                    gesture_catalog=[{'name':'wave_wide','description':'明显招手，约6度'}],
+                    on_event=lambda role, text:events.append(text))
+            self.assertEqual(calls, [{'name':'wave_wide','repeat':1}])
+            self.assertIn('选择依据：远距离需要明显招手', events)
+            self.assertIn('未完成', answer)
+        finally:
+            await server.close()
+
     async def test_model_uses_only_offered_gesture_and_waits_for_receipt(self):
         replies=iter(['{"gesture":{"name":"wave","repeat":1},"reply":""}',
                       '{"reply":"机械臂已完成招手。"}'])

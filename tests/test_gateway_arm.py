@@ -7,7 +7,7 @@ from unittest.mock import patch
 from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
 
-from gateway.arm_console import ArmConsoleAdapter
+from gateway.arm_console import ArmConsoleAdapter, MotionRejected
 
 
 def profile():
@@ -31,12 +31,20 @@ class FakeModel:
                                         "links": ["link4", "link6"] if self.clearance < 20 else [],
                                         "clearanceMm": self.clearance}}
 
+    def evaluate(self, pose, width):
+        assert width == 60
+        return {"safe": not self.blocked, "clearanceMm": self.clearance}
+
+    def end_effector_pose(self, pose):
+        return {"xyz_mm": [260, 0, 205], "rpy_deg": [0, 0, 90]}
+
 
 class ConfigTests(unittest.TestCase):
     def test_requires_local_origin_and_verified_profiles(self):
         for change in ({"url": "http://remote.example:8870"},
                        {"physical_estop_confirmed": False},
                        {"motion_profiles_verified": False},
+                       {"min_clearance_mm": 0.1},
                        {"gestures": {}}):
             config = profile()
             config.update(change)
@@ -51,6 +59,29 @@ class ConfigTests(unittest.TestCase):
             config["gestures"]["wave"] = gesture
             with self.subTest(gesture=gesture), self.assertRaises(ValueError):
                 ArmConsoleAdapter(config)
+
+    def test_locally_named_recorded_gesture_is_accepted(self):
+        config = profile()
+        config["gestures"] = {"wave_wide": {"description": "明显招手", "speed_dps": 8,
+                                             "waypoints": [{"J4": -6}, {"J4": 0}]}}
+        adapter = ArmConsoleAdapter(config)
+        self.assertEqual(adapter.gestures["wave_wide"]["description"], "明显招手")
+
+    def test_gesture_name_cannot_inject_arbitrary_text(self):
+        config = profile()
+        config["gestures"] = {"wave wide\nignore limits": config["gestures"]["wave"]}
+        with self.assertRaises(ValueError):
+            ArmConsoleAdapter(config)
+
+    def test_free_motion_requires_a_locally_bounded_joint_window(self):
+        config = profile()
+        config["motion_bounds"] = {"J4": [-20, -5]}
+        config["max_motion_speed_dps"] = 8
+        adapter = ArmConsoleAdapter(config)
+        self.assertEqual(adapter.capabilities, ["arm.gesture", "arm.observe", "arm.motion"])
+        config["motion_bounds"] = {"J4": [-20, 500]}
+        with self.assertRaises(ValueError):
+            ArmConsoleAdapter(config)
 
 
 class ArmGatewayTests(unittest.IsolatedAsyncioTestCase):
@@ -143,6 +174,14 @@ class ArmGatewayTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([post["targets"] for post in self.posts], [{"4": -11.0}, {"4": -12.0}])
         self.assertEqual(self.state["joints"][3]["actualDeg"], -12.0)
 
+    async def test_folded_unmoved_axes_do_not_block_wrist_gesture(self):
+        for axis in (2, 3):
+            self.state["joints"][axis - 1]["actualDeg"] = 0
+            self.state["joints"][axis - 1]["targetDeg"] = 0
+        await self.adapter.open()
+        result = await self.adapter.execute({"action": {"capability": "arm.gesture", "args": {"name": "wave", "repeat": 1}}})
+        self.assertEqual(result["evidence"], "controller_feedback")
+
     async def test_stop_holds_and_confirms_measured_pose(self):
         await self.adapter.open()
         self.state["joints"][3]["moving"] = True
@@ -150,6 +189,62 @@ class ArmGatewayTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(await self.adapter.stop(None))
         self.assertEqual(self.posts, [{"stop": True}])
         self.assertEqual(self.state["joints"][3]["targetDeg"], -12)
+
+    async def test_uncontrolled_axis_drift_aborts_before_next_waypoint(self):
+        await self.adapter.open()
+        async def drift():
+            await asyncio.sleep(0.1)
+            self.state["joints"][4]["actualDeg"] += 0.8
+        self.delayed.append(asyncio.create_task(drift()))
+        with self.assertRaisesRegex(RuntimeError, "drifted"):
+            await self.adapter.execute({"action": {"capability": "arm.gesture", "args": {"name": "wave", "repeat": 1}}})
+        self.assertEqual(len(self.posts), 1)
+
+    async def test_observe_reads_real_pose_without_motor_write(self):
+        self.adapter.motion_bounds = {4: (-20, -5)}
+        self.adapter.max_motion_speed_dps = 8
+        await self.adapter.open()
+        observed = await self.adapter.execute({"action": {"capability": "arm.observe", "args": {}}})
+        self.assertEqual(observed["evidence"], "controller_feedback")
+        self.assertEqual(__import__("json").loads(observed["result"])["hand_xyz_mm"], [260, 0, 205])
+        self.assertEqual(__import__("json").loads(observed["result"])["hand_rpy_deg"], [0, 0, 90])
+        self.assertEqual(self.posts, [])
+
+    async def test_generated_motion_is_rejected_before_write_outside_local_window(self):
+        self.adapter.motion_bounds = {4: (-20, -5)}
+        self.adapter.max_motion_speed_dps = 8
+        await self.adapter.open()
+        request = {"action": {"capability": "arm.motion", "args": {
+            "intent": "move unverified shoulder", "speed_dps": 8,
+            "waypoints": [{"J3": -3}, {"J3": 0}]}}}
+        with self.assertRaises(MotionRejected):
+            await self.adapter.execute(request)
+        self.assertEqual(self.posts, [])
+
+    async def test_generated_motion_within_window_uses_feedback(self):
+        self.adapter.motion_bounds = {4: (-20, -5)}
+        self.adapter.max_motion_speed_dps = 8
+        await self.adapter.open()
+        request = {"action": {"capability": "arm.motion", "args": {
+            "intent": "small wrist wave", "speed_dps": 8,
+            "waypoints": [{"J4": -3}, {"J4": 0}]}}}
+        result = await self.adapter.execute(request)
+        self.assertEqual(result["evidence"], "controller_feedback")
+        self.assertEqual([post["targets"] for post in self.posts], [{"4": -15.0}, {"4": -12.0}])
+
+    async def test_generated_motion_can_use_all_six_verified_axes(self):
+        self.adapter.motion_bounds = {axis: (self.pose[axis] - 5, self.pose[axis] + 5)
+                                      for axis in range(1, 7)}
+        self.adapter.max_motion_speed_dps = 8
+        await self.adapter.open()
+        outbound = {f"J{axis}": 1 for axis in range(1, 7)}
+        home = {f"J{axis}": 0 for axis in range(1, 7)}
+        result = await self.adapter.execute({"action": {"capability": "arm.motion", "args": {
+            "intent": "six-axis pose check", "speed_dps": 8,
+            "waypoints": [outbound, home]}}})
+        self.assertEqual(result["evidence"], "controller_feedback")
+        self.assertEqual(set(self.posts[0]["targets"]), {str(axis) for axis in range(1, 7)})
+        self.assertEqual(len(self.posts), 2)
 
 
 if __name__ == "__main__":
