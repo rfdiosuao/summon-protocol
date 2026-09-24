@@ -69,7 +69,9 @@ export default function StarMapScene3D({ agentName, devices, online, selectedId,
       }
       const glowTexture = new T.CanvasTexture(glowCanvas);
       const glowMaterial = new T.SpriteMaterial({ map: glowTexture, transparent: true, depthWrite: false, blending: T.AdditiveBlending });
-      const computerTexture = new T.TextureLoader().load('/assets/computer-3d.png');
+      const computerTexture = new T.TextureLoader().load('/assets/computer-3d.webp', () => {
+        if (!cancelled) setReady(true);
+      });
       computerTexture.colorSpace = T.SRGBColorSpace;
       const computerMaterial = new T.SpriteMaterial({ map: computerTexture, transparent: true, depthWrite: false, toneMapped: false });
       const iconCanvas = document.createElement('canvas');
@@ -236,7 +238,6 @@ export default function StarMapScene3D({ agentName, devices, online, selectedId,
         renderer.render(scene, camera);
       };
       renderer.setAnimationLoop(animate);
-      setReady(true);
       clean = () => {
         renderer.setAnimationLoop(null);
         observer.disconnect();
@@ -281,7 +282,7 @@ export default function StarMapScene3D({ agentName, devices, online, selectedId,
         style={{ left: `${50 + 33 * Math.cos(angle)}%`, top: `${50 + 34 * Math.sin(angle)}%` }}
         onClick={() => onSelect(device.shell_id)}
         aria-label={`${device.label}，${isOnline(device.state) ? '在线' : '离线'}，${device.authorized ? '已授权' : '待授权'}`}>
-        <span className="flow__starmap-node-star" aria-hidden="true">{device.kind === 'computer' ? <img src="/assets/computer-3d.png" alt="" /> : '✦'}</span>
+        <span className="flow__starmap-node-star" aria-hidden="true">{device.kind === 'computer' ? <img src="/assets/computer-3d.webp" alt="" /> : '✦'}</span>
         <span className="flow__starmap-node-label">{device.label}</span>
         <span className="flow__starmap-node-state">{isOnline(device.state) ? '在线' : '离线'} · {device.authorized ? '已授权' : '待授权'}</span>
       </button>;
