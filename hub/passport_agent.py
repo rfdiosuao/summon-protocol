@@ -21,8 +21,23 @@ def builtin_plan(text):
     return {'reply':'当前是有限指令模式。可以说：打开浏览器、查看当前时间、查看电脑名称。通用对话需要配置模型服务。'}
 
 
+def parse_model_plan(content):
+    if not isinstance(content,str):
+        raise ValueError('Model returned no text')
+    cleaned=re.sub(r'^```(?:json)?\s*|\s*```$','',content.strip())
+    decoder=json.JSONDecoder()
+    for match in re.finditer(r'\{',cleaned):
+        try:
+            value,_=decoder.raw_decode(cleaned,match.start())
+        except json.JSONDecodeError:
+            continue
+        if isinstance(value,dict):
+            return value
+    raise ValueError('Model did not return a JSON object')
+
+
 async def plan_and_execute(http, model, text, capabilities, execute, budget=38, on_event=None,
-                           gesture_catalog=None, motion_policy=None):
+                           gesture_catalog=None, motion_policy=None, memory=None):
     """Bounded observe/act loop. Tool results are data, never new authorization."""
     gesture_catalog = gesture_catalog or [
         {'name': name, 'description': name} for name in
@@ -52,8 +67,18 @@ Start-Process explorer.exe -ArgumentList 'shell:AppsFolder\\实际AppID'; Start-
 Gateway 会独立检查模型碰撞、现场预设和电机反馈。收到真实 COMPLETED 回执后才能说动作完成；FAILED 或 UNKNOWN 不得说完成。用户没有要求动作时只回复。reason 只写简短、可核对的选择依据，不展示内部推理过程。当前授权能力：'''+','.join(capabilities)+'。可选预设：'+json.dumps(gesture_catalog,ensure_ascii=False)
     if 'arm.motion' in capabilities:
         prompt='''你是 B601-DM 机械臂的具身 Agent。先阅读随后提供的实时控制器观测：六轴角度、末端三维位置与姿态（RPY）、模型净空、已使能轴和应力。J1 是底座旋转，J2 是肩部俯仰，J3 是肘部俯仰，J4 是腕部俯仰，J5 是腕部偏航，J6 是腕部旋转。根据用户意图与当前姿态决定末端应怎样运动，再提出短小的相对关节路点；可在现场开放的轴中组合多轴。你必须理解这次运动的可见效果，不要机械套用示教样例。
-只返回 JSON：{"reply":"简短中文反馈","motion":null,"reason":"一句话说明计划与当前姿态的关系"}。需要动作时 motion 为 {"intent":"动作意图","speed_dps":8,"waypoints":[{"J4":-3},{"J4":0}]}。路点是相对当前实测起点的角度，末点必须全部为 0；2–4 个路点、单轴偏移不超过 10°，只能使用现场开放的轴并严格落在绝对角度窗口内。无匹配安全动作时 motion 为 null 并说明原因。不要输出命令、URL、任意未开放轴或长轨迹。
+只返回 JSON：{"reply":"简短中文反馈","motion":null,"reason":"一句话说明计划与当前姿态的关系"}。需要动作时 motion 可为 {"intent":"动作意图","speed_dps":{"J1":10,"J2":0.8,"J3":0.8,"J4":10,"J5":10,"J6":5},"waypoints":[{"J1":5,"J2":-0.8,"J3":-0.8,"J4":-3,"J5":20,"J6":3},{"J1":0,"J2":0,"J3":0,"J4":0,"J5":0,"J6":0}]}。速度对象只包含实际运动的轴，必须满足随后给出的各轴上限；也可用单一数字速度。路点是相对当前实测起点的角度，末点必须全部为 0；2–4 个路点，偏移不得超过现场配置的相对角度上限，只能使用现场开放的轴并严格落在绝对角度窗口内。无匹配动作时 motion 为 null 并说明原因。不要输出命令、URL、任意未开放轴或长轨迹。
 本地 Gateway 独立验证每一步的硬件角度范围、URDF/STL 自碰撞和桌面边界、未控制轴漂移、速度及真实回执。你只能在收到 controller_feedback 的 COMPLETED 后说实机完成。reason 是可核对的计划摘要，不是内部思维链。现场可用运动窗口：'''+json.dumps(motion_policy or {},ensure_ascii=False)+'。主臂/实机示教样例，仅供理解各轴运动效果：'+json.dumps(gesture_catalog,ensure_ascii=False)
+    elif set(capabilities)=={'display.text'}:
+        prompt='''你是 SUMMON 中同一个 Agent，现在接入笔记本显示壳。根据用户的真实提问给出简短中文回答；本轮没有机械臂控制权，不要声称已经驱动机械臂。只返回 JSON：{"reply":"显示给用户的回答"}。不要输出命令、URL 或动作。'''
+    style=(memory or {}).get('preferences',{}).get('response_style')
+    if style=='brief':
+        prompt+='\n用户已保存的偏好：先用一句话解释。此偏好由 SUMMON Hub 在当前会话提供，请在新设备上继续遵守。'
+    elif style=='detailed':
+        prompt+='\n用户已保存的偏好：需要较详细的解释。此偏好由 SUMMON Hub 在当前会话提供。'
+    windows=(motion_policy or {}).get('absolute_joint_windows_deg',{})
+    if 'arm.motion' in capabilities and {'J1','J4','J5'}.issubset(windows):
+        prompt+='\n用户要求明显、有表达力的动作时，可组合开放的六轴；若明确要求六轴协同，应让六轴都在首个路点产生非零运动，J2/J3 承重，速度须遵守各轴上限。当前某轴位于绝对窗口下界时，可以朝窗口上界移动，反之亦然。J1 转向、J4 抬腕和 J5 摆腕提供主要可见幅度，J6 可辅助。大幅动作优先用 2 个路点形成摆动和回位，避免多个路点耗尽执行时间。观测中的约 1.5 mm 模型净空是当前官方网格的静态基线；只要仍高于现场已验证阈值，不能仅因这个基线把整段动作缩成不可见幅度。Gateway 还会独立精确预检每一段。'
     backend_label='EvoX' if model.get('backend')=='evox' else '云端 Agent'
     messages=[{'role':'system','content':prompt},{'role':'user','content':text}]
     deadline=time.monotonic()+budget
@@ -68,17 +93,38 @@ Gateway 会独立检查模型碰撞、现场预设和电机反馈。收到真实
     for step in range(5):
         remaining=deadline-time.monotonic()
         if remaining<2:break
-        if model.get('backend')=='evox':
-            from hub.evox_backend import complete
-            content=await complete(model,messages,min(12,remaining))
-        else:
-            async with http.post(model['base_url'].rstrip('/')+'/chat/completions',
-                headers={'Authorization':'Bearer '+model['api_key']},
-                json={'model':model['name'],'messages':messages,'max_tokens':650,'temperature':0.1},
-                timeout=aiohttp.ClientTimeout(total=min(12,remaining))) as r:
-                if r.status!=200:raise RuntimeError('Model service unavailable')
-                content=(await r.json())['choices'][0]['message']['content']
-        plan=json.loads(re.sub(r'^```(?:json)?\s*|\s*```$','',content.strip()))
+        for attempt in range(2):
+            remaining=deadline-time.monotonic()
+            if remaining<2:return '模型响应超时，本轮没有发送新的动作。'
+            if model.get('backend')=='evox':
+                from hub.evox_backend import complete
+                content=await complete(model,messages,min(12,remaining))
+            else:
+                payload={'model':model['name'],'messages':messages,
+                         'max_tokens':900 if 'arm.motion' in capabilities else 650,'temperature':0.1}
+                if model['base_url'].rstrip('/').startswith('https://api.deepseek.com'):
+                    payload['thinking']={'type':'disabled'}
+                async with http.post(model['base_url'].rstrip('/')+'/chat/completions',
+                    headers={'Authorization':'Bearer '+model['api_key']},
+                    json=payload,
+                    timeout=aiohttp.ClientTimeout(total=min(20 if 'arm.motion' in capabilities else 12,remaining))) as r:
+                    if r.status!=200:raise RuntimeError('Model service unavailable')
+                    response=await r.json()
+                    choice=response['choices'][0]
+                    content=choice['message'].get('content')
+                    if 'arm.motion' in capabilities:
+                        print('Arm model response: finish=%s content_chars=%d reasoning_tokens=%s' % (
+                            choice.get('finish_reason'),len(content or ''),
+                            response.get('usage',{}).get('completion_tokens_details',{}).get('reasoning_tokens')),
+                            flush=True)
+            try:
+                plan=parse_model_plan(content)
+                break
+            except ValueError:
+                if on_event:on_event('system','模型返回的 JSON 格式错误，正在重试一次。')
+                if attempt:
+                    return '模型未给出可解析的动作计划，本轮没有发送运动目标。'
+                messages.append({'role':'user','content':'上一条响应无法解析。请仅返回一个完整、严格合法的 JSON 对象，不要解释或 Markdown。'})
         if not isinstance(plan,dict):raise ValueError('Invalid model plan')
         command,url,gesture,motion=plan.get('command'),plan.get('url'),plan.get('gesture'),plan.get('motion')
         if sum(value is not None for value in (command,url,gesture,motion))>1:raise ValueError('Only one action per step')
@@ -91,7 +137,7 @@ Gateway 会独立检查模型碰撞、现场预设和电机反馈。收到真实
             if ('arm.motion' not in capabilities or not isinstance(motion,dict)
                     or set(motion)!={'intent','speed_dps','waypoints'}
                     or not isinstance(motion['intent'],str) or not motion['intent'].strip()
-                    or type(motion['speed_dps']) not in (int,float)
+                    or not (type(motion['speed_dps']) in (int,float) or isinstance(motion['speed_dps'],dict))
                     or not isinstance(motion['waypoints'],list)):
                 raise ValueError('Invalid arm motion plan')
             cap,args='arm.motion',motion
@@ -144,7 +190,8 @@ async def run(config_path,credentials_path):
                 with os.fdopen(fd,'w',encoding='ascii') as f:f.write(registration_id)
             # RegisterAgent permits at most three capabilities. A new opt-in
             # arm identity gets only the output and gesture tools by default.
-            capabilities=(['arm.observe','arm.motion','arm.gesture'] if cfg.get('enable_arm_planning') is True and cfg.get('model')
+            capabilities=(['display.text','arm.observe','arm.motion'] if cfg.get('enable_cross_device') is True and cfg.get('enable_arm_planning') is True and cfg.get('model')
+                          else ['arm.observe','arm.motion','arm.gesture'] if cfg.get('enable_arm_planning') is True and cfg.get('model')
                           else ['display.text','arm.gesture'] if cfg.get('enable_arm_gestures') is True and cfg.get('model')
                           else ['display.text','browser.open','command.exec'])
             body={'request_id':registration_id,'name':cfg.get('name','唤名 · Passport 语音 Agent'),
@@ -161,6 +208,8 @@ async def run(config_path,credentials_path):
             raise RuntimeError('Existing Agent identity lacks arm.gesture; use a new credential file and Agent identity')
         if cfg.get('enable_arm_planning') is True and not {'arm.observe','arm.motion'}.issubset(registered['agent']['capabilities']):
             raise RuntimeError('Existing Agent identity lacks arm planning capabilities; use a new identity')
+        if cfg.get('enable_cross_device') is True and 'display.text' not in registered['agent']['capabilities']:
+            raise RuntimeError('Existing Agent identity lacks display capability; use a new identity')
         async with http.get(base+'/v1/agents/me/nameplate',headers=auth) as r:
             r.raise_for_status();plate=await r.json()
             if plate['agent']['agent_id']!=registered['agent']['agent_id']:raise RuntimeError('Identity mismatch')
@@ -194,11 +243,14 @@ async def run(config_path,credentials_path):
                         try:
                             if cfg.get('model'):
                                 async def execute(cap,args):return await action(s,p['input_id'],cap,args)
+                                async with http.get(base+'/v1/sessions/'+s['session_id']+'/memory',headers=auth) as response:
+                                    response.raise_for_status()
+                                    memory=await response.json()
                                 reply=await plan_and_execute(http,cfg['model'],p['text'],s['permitted_capabilities'],execute,
                                     budget=min(38,stamp(s['expires_at'])-time.time()-14),
                                     on_event=lambda role,value:record(journal,role,value),
                                     gesture_catalog=cfg.get('gesture_catalog'),
-                                    motion_policy=cfg.get('motion_policy'))
+                                    motion_policy=cfg.get('motion_policy'),memory=memory)
                                 if reply is None:return
                             else:
                                 plan=builtin_plan(p['text']);reply=plan['reply']

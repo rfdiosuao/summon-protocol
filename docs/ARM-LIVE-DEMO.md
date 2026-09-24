@@ -2,17 +2,23 @@
 
 这台笔记本运行 `Arm Console → Gateway → LIVE Hub → 模型 Agent`。浏览器在 `http://127.0.0.1:8840/demo` 提交自然语言请求；模型先读取六轴实测角度、末端位置、模型净空与负载，再根据用户意图提出短路点。Gateway 只接受现场开放的轴和角度窗口，并按 URDF/STL 模型重算轨迹，最后由 COM 口控制器执行。页面展示可核对的计划依据、关节实测角度和最终回执，不展示模型内部思维链。录制动作可作为模型理解动作效果的示例，仍可通过 `arm.gesture` 调用。
 
+`--cross-device` 模式另注册一具 `display_demo` 显示壳，同一个 Agent 同时声明 `display.text`、`arm.observe`、`arm.motion`。先在显示壳讲解并保存偏好，再从完整控制台交接到 `arm_demo` 机械臂壳；Agent 在新会话读取记忆及实机姿态。这条本地 LIVE 链路已验证显示、记忆保存和交接；公开网站仍使用 SIMULATED Hub，公网演示须另行部署 LIVE Hub 和凭证。
+
 ## 启动
 
 使用安装了 `numpy`、`pinocchio`、`motorbridge`、`aiohttp` 的现场 Python，安装 `gateway/requirements.txt`。先从 `arm-console/` 启动 `python -m backend.app --allow-hardware`，在 `http://127.0.0.1:8870/` **人工连接**正确的 COM 口。机械臂底座、支撑、运动空间和物理急停须在现场确认。演示启动器不会自动打开串口。
 
-在仓库根目录，把 [`tools/arm_demo.example.json`](../tools/arm_demo.example.json) 复制到**仓库外**的私有路径。填写模型的 `base_url`、`name`、`api_key`，以及现场验收过的手势、`motion_bounds`、`max_motion_speed_dps` 和 `min_clearance_mm`；完成验收后才把两个确认标志设为 `true`。DeepSeek 官方接口可用 `https://api.deepseek.com` 和 `deepseek-flash`。`motion_bounds` 可分别开放 J1–J6；模型不能越过本地窗口或调高本地速度上限。示例中的角度与净空阈值只是格式；实机按当前模型、姿态和支撑重新验收。
+在仓库根目录，把 [`tools/arm_demo.example.json`](../tools/arm_demo.example.json) 复制到**仓库外**的私有路径。填写模型的 `base_url`、`name`、`api_key`，以及现场验收过的手势、`motion_bounds`、`max_motion_speed_dps` 和 `min_clearance_mm`；完成验收后才把两个确认标志设为 `true`。DeepSeek 官方接口可用 `https://api.deepseek.com` 和 `deepseek-flash`；官方 API 使用非思考模式以便快速返回结构化动作。`motion_bounds` 可分别开放 J1–J6；`max_relative_offset_deg` 可设 1–30，`motion_axis_speed_caps_dps` 可逐轴设置上限（每轴 0.2–10°/s，且不超过 `max_motion_speed_dps`）。模型不能越过本地窗口或调高本地速度上限。示例中的角度与净空阈值只是格式；实机按当前模型、姿态和支撑重新验收。
 
 ```powershell
 python tools/arm_demo.py --config <仓库外的私有配置.json> --run-dir <仓库外的私有状态目录>
+# 同一个 Agent 在显示屏与机械臂之间交接：
+python tools/arm_demo.py --config <仓库外的私有配置.json> --run-dir <新的私有状态目录> --cross-device
 ```
 
-启动后打开 `http://127.0.0.1:8840/demo`，使用 `<私有状态目录>/secrets.json` 中的 `operator_code` 登录。输入“向左招手并回到原位”等自然语言，观察模型如何根据实测姿态规划、Gateway 如何检查边界、设备如何返回真实角度。访问码和 Gateway token 由启动器生成在私有目录，不写入仓库。点击“结束会话”会请求软件停止并确认保持；现场物理急停仍须可用。
+启动后打开 `http://127.0.0.1:8840/demo`，使用 `<私有状态目录>/secrets.json` 中的 `operator_code` 登录。输入“向左招手并回到原位”等自然语言，观察模型如何根据实测姿态规划、Gateway 如何检查边界、设备如何返回真实角度。跨设备模式可在 `http://127.0.0.1:8840/assets/console.html` 选择 `display_demo`，召唤 Agent、输入讲解偏好并请求保存；再交接到 `arm_demo`，用自然语言要求它基于当前姿态动作。访问码和 Gateway token 由启动器生成在私有目录，不写入仓库。点击“结束会话”会请求软件停止并确认保持；现场物理急停仍须可用。
+
+六轴同步调试可先运行 `python tools/arm_choreo.py J1=5@10 J2=-20@2 J3=-30@3 J4=-8@5 J5=15@10 J6=0@3` 查看实时起点的模型预演。只有附加 `--execute` 才下发目标；高于 10°/s 的轴还须附加 `--confirm-risk`。目标值必须重新按现场姿态决定，示例并非通用动作。命令要求选中轴已使能，并检查直接及各轴不同速度的模型路径、实时反馈。控制台的 J1/J2/J3/J5 位置指令前瞻上限已调至 4°；只有重启控制台后才会应用新参数。
 
 ## COM9 主臂 → COM6 从臂全轴遥操
 

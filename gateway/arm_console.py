@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import math
 import re
 import sys
@@ -28,6 +29,7 @@ from backend.safety import ModelSafety  # noqa: E402
 
 
 GESTURE_NAME = re.compile(r"[a-z][a-z0-9_]{1,31}\Z")
+LOG = logging.getLogger("summon.gateway.arm")
 
 
 class ArmConsoleAdapter:
@@ -52,14 +54,21 @@ class ArmConsoleAdapter:
                 or not math.isfinite(clearance) or not 0.5 <= clearance <= 20):
             raise ValueError("min_clearance_mm must be 0.5..20 based on verified local geometry")
         self.min_clearance_mm = float(clearance)
+        offset_limit = config.get("max_relative_offset_deg", 10)
+        if (isinstance(offset_limit, bool) or not isinstance(offset_limit, (int, float))
+                or not math.isfinite(offset_limit) or not 1 <= offset_limit <= 30):
+            raise ValueError("max_relative_offset_deg must be 1..30")
+        self.max_relative_offset_deg = float(offset_limit)
         gestures = config.get("gestures")
         if (not isinstance(gestures, dict) or not 1 <= len(gestures) <= 8
                 or any(not isinstance(name, str) or not GESTURE_NAME.fullmatch(name) for name in gestures)):
             raise ValueError("Configure 1..8 named arm.gesture profiles")
-        self.gestures = {name: self._checked_profile(profile) for name, profile in gestures.items()}
+        self.gestures = {name: self._checked_profile(profile, self.max_relative_offset_deg)
+                         for name, profile in gestures.items()}
         raw_bounds = config.get("motion_bounds")
         self.motion_bounds: dict[int, tuple[float, float]] = {}
         self.max_motion_speed_dps = 0.0
+        self.motion_axis_speed_caps_dps: dict[int, float] = {}
         if raw_bounds is not None:
             if not isinstance(raw_bounds, dict) or not raw_bounds or len(raw_bounds) > 6:
                 raise ValueError("motion_bounds must name locally verified J1..J6 windows")
@@ -81,6 +90,14 @@ class ArmConsoleAdapter:
                     or not math.isfinite(maximum) or not 0.5 <= maximum <= 10):
                 raise ValueError("max_motion_speed_dps must be 0.5..10")
             self.max_motion_speed_dps = float(maximum)
+            raw_caps = config.get("motion_axis_speed_caps_dps", {})
+            if not isinstance(raw_caps, dict) or set(raw_caps) - set(raw_bounds):
+                raise ValueError("Axis speed caps must name configured motion axes")
+            for name, value in raw_caps.items():
+                if (isinstance(value, bool) or not isinstance(value, (int, float))
+                        or not math.isfinite(value) or not 0.2 <= value <= self.max_motion_speed_dps):
+                    raise ValueError("Invalid axis speed cap")
+                self.motion_axis_speed_caps_dps[int(name[1:])] = float(value)
         self.capabilities = ["arm.gesture"] + (["arm.observe", "arm.motion"] if self.motion_bounds else [])
         self.url = address.rstrip("/")
         self.http: aiohttp.ClientSession | None = None
@@ -92,7 +109,7 @@ class ArmConsoleAdapter:
         self.expected_targets: dict[int, float] = {}
 
     @staticmethod
-    def _checked_profile(value: object) -> dict:
+    def _checked_profile(value: object, max_relative_offset_deg: float = 10) -> dict:
         if not isinstance(value, dict) or set(value) not in ({"speed_dps", "waypoints"},
                                                                {"description", "speed_dps", "waypoints"}):
             raise ValueError("Gesture profile needs speed_dps and waypoints; description is optional")
@@ -101,12 +118,10 @@ class ArmConsoleAdapter:
                 or any(ord(char) < 32 for char in description)):
             raise ValueError("Gesture description must be 1..160 printable characters")
         speed = value["speed_dps"]
-        if isinstance(speed, bool) or not isinstance(speed, (int, float)) or not math.isfinite(speed) or not 0.5 <= speed <= 10:
-            raise ValueError("Gateway gestures must use 0.5..10 degrees/s")
         raw_steps = value["waypoints"]
         if not isinstance(raw_steps, list) or not 2 <= len(raw_steps) <= 4:
             raise ValueError("Gesture requires 2..4 relative waypoints")
-        axes: set[int] = set()
+        listed_axes: set[int] = set()
         steps: list[dict[int, float]] = []
         for raw in raw_steps:
             if not isinstance(raw, dict) or not raw:
@@ -115,18 +130,42 @@ class ArmConsoleAdapter:
             for name, offset in raw.items():
                 if not isinstance(name, str) or name not in {f"J{axis}" for axis in range(1, 7)}:
                     raise ValueError("Waypoint axes must be J1..J6")
-                if isinstance(offset, bool) or not isinstance(offset, (int, float)) or not math.isfinite(offset) or abs(offset) > 10:
-                    raise ValueError("Gesture offsets must be finite and within ±10 degrees")
+                if (isinstance(offset, bool) or not isinstance(offset, (int, float))
+                        or not math.isfinite(offset) or abs(offset) > max_relative_offset_deg):
+                    raise ValueError("Gesture offset exceeds the locally verified relative limit")
                 axis = int(name[1:])
                 step[axis] = float(offset)
-                axes.add(axis)
+                listed_axes.add(axis)
             steps.append(step)
-        if not axes or all(all(step.get(axis, 0) == 0 for axis in axes) for step in steps):
+        axes = {axis for axis in listed_axes if any(step.get(axis, 0) != 0 for step in steps)}
+        if not axes:
             raise ValueError("Gesture must contain a nonzero motion")
         if any(steps[-1].get(axis, 0) != 0 for axis in axes):
             raise ValueError("Last waypoint must return every moved axis to its starting angle")
-        return {"description": description.strip(), "speed_dps": float(speed),
+        if isinstance(speed, dict):
+            if (not {f"J{axis}" for axis in axes}.issubset(speed)
+                    or set(speed) - {f"J{axis}" for axis in listed_axes}):
+                raise ValueError("Per-axis speeds must cover every moved axis")
+            checked_speed = {}
+            for name, value in speed.items():
+                if (isinstance(value, bool) or not isinstance(value, (int, float))
+                        or not math.isfinite(value) or not 0.2 <= value <= 10):
+                    raise ValueError("Per-axis speed must be 0.2..10 degrees/s")
+                if int(name[1:]) in axes:
+                    checked_speed[int(name[1:])] = float(value)
+            speed = checked_speed
+        elif (isinstance(speed, bool) or not isinstance(speed, (int, float))
+              or not math.isfinite(speed) or not 0.5 <= speed <= 10):
+            raise ValueError("Gateway gestures must use 0.5..10 degrees/s")
+        else:
+            speed = float(speed)
+        return {"description": description.strip(), "speed_dps": speed,
                 "waypoints": steps, "axes": sorted(axes)}
+
+    @staticmethod
+    def _speeds(profile: dict) -> dict[int, float]:
+        speed = profile["speed_dps"]
+        return speed if isinstance(speed, dict) else {axis: speed for axis in profile["axes"]}
 
     async def _json(self, path: str, payload: dict | None = None) -> dict:
         if self.http is None:
@@ -167,13 +206,23 @@ class ArmConsoleAdapter:
             raise RuntimeError("Incomplete measured arm pose")
         return angles
 
+    @staticmethod
+    def _commanded_motion(state: dict) -> bool:
+        # The controller's `moving` bit can flicker at a stationary hold from
+        # encoder velocity noise. A meaningful target error distinguishes an
+        # active command from that idle jitter.
+        return any(joint.get("moving") and
+                   abs(float(joint["targetDeg"]) - float(joint["actualDeg"])) > 0.5
+                   for joint in state["joints"][:6])
+
     async def _poll(self) -> None:
         while True:
             try:
                 await self._read()
             except asyncio.CancelledError:
                 raise
-            except Exception:
+            except Exception as exc:
+                LOG.warning("Arm feedback poll stopped: %s", exc)
                 self.state = None
                 return
             await asyncio.sleep(0.15)
@@ -183,7 +232,7 @@ class ArmConsoleAdapter:
         try:
             self.safety = await asyncio.get_running_loop().run_in_executor(None, ModelSafety)
             state = await self._read(refresh=True)
-            if not self._operational(state) or any(joint.get("moving") for joint in state["joints"][:6]):
+            if not self._operational(state) or self._commanded_motion(state):
                 raise RuntimeError("B601-DM is not connected, idle and fault-free")
             self.poll_task = asyncio.create_task(self._poll())
         except BaseException:
@@ -194,16 +243,28 @@ class ArmConsoleAdapter:
         state = self.state
         if (self.http is None or self.poll_task is None or self.poll_task.done() or state is None
                 or time.monotonic() - self.last_poll > 1 or not self._operational(state)):
+            LOG.warning("Arm adapter unhealthy: poll_done=%s state=%s age=%s fault=%s sample_age=%s",
+                        self.poll_task.done() if self.poll_task else None,
+                        state.get("connected") if state else None,
+                        round(time.monotonic() - self.last_poll, 2),
+                        state.get("fault") if state else None,
+                        state.get("sampleAgeMs") if state else None)
             return False
-        if not self.in_motion and any(joint.get("moving") for joint in state["joints"][:6]):
+        if not self.in_motion and self._commanded_motion(state):
+            LOG.warning("Arm adapter saw unleased motion: %s",
+                        [(joint["id"], joint.get("actualDeg"), joint.get("targetDeg"))
+                         for joint in state["joints"][:6] if joint.get("moving")])
             return False
         if self.in_motion and self.expected_targets:
             targets = {int(joint["id"]): float(joint["targetDeg"]) for joint in state["joints"] if int(joint["id"]) in self.expected_targets}
             if any(abs(targets.get(axis, math.inf) - value) > 0.5 for axis, value in self.expected_targets.items()):
+                LOG.warning("Arm adapter target changed outside Gateway: expected=%s actual=%s",
+                            self.expected_targets, targets)
                 return False
         return True
 
-    def _preview(self, start: dict[int, float], plan: list[dict[int, float]], width: float) -> None:
+    def _preview(self, start: dict[int, float], plan: list[dict[int, float]], width: float,
+                 speeds: dict[int, float] | None = None) -> None:
         assert self.safety is not None
         current = start
         for target in plan:
@@ -211,6 +272,19 @@ class ArmConsoleAdapter:
             if not report["safe"] or report["closest"]["clearanceMm"] < self.min_clearance_mm:
                 closest = report["closest"]
                 raise MotionRejected(f"Arm motion blocked by {closest['reason'] or 'LOW_CLEARANCE'}: {closest['links']}")
+            if speeds:
+                rates = {axis: min(speed, {1: 3.0, 2: 3.0, 3: 3.0, 4: 10.0, 5: 10.0, 6: 3.0}.get(axis, speed))
+                         for axis, speed in speeds.items()}
+                duration = max(abs(target[axis] - current[axis]) / rates[axis] for axis in rates)
+                for index in range(max(1, math.ceil(duration / 0.25)) + 1):
+                    elapsed = min(duration, index * 0.25)
+                    pose = dict(current)
+                    for axis, rate in rates.items():
+                        delta = target[axis] - current[axis]
+                        pose[axis] += math.copysign(min(abs(delta), rate * elapsed), delta)
+                    observed = self.safety.evaluate(pose, width)
+                    if not observed["safe"] or observed["clearanceMm"] < self.min_clearance_mm:
+                        raise MotionRejected("Independently paced axes cross the model safety boundary")
             current = target
 
     async def _wait_target(self, target: dict[int, float], axes: list[int], start: dict[int, float], deadline: float) -> None:
@@ -230,7 +304,8 @@ class ArmConsoleAdapter:
             joints = {joint["id"]: joint for joint in state["joints"]}
             if any(abs(float(joints[axis]["targetDeg"]) - target[axis]) > 0.5 for axis in axes):
                 raise RuntimeError("Arm target changed outside the Gateway")
-            arrived = all(abs(angles[axis] - target[axis]) <= 0.4 and not joints[axis]["moving"] for axis in axes)
+            arrived = all(abs(angles[axis] - target[axis]) <= 0.4 and
+                          abs(float(joints[axis].get("velocityDps", 0))) <= 2.0 for axis in axes)
             consecutive = consecutive + 1 if arrived else 0
             if consecutive >= 2:
                 return
@@ -266,10 +341,13 @@ class ArmConsoleAdapter:
             raise MotionRejected("Motion intent is missing")
         try:
             profile = self._checked_profile({"description": intent, "speed_dps": args["speed_dps"],
-                                             "waypoints": args["waypoints"]})
+                                             "waypoints": args["waypoints"]}, self.max_relative_offset_deg)
         except (ValueError, KeyError, TypeError) as exc:
             raise MotionRejected("Invalid generated motion plan") from exc
-        if profile["speed_dps"] > self.max_motion_speed_dps:
+        speeds = self._speeds(profile)
+        if any(speed > min(self.max_motion_speed_dps,
+                           self.motion_axis_speed_caps_dps.get(axis, self.max_motion_speed_dps))
+               for axis, speed in speeds.items()):
             raise MotionRejected("Generated motion exceeds locally verified speed")
         if set(profile["axes"]) - self.motion_bounds.keys():
             raise MotionRejected("Generated motion uses an unverified axis")
@@ -290,7 +368,7 @@ class ArmConsoleAdapter:
             raise MotionRejected("Arm capability is not enabled")
         args = action["args"]
         state = await self._read(refresh=True)
-        if not self._operational(state) or any(joint.get("moving") for joint in state["joints"][:6]):
+        if not self._operational(state) or self._commanded_motion(state):
             raise RuntimeError("Arm is not idle and fault-free")
         start = self._angles(state)
         if any(abs(float(joint["targetDeg"]) - start[joint["id"]]) > 0.5 for joint in state["joints"] if joint["id"] <= 6):
@@ -306,34 +384,48 @@ class ArmConsoleAdapter:
             name, repeat = args["intent"], 1
         steps = [{axis: start[axis] + offset.get(axis, 0.0) for axis in range(1, 7)}
                  for offset in profile["waypoints"]] * repeat
+        speeds = self._speeds(profile)
+        effective = {axis: min(speed, {1: 3.0, 2: 3.0, 3: 3.0, 4: 10.0, 5: 10.0, 6: 3.0}.get(axis, speed))
+                     for axis, speed in speeds.items()}
         previous = start
         estimated = 0.0
         for target in steps:
             for axis in profile["axes"]:
                 checked_target(axis, target[axis], hardware=True)
-            estimated += max(abs(target[axis] - previous[axis]) for axis in profile["axes"]) / profile["speed_dps"]
+            estimated += max(abs(target[axis] - previous[axis]) / effective[axis] for axis in profile["axes"])
             previous = target
         # Gateway has a hard 10-second execution window. Reserve room for the
         # final feedback sample and a stop attempt; never start a long action.
-        if estimated > 5.0:
+        if estimated > 6.5:
             raise MotionRejected("Motion exceeds the Gateway short-action budget")
-        deadline = time.monotonic() + 8.0
-        await asyncio.get_running_loop().run_in_executor(None, self._preview, start, steps, width)
+        await asyncio.get_running_loop().run_in_executor(None, self._preview, start, steps, width,
+                                                          speeds if isinstance(profile["speed_dps"], dict) else None)
+        deadline = time.monotonic() + 8.5
         state = await self._read(refresh=True)
-        if (not self._operational(state) or any(joint.get("moving") for joint in state["joints"][:6])
+        if (not self._operational(state) or self._commanded_motion(state)
                 or any(abs(self._angles(state)[axis] - start[axis]) > 0.25 for axis in range(1, 7))
                 or time.monotonic() + estimated + 0.5 > deadline):
             raise RuntimeError("Arm pose changed or execution window is too short")
         self.in_motion = True
         try:
             for target in steps:
-                acknowledged = await self._json("/api/joints/targets", {
-                    "targets": {str(axis): target[axis] for axis in profile["axes"]},
-                    "speedDps": profile["speed_dps"], "autoEnable": True,
-                })
-                self.state = acknowledged
-                self.last_poll = time.monotonic()
-                self.expected_targets = {axis: target[axis] for axis in profile["axes"]}
+                if isinstance(profile["speed_dps"], dict):
+                    self.expected_targets = {}
+                    for axis in profile["axes"]:
+                        acknowledged = await self._json(f"/api/joints/{axis}/target", {
+                            "degrees": target[axis], "speedDps": speeds[axis], "autoEnable": True,
+                        })
+                        self.state = acknowledged
+                        self.last_poll = time.monotonic()
+                        self.expected_targets[axis] = target[axis]
+                else:
+                    acknowledged = await self._json("/api/joints/targets", {
+                        "targets": {str(axis): target[axis] for axis in profile["axes"]},
+                        "speedDps": profile["speed_dps"], "autoEnable": True,
+                    })
+                    self.state = acknowledged
+                    self.last_poll = time.monotonic()
+                    self.expected_targets = {axis: target[axis] for axis in profile["axes"]}
                 await self._wait_target(target, profile["axes"], start, deadline)
             return {"evidence": "controller_feedback",
                     "result": f"B601-DM confirmed {name} ({repeat} repetition(s)) at measured joint positions."}
@@ -355,7 +447,7 @@ class ArmConsoleAdapter:
                 if not self._operational(state):
                     return False
                 angles = self._angles(state)
-                settled = all(not joint.get("moving") and abs(float(joint["targetDeg"]) - angles[joint["id"]]) <= 0.5
+                settled = all(abs(float(joint["targetDeg"]) - angles[joint["id"]]) <= 0.5
                               for joint in state["joints"] if joint["id"] <= 6)
                 if previous is not None:
                     settled = settled and all(abs(angles[axis] - previous[axis]) <= 0.12 for axis in range(1, 7))
@@ -364,8 +456,10 @@ class ArmConsoleAdapter:
                     return True
                 previous = angles
                 await asyncio.sleep(0.12)
-        except Exception:
+        except Exception as exc:
+            LOG.warning("Arm stop could not confirm stable controller feedback: %s", exc)
             return False
+        LOG.warning("Arm stop timed out before three stable feedback samples")
         return False
 
     async def close(self) -> None:

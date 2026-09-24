@@ -58,6 +58,7 @@ MOTION_ASSIST_MAX_BIAS_DEG = 0.35
 MOTION_ASSIST_RAMP_DPS = 2.0
 MOTION_ASSIST_TORQUE_FRACTION = 0.70
 MAX_POSITION_LEAD_DEG = 2.0
+POSITION_LEAD_DEG_BY_AXIS = {1: 4.0, 2: 4.0, 3: 4.0, 5: 4.0}
 TRACKING_STALL_DWELL_S = 0.6
 GRAVITY_FF_FRACTION = 0.40
 GRAVITY_FF_RAMP_NM_S = 1.5
@@ -857,9 +858,10 @@ class HardwareArm(ArmDriver):
                     if joint_id <= 6:
                         # Do not wind up the position loop while a loaded axis
                         # is slow to start. Feedback must advance the window.
+                        lead = POSITION_LEAD_DEG_BY_AXIS.get(joint_id, MAX_POSITION_LEAD_DEG)
                         joint.commanded_deg = max(
-                            joint.actual_deg - MAX_POSITION_LEAD_DEG,
-                            min(joint.actual_deg + MAX_POSITION_LEAD_DEG, joint.commanded_deg),
+                            joint.actual_deg - lead,
+                            min(joint.actual_deg + lead, joint.commanded_deg),
                         )
                     if joint_id in self._mit_axes:
                         # A stop freezes the pose and existing support torque;
@@ -892,7 +894,8 @@ class HardwareArm(ArmDriver):
                     lower = min(joint.actual_deg, joint.target_deg)
                     upper = max(joint.actual_deg, joint.target_deg)
                     output_deg = max(lower, min(upper, joint.commanded_deg + joint.gravity_assist_deg))
-                    output_deg = max(joint.actual_deg - MAX_POSITION_LEAD_DEG, min(joint.actual_deg + MAX_POSITION_LEAD_DEG, output_deg))
+                    lead = POSITION_LEAD_DEG_BY_AXIS.get(joint_id, MAX_POSITION_LEAD_DEG)
+                    output_deg = max(joint.actual_deg - lead, min(joint.actual_deg + lead, output_deg))
                     joint.gravity_assist_deg = output_deg - joint.commanded_deg
                     self._motors[joint_id].send_pos_vel(math.radians(output_deg), math.radians(joint.speed_dps))
         self._read_all()

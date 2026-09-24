@@ -44,7 +44,9 @@ function renderStatus(value) {
   $('presets').replaceChildren();
   for (const gesture of value.gestures) {
     const row = document.createElement('div'); row.className = 'preset';
-    const title = document.createElement('strong'); title.textContent = `${gesture.name} · ${gesture.speed_dps}°/s`;
+    const speeds = typeof gesture.speed_dps === 'number' ? `${gesture.speed_dps}°/s` :
+      Object.entries(gesture.speed_dps).map(([axis, speed]) => `${axis} ${speed}°/s`).join(' · ');
+    const title = document.createElement('strong'); title.textContent = `${gesture.name} · ${speeds}`;
     const description = document.createElement('small'); description.textContent = gesture.description;
     row.append(title, description); $('presets').append(row);
   }
@@ -85,7 +87,7 @@ async function activeSession() {
   if (existing?.state === 'ACTIVE') return existing;
   if (existing) throw new Error('上一会话正在连接或释放，请稍后重试');
   const catalog = await api('/v1/catalog');
-  const agent = catalog.agents.find(item => item.capabilities.includes('arm.gesture'));
+  const agent = catalog.agents.find(item => item.capabilities.includes('arm.motion') || item.capabilities.includes('arm.gesture'));
   if (!agent) throw new Error('机械臂 Agent 尚未上线');
   const created = await api('/v1/sessions', {request_id: requestId(), agent_id: agent.agent_id, shell_id: 'arm_demo'});
   for (let i = 0; i < 20; i++) {

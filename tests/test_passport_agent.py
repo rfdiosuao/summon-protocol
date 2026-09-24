@@ -6,7 +6,16 @@ import aiohttp
 from aiohttp import web
 from aiohttp.test_utils import TestServer
 from tests.test_gateway import GatewayIntegrationTests
-from hub.passport_agent import plan_and_execute,run
+from hub.passport_agent import plan_and_execute,run,parse_model_plan
+
+
+class ModelPlanParsingTests(unittest.TestCase):
+    def test_accepts_fenced_or_prefaced_json_without_moving_on_invalid_text(self):
+        self.assertEqual(parse_model_plan('```json\n{"reply":"ok"}\n```'), {'reply':'ok'})
+        self.assertEqual(parse_model_plan('计划如下： {"motion":null,"reply":"稍后"}'),
+                         {'motion':None,'reply':'稍后'})
+        with self.assertRaises(ValueError):
+            parse_model_plan('no JSON plan')
 
 
 class PassportAgentTests(unittest.IsolatedAsyncioTestCase):
@@ -46,6 +55,22 @@ class PassportAgentTests(unittest.IsolatedAsyncioTestCase):
         finally:
             task.cancel();await asyncio.gather(task,return_exceptions=True)
 
+    async def test_cross_device_agent_registers_one_identity_for_display_and_arm(self):
+        config=Path(self.tmp.name)/'cross-device-agent.json'
+        config.write_text(json.dumps({'hub_url':self.base,'enable_cross_device':True,
+            'enable_arm_planning':True,
+            'model':{'base_url':'http://127.0.0.1:1','name':'unused','api_key':'unused'}}))
+        credentials=Path(self.tmp.name)/'cross-device-credentials.json'
+        task=asyncio.create_task(run(config,credentials))
+        try:
+            await self.wait(lambda:credentials.exists())
+            identity=json.loads(credentials.read_text())
+            self.assertEqual(set(identity['agent']['capabilities']),
+                             {'display.text','arm.observe','arm.motion'})
+            await self.wait(lambda:self.app['hub'].agents[identity['agent']['agent_id']]['public']['status']=='ONLINE')
+        finally:
+            task.cancel();await asyncio.gather(task,return_exceptions=True)
+
     async def test_model_reply_uses_offer_capabilities_and_cloud_receipt(self):
         async def reply(request):
             self.assertEqual(request.headers['Authorization'],'Bearer model-test')
@@ -73,6 +98,28 @@ class PassportAgentTests(unittest.IsolatedAsyncioTestCase):
 
 
 class ArmPlannerTests(unittest.IsolatedAsyncioTestCase):
+    async def test_display_reply_carries_saved_preference_after_handoff(self):
+        async def model_reply(request):
+            body=await request.json()
+            self.assertIn('先用一句话解释',body['messages'][0]['content'])
+            self.assertIn('笔记本显示壳',body['messages'][0]['content'])
+            return web.json_response({'choices':[{'message':{'content':'{"reply":"这是简短介绍。"}'}}]})
+        server=TestServer(web.Application())
+        server.app.router.add_post('/chat/completions',model_reply)
+        await server.start_server()
+        calls=[]
+        async def execute(cap,args):
+            calls.append((cap,args))
+        try:
+            async with aiohttp.ClientSession() as http:
+                reply=await plan_and_execute(http,{'base_url':str(server.make_url('')).rstrip('/'),
+                    'name':'test','api_key':'test'},'介绍一下展品',['display.text'],execute,
+                    memory={'preferences':{'response_style':'brief'}})
+            self.assertEqual(reply,'这是简短介绍。')
+            self.assertEqual(calls,[])
+        finally:
+            await server.close()
+
     async def test_model_observes_body_before_generating_motion(self):
         replies = iter([
             '{"motion":{"intent":"向观众挥手","speed_dps":8,"waypoints":[{"J4":-4},{"J4":0}]},"reason":"当前手腕在-12度，向负方向摆动后返回"}',

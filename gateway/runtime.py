@@ -162,8 +162,9 @@ class Gateway:
         try:
             if not await asyncio.wait_for(self.adapter.stop(session),3):
                 raise RuntimeError('No local stop confirmation')
-        except Exception:
+        except Exception as exc:
             self.fault=True
+            LOG.warning('Gateway %s could not confirm local stop: %s',self.shell_id,exc)
             return False
         return True
 
@@ -230,6 +231,7 @@ class Gateway:
         while True:
             await asyncio.sleep(.1)
             if not self.adapter.healthy():
+                LOG.warning('Gateway %s adapter became unhealthy; stopping and reporting FAULT',self.shell_id)
                 self.fault=True
                 await self.stop()
                 try:

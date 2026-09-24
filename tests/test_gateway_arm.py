@@ -1,11 +1,14 @@
 """Offline Gateway-to-arm-console contract tests; no serial hardware is opened."""
 import asyncio
 import copy
+import json
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
+from jsonschema import Draft202012Validator
 
 from gateway.arm_console import ArmConsoleAdapter, MotionRejected
 
@@ -40,6 +43,20 @@ class FakeModel:
 
 
 class ConfigTests(unittest.TestCase):
+    def test_protocol_accepts_independently_paced_six_axis_motion(self):
+        schema = json.loads((Path(__file__).resolve().parents[1] / "protocol" /
+                             "summon.schema.json").read_text(encoding="utf-8"))
+        validator = Draft202012Validator({"$defs": schema["$defs"], "$ref": "#/$defs/Action"})
+        action = {"capability": "arm.motion", "args": {
+            "intent": "coordinated greeting",
+            "speed_dps": {f"J{axis}": (1 if axis in (2, 3) else 8)
+                          for axis in range(1, 7)},
+            "waypoints": [{f"J{axis}": (20 if axis == 5 else -2)
+                           for axis in range(1, 7)},
+                          {f"J{axis}": 0 for axis in range(1, 7)}],
+        }}
+        validator.validate(action)
+
     def test_requires_local_origin_and_verified_profiles(self):
         for change in ({"url": "http://remote.example:8870"},
                        {"physical_estop_confirmed": False},
@@ -101,6 +118,7 @@ class ArmGatewayTests(unittest.IsolatedAsyncioTestCase):
         app = web.Application()
         app.router.add_get("/api/state", self.read)
         app.router.add_post("/api/joints/targets", self.targets)
+        app.router.add_post("/api/joints/{joint_id}/target", self.single_target)
         app.router.add_post("/api/motion/stop", self.stop)
         self.client = TestClient(TestServer(app))
         await self.client.start_server()
@@ -135,6 +153,24 @@ class ArmGatewayTests(unittest.IsolatedAsyncioTestCase):
                 joint = self.state["joints"][int(raw_axis) - 1]
                 joint["actualDeg"] = target
                 joint["moving"] = False
+
+        self.delayed.append(asyncio.create_task(finish()))
+        return web.json_response(copy.deepcopy(self.state))
+
+    async def single_target(self, request):
+        payload = await request.json()
+        axis = request.match_info["joint_id"]
+        translated = {"targets": {axis: payload["degrees"]},
+                      "speedDps": payload["speedDps"]}
+        self.posts.append(translated)
+        joint = self.state["joints"][int(axis) - 1]
+        joint["targetDeg"] = payload["degrees"]
+        joint["moving"] = True
+
+        async def finish():
+            await asyncio.sleep(0.18)
+            joint["actualDeg"] = payload["degrees"]
+            joint["moving"] = False
 
         self.delayed.append(asyncio.create_task(finish()))
         return web.json_response(copy.deepcopy(self.state))
@@ -182,6 +218,13 @@ class ArmGatewayTests(unittest.IsolatedAsyncioTestCase):
         result = await self.adapter.execute({"action": {"capability": "arm.gesture", "args": {"name": "wave", "repeat": 1}}})
         self.assertEqual(result["evidence"], "controller_feedback")
 
+    async def test_idle_encoder_moving_bit_does_not_fault_gateway(self):
+        self.state["joints"][3]["moving"] = True
+        self.state["joints"][3]["velocityDps"] = -0.42
+        await self.adapter.open()
+        self.assertTrue(self.adapter.healthy())
+        self.assertTrue(await self.adapter.stop(None))
+
     async def test_stop_holds_and_confirms_measured_pose(self):
         await self.adapter.open()
         self.state["joints"][3]["moving"] = True
@@ -193,7 +236,9 @@ class ArmGatewayTests(unittest.IsolatedAsyncioTestCase):
     async def test_uncontrolled_axis_drift_aborts_before_next_waypoint(self):
         await self.adapter.open()
         async def drift():
-            await asyncio.sleep(0.1)
+            while not self.posts:
+                await asyncio.sleep(0.01)
+            await asyncio.sleep(0.08)
             self.state["joints"][4]["actualDeg"] += 0.8
         self.delayed.append(asyncio.create_task(drift()))
         with self.assertRaisesRegex(RuntimeError, "drifted"):
@@ -245,6 +290,23 @@ class ArmGatewayTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["evidence"], "controller_feedback")
         self.assertEqual(set(self.posts[0]["targets"]), {str(axis) for axis in range(1, 7)})
         self.assertEqual(len(self.posts), 2)
+
+    async def test_generated_motion_can_pace_all_six_axes_independently(self):
+        self.adapter.motion_bounds = {axis: (self.pose[axis] - 5, self.pose[axis] + 5)
+                                      for axis in range(1, 7)}
+        self.adapter.max_motion_speed_dps = 10
+        self.adapter.motion_axis_speed_caps_dps = {2: 1, 3: 1}
+        await self.adapter.open()
+        speeds = {f"J{axis}": (1 if axis in (2, 3) else 8) for axis in range(1, 7)}
+        outbound = {f"J{axis}": 1 for axis in range(1, 7)}
+        home = {f"J{axis}": 0 for axis in range(1, 7)}
+        result = await self.adapter.execute({"action": {"capability": "arm.motion", "args": {
+            "intent": "coordinated reach", "speed_dps": speeds,
+            "waypoints": [outbound, home]}}})
+        self.assertEqual(result["evidence"], "controller_feedback")
+        self.assertEqual(len(self.posts), 12)
+        self.assertEqual([item["speedDps"] for item in self.posts[:6]], [8, 1, 1, 8, 8, 8])
+        self.assertEqual(self.state["joints"][2]["actualDeg"], self.pose[3])
 
 
 if __name__ == "__main__":

@@ -250,6 +250,21 @@ class HardwareCommandTests(unittest.TestCase):
         self.assertGreater(mit_commands[-1][-1], -1.0)
         self.assertFalse(any(event[0] == "mode" for event in events))
 
+    def test_position_lead_is_axis_specific_during_fast_motion(self):
+        arm, _ = self.make_arm()
+        for axis, actual, target in ((2, -50.0, -20.0), (4, -10.0, 0.0)):
+            joint = arm.joints[axis]
+            joint.enabled = True
+            joint.status_code = 1
+            joint.actual_deg = actual
+            joint.commanded_deg = actual
+            joint.target_deg = target
+            joint.speed_dps = 25.0
+        arm._last_tick = time.monotonic() - 0.3
+        arm._tick()
+        self.assertAlmostEqual(arm.joints[2].commanded_deg, -46.0)
+        self.assertAlmostEqual(arm.joints[4].commanded_deg, -8.0)
+
     def test_j3_target_auto_enables_wrist_support(self):
         arm, events = self.make_arm()
         arm._gravity.available = True
@@ -446,7 +461,7 @@ class HardwareCommandTests(unittest.TestCase):
         arm._tick()
         self.assertIn("no position progress", elbow.fault)
         self.assertEqual(elbow.target_deg, elbow.actual_deg)
-        self.assertLessEqual(abs(math.degrees(next(event[1] for event in events if event[0] == "hold")) + 40.0), 2.0)
+        self.assertLessEqual(abs(math.degrees(next(event[1] for event in events if event[0] == "hold")) + 40.0), 4.0)
 
     def test_fault_hold_stays_at_captured_pose_when_feedback_drifts(self):
         arm, events = self.make_arm()
@@ -485,8 +500,8 @@ class HardwareCommandTests(unittest.TestCase):
             arm._last_tick = time.monotonic() - 0.02
             arm._tick()
         self.assertIsNone(elbow.fault)
-        self.assertLessEqual(abs(elbow.commanded_deg - elbow.actual_deg), 2.0)
-        self.assertTrue(all(math.degrees(event[1]) >= -42.0 for event in events if event[0] == "hold"))
+        self.assertLessEqual(abs(elbow.commanded_deg - elbow.actual_deg), 4.0)
+        self.assertTrue(all(math.degrees(event[1]) >= -44.0 for event in events if event[0] == "hold"))
 
     def test_software_stop_clear_does_not_reset_enabled_motor(self):
         arm, events = self.make_arm()

@@ -1070,7 +1070,24 @@
               "type": "object",
               "properties": {
                 "intent": {"type": "string", "minLength": 1, "maxLength": 120},
-                "speed_dps": {"type": "number", "minimum": 0.5, "maximum": 10},
+                "speed_dps": {
+                  "oneOf": [
+                    {"type": "number", "minimum": 0.5, "maximum": 10},
+                    {
+                      "type": "object",
+                      "properties": {
+                        "J1": {"type": "number", "minimum": 0.2, "maximum": 10},
+                        "J2": {"type": "number", "minimum": 0.2, "maximum": 10},
+                        "J3": {"type": "number", "minimum": 0.2, "maximum": 10},
+                        "J4": {"type": "number", "minimum": 0.2, "maximum": 10},
+                        "J5": {"type": "number", "minimum": 0.2, "maximum": 10},
+                        "J6": {"type": "number", "minimum": 0.2, "maximum": 10}
+                      },
+                      "minProperties": 1,
+                      "additionalProperties": false
+                    }
+                  ]
+                },
                 "waypoints": {
                   "type": "array",
                   "minItems": 2,
@@ -1078,12 +1095,12 @@
                   "items": {
                     "type": "object",
                     "properties": {
-                      "J1": {"type": "number", "minimum": -10, "maximum": 10},
-                      "J2": {"type": "number", "minimum": -10, "maximum": 10},
-                      "J3": {"type": "number", "minimum": -10, "maximum": 10},
-                      "J4": {"type": "number", "minimum": -10, "maximum": 10},
-                      "J5": {"type": "number", "minimum": -10, "maximum": 10},
-                      "J6": {"type": "number", "minimum": -10, "maximum": 10}
+                      "J1": {"type": "number", "minimum": -30, "maximum": 30},
+                      "J2": {"type": "number", "minimum": -30, "maximum": 30},
+                      "J3": {"type": "number", "minimum": -30, "maximum": 30},
+                      "J4": {"type": "number", "minimum": -30, "maximum": 30},
+                      "J5": {"type": "number", "minimum": -30, "maximum": 30},
+                      "J6": {"type": "number", "minimum": -30, "maximum": 30}
                     },
                     "minProperties": 1,
                     "additionalProperties": false

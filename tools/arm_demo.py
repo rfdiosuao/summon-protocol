@@ -20,6 +20,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from gateway.arm_console import ArmConsoleAdapter
+from gateway.adapters import TerminalAdapter
 from gateway.runtime import Gateway
 from hub.app import create_app
 from hub.passport_agent import run as run_agent
@@ -27,42 +28,68 @@ from hub.passport_agent import run as run_agent
 
 PROFILE = {"model": "Seeed reBot B601-DM", "firmware": "MotorBridge DM", "adapter_version": "arm-console-1"}
 SHELL_ID = "arm_demo"
+DISPLAY_SHELL_ID = "display_demo"
+DISPLAY_PROFILE = {"model": "SUMMON laptop display", "firmware": "terminal", "adapter_version": "terminal-1"}
 
 
-def private_secrets(folder: Path) -> dict[str, str]:
+class DemoDisplayAdapter(TerminalAdapter):
+    """Show the existing display.text result in both terminal and Hub receipts."""
+
+    async def execute(self, request: dict) -> dict:
+        result = await super().execute(request)
+        result["result"] = request["action"]["args"]["text"][:500]
+        return result
+
+
+def private_secrets(folder: Path, cross_device: bool = False) -> dict[str, str]:
     folder.mkdir(parents=True, exist_ok=True)
     path = folder / "secrets.json"
     if path.exists():
         value = json.loads(path.read_text(encoding="utf-8"))
-        if set(value) != {"gateway_token", "operator_code"}:
-            raise ValueError("Invalid existing demo secrets file")
+        expected = {"gateway_token", "operator_code", "display_token"} if cross_device else {"gateway_token", "operator_code"}
+        if set(value) != expected:
+            raise ValueError("Demo mode differs from this run directory; use a new private run directory")
         return value
     value = {"gateway_token": secrets.token_urlsafe(32), "operator_code": secrets.token_urlsafe(16)}
+    if cross_device:
+        value["display_token"] = secrets.token_urlsafe(32)
     descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
         json.dump(value, stream)
     return value
 
 
-async def serve(config_path: Path, run_dir: Path) -> None:
+async def serve(config_path: Path, run_dir: Path, cross_device: bool = False) -> None:
     config = json.loads(config_path.read_text(encoding="utf-8"))
     if not isinstance(config.get("model"), dict):
         raise ValueError("A configured real model is required; see tools/arm_demo.example.json")
     arm = ArmConsoleAdapter(config["adapter"])
     if config.get("origin", "http://127.0.0.1:8840") != "http://127.0.0.1:8840":
         raise ValueError("Local demo origin must stay on loopback; use deployed HTTPS Hub for remote access")
-    secrets_value = private_secrets(run_dir)
+    secrets_value = private_secrets(run_dir, cross_device)
+    gateway_tokens = {SHELL_ID: secrets_value["gateway_token"]}
+    shell_labels = {SHELL_ID: "B601-DM 机械臂"}
+    shell_policies = {SHELL_ID: {
+        "capabilities": arm.capabilities, "allowed_actions": arm.capabilities,
+        "identity_gates": ["web"], "stop_kind": "physical_estop", "gate": "whitelist",
+    }}
+    device_profiles = {SHELL_ID: PROFILE}
+    if cross_device:
+        gateway_tokens[DISPLAY_SHELL_ID] = secrets_value["display_token"]
+        shell_labels[DISPLAY_SHELL_ID] = "笔记本显示屏"
+        shell_policies[DISPLAY_SHELL_ID] = {
+            "capabilities": ["display.text"], "allowed_actions": ["display.text"],
+            "identity_gates": ["web"], "stop_kind": "local_disable", "gate": "whitelist",
+        }
+        device_profiles[DISPLAY_SHELL_ID] = DISPLAY_PROFILE
     hub_config = {
         "origin": "http://127.0.0.1:8840",
         "mode": "LIVE", "secure_cookie": False,
         "operator_codes": {secrets_value["operator_code"]: "demo_operator"},
-        "gateway_tokens": {SHELL_ID: secrets_value["gateway_token"]},
-        "shell_labels": {SHELL_ID: "B601-DM 机械臂"},
-        "shell_policies": {SHELL_ID: {
-            "capabilities": arm.capabilities, "allowed_actions": arm.capabilities,
-            "identity_gates": ["web"], "stop_kind": "physical_estop", "gate": "whitelist",
-        }},
-        "device_profiles": {SHELL_ID: PROFILE}, "demo_shell_ids": [],
+        "gateway_tokens": gateway_tokens,
+        "shell_labels": shell_labels,
+        "shell_policies": shell_policies,
+        "device_profiles": device_profiles, "demo_shell_ids": [],
     }
     hub = create_app(run_dir / "hub.db", hub_config)
 
@@ -106,7 +133,7 @@ async def serve(config_path: Path, run_dir: Path) -> None:
     runner = web.AppRunner(hub, access_log=None)
     await runner.setup()
     site = web.TCPSite(runner, "127.0.0.1", 8840)
-    gateway = None
+    gateways = []
     tasks: list[asyncio.Task] = []
     try:
         await site.start()
@@ -115,16 +142,24 @@ async def serve(config_path: Path, run_dir: Path) -> None:
             "database": str(run_dir / "gateway.db"), "mode": "LIVE", "enabled": True,
             "experience_upload": True, "profile": PROFILE,
         }
-        gateway = Gateway(gateway_config, secrets_value["gateway_token"], arm)
+        gateways.append(Gateway(gateway_config, secrets_value["gateway_token"], arm))
+        if cross_device:
+            display_config = dict(gateway_config, shell_id=DISPLAY_SHELL_ID,
+                                  database=str(run_dir / "display-gateway.db"), profile=DISPLAY_PROFILE)
+            gateways.append(Gateway(display_config, secrets_value["display_token"], DemoDisplayAdapter()))
         agent_config = {
             "hub_url": "http://127.0.0.1:8840", "name": "B601-DM 演示 Agent",
             "bio": "模型观察六轴姿态并规划现场边界内的短动作；网关确认实机反馈。",
-            "enable_arm_gestures": True, "model": config["model"],
+            "enable_arm_gestures": not cross_device, "enable_cross_device": cross_device,
+            "model": config["model"],
             "enable_arm_planning": bool(arm.motion_bounds),
             "motion_policy": {"absolute_joint_windows_deg":
                               {f"J{axis}": list(window) for axis, window in arm.motion_bounds.items()},
                               "max_speed_dps": arm.max_motion_speed_dps,
-                              "max_relative_offset_deg": 10,
+                              "axis_speed_caps_dps": {f"J{axis}": arm.motion_axis_speed_caps_dps.get(axis, arm.max_motion_speed_dps)
+                                                      for axis in arm.motion_bounds},
+                              "max_relative_offset_deg": arm.max_relative_offset_deg,
+                              "verified_clearance_floor_mm": arm.min_clearance_mm,
                               "must_return_to_start": True},
             "gesture_catalog": [
                 {"name": name, "description": profile["description"],
@@ -136,9 +171,11 @@ async def serve(config_path: Path, run_dir: Path) -> None:
             "conversation_log": str(run_dir / "decision-trace.jsonl"),
         }
         (run_dir / "agent.json").write_text(json.dumps(agent_config, ensure_ascii=False), encoding="utf-8")
-        tasks = [asyncio.create_task(gateway.run(), name="gateway"),
-                 asyncio.create_task(run_agent(run_dir / "agent.json", run_dir / "agent-credentials.json"), name="agent")]
+        tasks = [asyncio.create_task(gateway.run(), name=f"gateway-{gateway.shell_id}") for gateway in gateways]
+        tasks.append(asyncio.create_task(run_agent(run_dir / "agent.json", run_dir / "agent-credentials.json"), name="agent"))
         print("SUMMON LIVE arm demo: http://127.0.0.1:8840/demo", flush=True)
+        if cross_device:
+            print("SUMMON cross-device console: http://127.0.0.1:8840/assets/console.html", flush=True)
         print(f"Private operator access code: {run_dir / 'secrets.json'}", flush=True)
         print(f"Decision and device receipt log: {run_dir / 'decision-trace.jsonl'}", flush=True)
         print("Press Ctrl+C to stop. The arm must remain supported before disconnecting.", flush=True)
@@ -150,7 +187,7 @@ async def serve(config_path: Path, run_dir: Path) -> None:
             task.cancel()
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
-        if gateway is not None:
+        for gateway in gateways:
             gateway.close()
         await runner.cleanup()
 
@@ -159,9 +196,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, required=True, help="Private model and verified gesture configuration")
     parser.add_argument("--run-dir", type=Path, required=True, help="Private state directory outside the repository")
+    parser.add_argument("--cross-device", action="store_true", help="Add a display shell and one Agent that can hand off to the arm")
     args = parser.parse_args()
     try:
-        asyncio.run(serve(args.config.resolve(), args.run_dir.resolve()))
+        asyncio.run(serve(args.config.resolve(), args.run_dir.resolve(), args.cross_device))
     except KeyboardInterrupt:
         pass
     except Exception as exc:
