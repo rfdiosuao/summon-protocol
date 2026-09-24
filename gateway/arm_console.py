@@ -140,7 +140,7 @@ class ArmConsoleAdapter:
     async def open(self) -> None:
         self.http = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=2), trust_env=False)
         try:
-            self.safety = await asyncio.to_thread(ModelSafety)
+            self.safety = await asyncio.get_running_loop().run_in_executor(None, ModelSafety)
             state = await self._read(refresh=True)
             if not self._operational(state) or any(joint.get("moving") for joint in state["joints"][:6]):
                 raise RuntimeError("B601-DM is not connected, idle and fault-free")
@@ -221,7 +221,7 @@ class ArmConsoleAdapter:
         if estimated > 5.0:
             raise ValueError("Gesture exceeds the Gateway short-action budget")
         deadline = time.monotonic() + 8.0
-        await asyncio.to_thread(self._preview, start, steps, width)
+        await asyncio.get_running_loop().run_in_executor(None, self._preview, start, steps, width)
         state = await self._read(refresh=True)
         if (not self._operational(state) or any(joint.get("moving") for joint in state["joints"][:6])
                 or any(abs(self._angles(state)[axis] - start[axis]) > 0.25 for axis in range(1, 7))
