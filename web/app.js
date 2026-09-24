@@ -52,7 +52,21 @@ $('release').onclick=()=>action(async()=>{await api('/v1/sessions/'+session.sess
 $('handoff').onclick=()=>action(async()=>{const target=state.shells.find(s=>s.shell_id!==session.shell_id&&s.state==='IDLE'&&s.enabled);if(!target)throw new Error('没有就绪的目标设备');await api('/v1/sessions/'+session.session_id+'/handoff',{request_id:rid(),target_shell_id:target.shell_id});notice('正在停止旧设备，再接入 '+target.label)});
 $('refresh').onclick=()=>action(connect);$('agent').onchange=render;setInterval(lease,1000);
 fetch('/healthz').then(r=>r.json()).then(h=>{$('mode').textContent=h.mode;$('modeNote').textContent=h.mode==='SIMULATED'?'当前为模拟联调：响应来自规则程序，未连接大模型或实物。':'实时服务：实际能力以在线 Agent 和设备为准。'}).catch(()=>notice('无法连接服务器'));
-connect().catch(()=>{$('connection').textContent='等待登录';controls()});
+async function enterDemoLink(){
+  const fragment=new URLSearchParams(location.hash.slice(1));
+  const code=fragment.get('demo-access');
+  if(!code){connect().catch(()=>{$('connection').textContent='等待登录';controls()});return}
+  // The code is only in the fragment, so it is not sent in an HTTP URL or referrer.
+  // Remove it from browser history before making the normal operator login request.
+  history.replaceState(null,'',location.pathname+location.search);
+  try{
+    await api('/v1/operator-session',{access_code:code});
+    await connect();
+    $('console').scrollIntoView({block:'start'});
+    notice('演示控制台已登录：先连接笔记本显示屏，再交接到机械臂。');
+  }catch(e){$('connection').textContent='登录失败';$('login').scrollIntoView();notice(e.message)}
+}
+enterDemoLink();
 document.querySelector('nav a[href="#experience"]').addEventListener('click',e=>{if($('console').hidden){e.preventDefault();$('login').scrollIntoView();$('access').focus();notice('登录后查看你有权访问的设备经验')}});
 async function publicNetwork(){try{const r=await fetch('/v1/catalog');if(!r.ok)throw new Error();const data=await r.json();if(!state)renderNetwork(data)}catch{if(!state)$('networkCount').textContent='节点数据暂不可用'}}
 publicNetwork();setInterval(()=>{if(!state)publicNetwork()},15000);

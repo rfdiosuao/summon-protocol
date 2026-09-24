@@ -9,6 +9,7 @@
 <section id="login"><h2>进入控制台</h2><form id="loginForm"><label for="access">访问码</label><div class="row"><input id="access" type="password" required autocomplete="current-password" placeholder="输入团队访问码"><button>进入</button></div></form><p class="sub">访问码由部署者提供。不同访问码可对应独立访客，偏好不会混用。</p></section>
 <p id="notice" role="status" aria-live="polite"></p>
 <div id="console" hidden><div class="sectiontitle"><h2>连接与设备</h2><button id="refresh" class="secondary">刷新状态</button></div>
+<p class="sub">演示顺序：连接「笔记本显示屏」→ 输入一句话并发送 → 选择回答风格并保存偏好 → 点击「交接到另一台」→ 在「B601-DM 机械臂」继续对话。<a href="/demo">查看实机姿态与 Agent 决策记录</a>。</p>
 <div class="grid"><section><h3>选择 Agent</h3><select id="agent" aria-label="Agent"></select><p id="agentInfo" class="sub"></p><div id="shells"></div></section>
 <section><h3>当前会话</h3><p id="session">尚未连接设备</p><p id="lease" class="sub"></p><div class="row"><button id="release" class="secondary">释放设备</button><button id="handoff">交接到另一台</button></div><hr><form id="inputForm"><label for="input">继续这段对话</label><textarea id="input" rows="3" maxlength="2000" placeholder="例如：介绍一下这个展品" required></textarea><button id="send">发送</button></form><hr><label for="preference">下次回答的风格</label><div class="row"><select id="preference"><option value="brief">先用一句话解释</option><option value="detailed">详细说明</option></select><button id="remember">保存偏好</button></div><p id="memory" class="sub">偏好保存后，交接到下一台设备仍然有效。</p></section></div>
 <section><div class="sectiontitle"><h2>设备输出</h2><span id="resultStatus"></span></div><pre id="output">连接设备后，在上方输入一个问题。</pre></section>
