@@ -195,6 +195,57 @@ class ArmGatewayTests(unittest.IsolatedAsyncioTestCase):
             await self.adapter.execute({"action": {"capability": "arm.gesture", "args": {"name": "wave", "repeat": 1}}})
         self.assertEqual(self.posts, [])
 
+    async def test_supported_folded_pose_prepares_in_verified_stages(self):
+        for axis, angle in ((2, 0.2), (3, -0.4), (4, -0.5)):
+            self.state["joints"][axis - 1]["actualDeg"] = angle
+            self.state["joints"][axis - 1]["targetDeg"] = angle
+        await self.adapter.open()
+        result = await self.adapter.prepare_demo_pose()
+        self.assertTrue(result["ready"])
+        self.assertEqual(result["evidence"], "controller_feedback")
+        self.assertEqual([post["targets"] for post in self.posts],
+                         [{"3": -6.0}, {"3": -10.0}, {"2": -17.0}, {"4": -3.5}])
+        self.assertFalse(self.adapter.in_motion)
+
+    async def test_startup_collision_rejects_before_enabling_or_moving(self):
+        for axis, angle in ((2, 0.2), (3, -0.4), (4, -0.5)):
+            self.state["joints"][axis - 1]["actualDeg"] = angle
+            self.state["joints"][axis - 1]["targetDeg"] = angle
+        await self.adapter.open()
+        self.model.blocked = True
+        with self.assertRaises(MotionRejected):
+            await self.adapter.prepare_demo_pose()
+        self.assertEqual(self.posts, [])
+
+    async def test_partly_raised_pose_finishes_shoulder_then_wrist_roll(self):
+        for axis, angle in ((2, -15.7), (3, -21.8), (4, -3.5), (6, -8.7)):
+            self.state["joints"][axis - 1]["actualDeg"] = angle
+            self.state["joints"][axis - 1]["targetDeg"] = angle
+        await self.adapter.open()
+        result = await self.adapter.prepare_demo_pose()
+        self.assertTrue(result["ready"])
+        self.assertEqual([post["targets"] for post in self.posts],
+                         [{"2": -17.0}, {"6": -2.0}])
+
+    async def test_startup_blocks_concurrent_agent_motion_during_preflight(self):
+        entered, finish = asyncio.Event(), asyncio.Event()
+
+        async def pending():
+            entered.set()
+            await finish.wait()
+            return {"ready": True}
+
+        with patch.object(self.adapter, "_prepare_demo_pose", side_effect=pending):
+            first = asyncio.create_task(self.adapter.prepare_demo_pose())
+            await entered.wait()
+            with self.assertRaisesRegex(RuntimeError, "busy"):
+                await self.adapter.prepare_demo_pose()
+            with self.assertRaisesRegex(RuntimeError, "supervised motion"):
+                await self.adapter.execute({"action": {"capability": "arm.observe", "args": {}}})
+            finish.set()
+            self.assertTrue((await first)["ready"])
+        self.assertFalse(self.adapter.in_motion)
+
     async def test_low_clearance_also_rejects_before_motor_write(self):
         await self.adapter.open()
         self.model.clearance = 5

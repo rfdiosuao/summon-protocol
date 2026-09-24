@@ -20,6 +20,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from gateway.arm_console import ArmConsoleAdapter
+from gateway.errors import MotionRejected
 from gateway.adapters import TerminalAdapter
 from gateway.runtime import Gateway
 from hub.app import create_app
@@ -127,9 +128,26 @@ async def serve(config_path: Path, run_dir: Path, cross_device: bool = False) ->
                         pass
         return web.json_response({"items": items})
 
+    async def demo_prepare(request: web.Request) -> web.Response:
+        hub["hub"].operator(request)
+        if request.remote not in ("127.0.0.1", "::1"):
+            raise web.HTTPForbidden(reason="Startup is available on the local operator console only")
+        body = await request.json()
+        if body.get("confirmSupported") is not True:
+            raise web.HTTPBadRequest(reason="Confirm physical support and emergency stop before startup")
+        if any(session["shell_id"] == SHELL_ID and session["state"] in
+               ("ACTIVE", "CONNECTING", "RELEASING")
+               for session in hub["hub"].sessions.values()):
+            raise web.HTTPConflict(reason="Release the arm session before startup")
+        try:
+            return web.json_response(await arm.prepare_demo_pose())
+        except (MotionRejected, RuntimeError) as exc:
+            return web.json_response({"error": {"code": "STARTUP_STOPPED", "message": str(exc)}}, status=409)
+
     hub.router.add_get("/demo", demo_page)
     hub.router.add_get("/demo/status", demo_status)
     hub.router.add_get("/demo/trace", demo_trace)
+    hub.router.add_post("/demo/prepare", demo_prepare)
     runner = web.AppRunner(hub, access_log=None)
     await runner.setup()
     site = web.TCPSite(runner, "127.0.0.1", 8840)

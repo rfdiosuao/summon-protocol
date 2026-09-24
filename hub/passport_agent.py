@@ -79,6 +79,7 @@ Gateway 会独立检查模型碰撞、现场预设和电机反馈。收到真实
     windows=(motion_policy or {}).get('absolute_joint_windows_deg',{})
     if 'arm.motion' in capabilities and {'J1','J4','J5'}.issubset(windows):
         prompt+='\n用户要求明显、有表达力的动作时，可组合开放的六轴；若明确要求六轴协同，应让六轴都在首个路点产生非零运动，J2/J3 承重，速度须遵守各轴上限。当前某轴位于绝对窗口下界时，可以朝窗口上界移动，反之亦然。J1 转向、J4 抬腕和 J5 摆腕提供主要可见幅度，J6 可辅助。大幅动作优先用 2 个路点形成摆动和回位，避免多个路点耗尽执行时间。观测中的约 1.5 mm 模型净空是当前官方网格的静态基线；只要仍高于现场已验证阈值，不能仅因这个基线把整段动作缩成不可见幅度。Gateway 还会独立精确预检每一段。'
+        prompt+='\n一次动作含摆出和回位，总预计时间必须小于 6 秒。估算时 J1/J2/J3/J6 有效速度最多 3°/s，J4/J5 最多 10°/s；因此若需六轴协同，肩肘单程约 1–3°、底座约 4–7°、腕俯仰约 3–6°、腕偏航约 8–15°、腕旋转约 1–3°，再回到起点。根据实际姿态调整方向与幅度，不要照抄固定路点。'
     backend_label='EvoX' if model.get('backend')=='evox' else '云端 Agent'
     messages=[{'role':'system','content':prompt},{'role':'user','content':text}]
     deadline=time.monotonic()+budget

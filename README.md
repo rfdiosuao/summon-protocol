@@ -26,6 +26,8 @@ SUMMON 探索一种跨设备的 Agent 体验：让运行在远端的智能体接
 
 笔记本现在可用 `python tools/arm_demo.py --config <私有配置> --run-dir <私有目录> --cross-device` 启动一套本地 LIVE Hub、显示壳、B601-DM Gateway 和同一个模型 Agent。演示可先在显示壳讲解并保存偏好，再交接到机械臂壳；Agent 先读实机姿态，再提出现场开放窗口内的六轴相对路点和各轴独立速度，Gateway 负责模型边界、角度、速度和实测回执校验。显示、记忆和交接已在本地 LIVE 链路验证；公网网站仍使用 SIMULATED 环境，须单独配置云端 Hub 权限。具体步骤见 [实机演示](docs/ARM-LIVE-DEMO.md)。
 
+本机演示入口为 `http://127.0.0.1:8840/assets/console.html?demo=1`。页面直接显示用户请求、DeepSeek 回复与设备回执；首条消息会连接显示屏，保存偏好后可交接到机械臂。现场已用模型自拟的六轴往返路点完成实机招手，并收到 `controller_feedback` 的 `COMPLETED` 回执。折叠姿态可由本机操作员在确认支撑与急停后使用页面的「分段抬臂」进入已验证的演示角度窗口。
+
 ### 2026-09-22 · Passport 语音控制机械臂
 
 已完成从 **对 Passport 说话** 到 **现场 B601-DM 机械臂执行动作** 的联调：Passport 将语音送入云端，Agent 在授权会话中选择预设手势，SUMMON Hub 把 `arm.gesture` 下发给现场笔记本的 Gateway；本机 Arm Console 通过 MotorBridge 控制机械臂，并将执行回执送回。

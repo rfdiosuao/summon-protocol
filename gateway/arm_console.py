@@ -293,6 +293,10 @@ class ArmConsoleAdapter:
             state = await self._read()
             if not self._operational(state):
                 raise RuntimeError("Arm feedback became stale or faulted during motion")
+            if any(float(state["joints"][axis - 1].get("stressRatio", 0)) > 0.75 or
+                   float(state["joints"][axis - 1].get("rotorTempC", 0)) >= 65
+                   for axis in (2, 3, 4)):
+                raise RuntimeError("Arm load or temperature exceeded the supervised motion limit")
             angles = self._angles(state)
             if any(abs(angles[axis] - start[axis]) > 0.5 for axis in range(1, 7) if axis not in axes):
                 raise RuntimeError("An uncontrolled arm axis drifted during the gesture")
@@ -360,6 +364,8 @@ class ArmConsoleAdapter:
         return profile
 
     async def execute(self, request: dict) -> dict:
+        if self.in_motion:
+            raise RuntimeError("Arm is already performing a supervised motion")
         action = request["action"]
         capability = action["capability"]
         if capability == "arm.observe" and self.motion_bounds:
@@ -429,6 +435,101 @@ class ArmConsoleAdapter:
                 await self._wait_target(target, profile["axes"], start, deadline)
             return {"evidence": "controller_feedback",
                     "result": f"B601-DM confirmed {name} ({repeat} repetition(s)) at measured joint positions."}
+        finally:
+            self.in_motion = False
+            self.expected_targets = {}
+
+    async def prepare_demo_pose(self) -> dict:
+        """Supervised, operator-only transition from the supported folded pose.
+
+        This is intentionally separate from model-generated gestures: a gesture
+        must return to its measured start pose, whereas startup must remain up.
+        """
+        if self.in_motion:
+            raise RuntimeError("Arm adapter is busy")
+        # Set before the first await so a concurrent Agent action cannot race
+        # the trajectory preflight or a second operator request.
+        self.in_motion = True
+        try:
+            return await self._prepare_demo_pose()
+        finally:
+            self.in_motion = False
+            self.expected_targets = {}
+
+    async def _prepare_demo_pose(self) -> dict:
+        if self.http is None or self.safety is None:
+            raise RuntimeError("Arm adapter is busy or unavailable")
+        state = await self._read(refresh=True)
+        if not self._operational(state) or self._commanded_motion(state):
+            raise RuntimeError("Arm feedback is stale, faulted or moving")
+        start = self._angles(state)
+        if (start[3] <= -10 and start[2] <= -16 and
+                -12 <= start[4] <= -3 and -3 <= start[6] <= 3):
+            return {"ready": True, "already_ready": True, "joints_deg": start,
+                    "evidence": "controller_feedback"}
+        if not (-2 <= start[2] <= 1 and -2 <= start[3] <= 1 and -2 <= start[4] <= 2) and not (
+                -70 <= start[3] <= -5 and -20 <= start[2] <= 1 and
+                -30 <= start[4] <= 30 and -30 <= start[6] <= 30):
+            raise MotionRejected("Startup requires a supported folded or partly raised pose")
+        if any(joint.get("fault") for joint in state["joints"][:6]):
+            raise RuntimeError("An axis reports a fault")
+        width = float(state["gripper"]["widthMm"])
+        stages = []
+        if start[3] > -5:
+            stages.append((3, -6.0, 1.5))
+        if start[3] > -10:
+            stages.append((3, -10.0, 1.5))
+        # A wrist folded far forward is returned to the short-action window
+        # before the shoulder takes load. For the normal folded pose, J2 goes
+        # first after the elbow clears its stop.
+        if start[4] > 6:
+            stages.append((4, -3.5, 2.0))
+        if start[2] > -16.5:
+            stages.append((2, -17.0, 2.0))
+        if start[4] > -3 and start[4] <= 6:
+            stages.append((4, -3.5, 2.0))
+        if start[4] < -12:
+            stages.append((4, -11.0, 2.0))
+        if not -3 <= start[6] <= 3:
+            stages.append((6, -2.0, 2.0))
+        predicted = dict(start)
+        # Check every stage before enabling a motor.
+        for axis, target, _speed in stages:
+            checked_target(axis, target, hardware=True)
+            destination = dict(predicted)
+            destination[axis] = target
+            report = await asyncio.get_running_loop().run_in_executor(
+                None, self.safety.trajectory, predicted, destination, width)
+            if not report["safe"] or report["closest"]["clearanceMm"] < self.min_clearance_mm:
+                raise MotionRejected("Startup crosses the configured model boundary")
+            predicted = destination
+        try:
+            for axis, target, speed in stages:
+                state = await self._read(refresh=True)
+                if not self._operational(state):
+                    raise RuntimeError("Arm feedback lost during startup")
+                origin = self._angles(state)
+                self.expected_targets = {}
+                state = await self._json(f"/api/joints/{axis}/target", {
+                    "degrees": target, "speedDps": speed, "autoEnable": True})
+                self.state = state
+                self.last_poll = time.monotonic()
+                self.expected_targets = {axis: target}
+                destination = dict(origin)
+                destination[axis] = target
+                duration = abs(target - origin[axis]) / speed
+                await self._wait_target(destination, [axis], origin,
+                                        time.monotonic() + max(12, duration + 8))
+            final = await self._read(refresh=True)
+            return {"ready": True, "already_ready": False,
+                    "joints_deg": self._angles(final),
+                    "evidence": "controller_feedback"}
+        except BaseException:
+            try:
+                await self._json("/api/motion/stop", {})
+            except Exception:
+                LOG.exception("Failed to stop arm after startup error")
+            raise
         finally:
             self.in_motion = False
             self.expected_targets = {}
