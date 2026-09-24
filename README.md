@@ -22,7 +22,7 @@ SUMMON 探索一种跨设备的 Agent 体验：让运行在远端的智能体接
 
 ## 重大更新
 
-### 2026-09-24 · Passport 语音控制机械臂
+### 2026-09-22 · Passport 语音控制机械臂
 
 已完成从 **对 Passport 说话** 到 **现场 B601-DM 机械臂执行动作** 的联调：Passport 将语音送入云端，Agent 在授权会话中选择预设手势，SUMMON Hub 把 `arm.gesture` 下发给现场笔记本的 Gateway；本机 Arm Console 通过 MotorBridge 控制机械臂，并将执行回执送回。
 
