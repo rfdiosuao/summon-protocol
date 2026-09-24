@@ -17,12 +17,31 @@ flowchart LR
   E -->|账号与设备版本隔离检索| A
   G --> T[终端显示适配器]
   G --> S[USB 串口 BridgeMessage 适配器]
-  G -. 本地适配接口 .-> V[厂商 SDK / 蓝牙 / CAN]
+  G --> C[B601-DM 机械臂控制台本机 API]
+  C --> R[MotorBridge / USB / 机械臂]
+  G -. 本地适配接口 .-> V[其他厂商 SDK / 蓝牙 / CAN]
 ```
 
 已经实现：终端 display.text、串口显示桥、租约/序号/截止时间校验、执行前持久化去重、断线停止、恢复不重放、结果补传和云端保存确认。终端完成表示本地输出写入并 flush；串口完成必须有匹配 command_id 的 device.result。两者都不是机械臂抓取成功证明。
 
-厂商机械臂 SDK、通用蓝牙驱动、NFC 读卡和固件烧录不在本次现成适配器范围内。新增驱动实现 open/healthy/execute/stop/close，并声明 capabilities 与 stop_kind；驱动代码只在本地安装，普通硬件动作不接受模块名、shell 命令或原始电机帧。执行 PowerShell 必须走单独授权的 command.exec。运动适配器另需经过物理停止验收，不能套用显示适配器的 stop。
+B601-DM 已有 `arm-console` Gateway 适配器；通用蓝牙驱动、NFC 读卡和固件烧录仍需另行适配。新增驱动实现 open/healthy/execute/stop/close，并声明 capabilities 与 stop_kind；普通硬件动作不接受模块名、shell 命令或原始电机帧。执行 PowerShell 必须走单独授权的 command.exec。运动适配器必须先经过现场物理停止验收。
+
+## 笔记本作为 B601-DM Gateway
+
+**拓扑：远端设备上的 Agent／Ghost Adapter ↔ Hub ↔ 本笔记本 Gateway ↔ 本机 Arm Console ↔ USB 机械臂。** Gateway 和 Agent 都主动连接 Hub；远端设备不直连笔记本的控制台端口，也不持有串口或 Gateway token。Hub 负责会话、授权、能力交集和回执转发。每个 `shell_id` 是一具逻辑壳；同一笔记本要同时接其他设备时，为每具壳另起 Gateway 实例、独立 token 和数据库。
+
+适配器只接受协议内 `arm.gesture` 的 `nod`、`wave`、`point_left`、`point_center`、`point_right`，且必须在**笔记本本地配置**对应的短小相对角度预设；远端 Agent 不能传任意电机角度、速度或串口帧。每个预设 2–4 个路点，末点回到起始角，单轴偏移不超过 10°、速度 0.5–10°/s、预估整段不超过 5 秒。执行前读取真实关节角，以仓库 DM URDF/STL 按每不超过 1° 检查整段自碰撞与桌面边界；远端动作遇模型重合、触桌或 20 mm 内净空预警均拒绝。随后重新读取实机姿态确认未漂移，按路点下发，并等待真实角度、运动状态和目标值回执。失败、断线或租约撤销时调用控制台的停止并保持命令，且必须确认姿态稳定才向 Hub 回停止成功。机械臂断开、仿真、反馈过期或故障时拒绝上线。
+
+`gateway/arm-example.json` 是**不可直接启动的模板**：`physical_estop_confirmed` 和 `motion_profiles_verified` 默认都是 `false`。示例 `wave` 角度只是格式说明，不代表现场验证过的动作。先在现场固定底座、清空工作空间、验收物理急停，再在本地控制台逐段验证每个预设，确认承重/支撑状态、模型外障碍和电机反馈；完成后才改为 `true`。Gateway 的 `stop_kind=physical_estop` 表示现场必须具备且验收过物理急停；程序本身只发软件停并保持，不能触发物理急停。J2/J3 需要 J4 支撑、J6 需要 J2/J3 起身等联锁由控制台驱动执行。模型几何检查不能识别人员、线缆或外部支撑。
+
+笔记本部署步骤：
+
+1. 使用含 `numpy`、`pinocchio`、`motorbridge` 的现场 Python 环境安装 `gateway/requirements.txt`；控制台部署步骤见 [`arm-console/README.md`](../arm-console/README.md#启动)。在 `arm-console/` 工作目录启动 `python -m backend.app --allow-hardware`，再在本机控制台**人工**连接正确串口。Gateway 不会自动打开串口；本机控制台不要开放到公网。
+2. 复制 `gateway/arm-example.json` 到私有目录，填 Hub URL、由部署者分配的专用 `shell_id`、`mode`、`profile` 和已现场验证的短动作。`mode=LIVE` 需要 Hub 同为 LIVE；不要和 SIMULATED 实例共用壳身份。把专用 Gateway token 放入 `SUMMON_GATEWAY_TOKEN` 环境变量，运行 `python -m gateway --config <私有配置路径> --tui`。使用哪个 Python 启动 Gateway，就必须在该环境内具备模型依赖。
+3. Hub 部署者给该 `shell_id` 单独登记 token 与 profile，并设置 `shell_policies`：`capabilities`、`allowed_actions` 均为 `["arm.gesture"]`，`stop_kind` 为 `physical_estop`，按授权方式设置 `identity_gates`/`gate`。这些值必须与本地 Gateway 配置匹配；不要把 token 放进仓库。当前公开仓库的默认显示壳策略不会自动变成机械臂权限。
+4. 远端模型 Agent 注册时声明 `arm.gesture`，在授权的会话中发 `action.request`，例如 `{"capability":"arm.gesture","args":{"name":"wave","repeat":1}}`。现有 `hub.passport_agent` 可通过私有配置 `"enable_arm_gestures": true` 加上已配置的 `model` 注册为新的机械臂 Agent；它默认只声明 `display.text` 和 `arm.gesture`，不同时获得浏览器/命令执行能力。已有不带此能力的 Agent 身份不能原地扩大权限，需另建 Agent 身份及凭证。模型只选预设手势，Gateway 仍做独立校验。若会话壳只提供机械臂，Agent 不向该壳发送 `display.text`；文本反馈在远端 Agent 自己的界面处理。
+
+机械臂未连接时，第 2 步的 Gateway 启动会拒绝进入 READY；这表明上线条件没有满足。单元测试使用本机假控制台，不会打开 COM 端口。运行 `python -m unittest tests.test_gateway_arm.ArmGatewayTests tests.test_gateway_arm.ConfigTests tests.test_passport_agent.ArmPlannerTests -v` 可验证预设限制、模型阻止写入、实测回执与停止。
 
 ## 经验上传声明
 

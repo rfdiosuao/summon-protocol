@@ -2,10 +2,11 @@ import asyncio
 import json
 from pathlib import Path
 import unittest
+import aiohttp
 from aiohttp import web
 from aiohttp.test_utils import TestServer
 from tests.test_gateway import GatewayIntegrationTests
-from hub.passport_agent import run
+from hub.passport_agent import plan_and_execute,run
 
 
 class PassportAgentTests(unittest.IsolatedAsyncioTestCase):
@@ -28,6 +29,20 @@ class PassportAgentTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(response.status,200)
             self.assertEqual((await response.json())['agent']['agent_id'],aid)
             self.assertFalse(credentials.with_name(credentials.name+'.registration').exists())
+        finally:
+            task.cancel();await asyncio.gather(task,return_exceptions=True)
+
+    async def test_model_agent_may_opt_in_to_arm_gesture_at_registration(self):
+        config=Path(self.tmp.name)/'arm-agent.json'
+        config.write_text(json.dumps({'hub_url':self.base,'enable_arm_gestures':True,
+            'model':{'base_url':'http://127.0.0.1:1','name':'unused','api_key':'unused'}}))
+        credentials=Path(self.tmp.name)/'arm-agent-credentials.json'
+        task=asyncio.create_task(run(config,credentials))
+        try:
+            await self.wait(lambda:credentials.exists())
+            identity=json.loads(credentials.read_text())
+            self.assertIn('arm.gesture',identity['agent']['capabilities'])
+            await self.wait(lambda:self.app['hub'].agents[identity['agent']['agent_id']]['public']['status']=='ONLINE')
         finally:
             task.cancel();await asyncio.gather(task,return_exceptions=True)
 
@@ -55,3 +70,26 @@ class PassportAgentTests(unittest.IsolatedAsyncioTestCase):
             await self.wait(lambda:bool(self.app['hub'].gateway_receipts))
         finally:
             agent.cancel();await asyncio.gather(agent,return_exceptions=True);await modelserver.close()
+
+
+class ArmPlannerTests(unittest.IsolatedAsyncioTestCase):
+    async def test_model_uses_only_offered_gesture_and_waits_for_receipt(self):
+        replies=iter(['{"gesture":{"name":"wave","repeat":1},"reply":""}',
+                      '{"reply":"机械臂已完成招手。"}'])
+        async def model_reply(request):
+            return web.json_response({'choices':[{'message':{'content':next(replies)}}]})
+        server=TestServer(web.Application())
+        server.app.router.add_post('/chat/completions',model_reply)
+        await server.start_server()
+        calls=[]
+        async def execute(cap,args):
+            calls.append((cap,args))
+            return {'status':'COMPLETED','evidence':'controller_feedback'}
+        try:
+            async with aiohttp.ClientSession() as http:
+                reply=await plan_and_execute(http,{'base_url':str(server.make_url('')).rstrip('/'),
+                    'name':'test','api_key':'test'},'请机械臂招手',['arm.gesture'],execute)
+            self.assertEqual(calls,[('arm.gesture',{'name':'wave','repeat':1})])
+            self.assertEqual(reply,'机械臂已完成招手。')
+        finally:
+            await server.close()

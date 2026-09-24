@@ -25,7 +25,7 @@ async def plan_and_execute(http, model, text, capabilities, execute, budget=38, 
     """Bounded observe/act loop. Tool results are data, never new authorization."""
     prompt='''你是用户的 Windows 电脑操作 Agent，通过 SUMMON 的已授权客户端操作。
 用户可以要求运行任意普通 PowerShell 命令、打开已安装软件、查询系统和处理文件；没有固定口令列表。
-每次只返回一个 JSON 对象：{"reply":"简短说明","command":null,"url":null}。
+每次只返回一个 JSON 对象：{"reply":"简短说明","command":null,"url":null,"gesture":null}。
 需要操作时在 command 中返回 PowerShell 命令（最多1000字符），等待实际回执后决定下一步；不需要更多工具时 command/url 都为 null。
 最多4次工具调用；单条命令8秒超时，stdout/stderr各最多500字符。不要把长任务放在一条命令里。
 打开应用先用 Get-StartApps 按用户提供的名字筛选 Name,AppID。不得猜测安装路径。
@@ -39,6 +39,7 @@ Start-Process explorer.exe -ArgumentList 'shell:AppsFolder\\实际AppID'; Start-
 如果用户明确要求的动作缺少关键目标信息，询问缺失项。不要声称已经完成尚未执行或没有证据的动作。
 失败时可根据 stderr 修正不同的命令；UNKNOWN 表示结果不明，停止，不重复执行。
 最终 reply 必须依据回执，区分已请求启动、进程已出现和窗口已确认；中文不超过120字。
+如果可用能力包含 arm.gesture，用户明确要求机械臂做预设手势时可返回 gesture 对象：{"name":"wave","repeat":1}；name 只能是 nod、wave、point_left、point_center、point_right，repeat 为 1～3。不要输出电机角度或自定义轨迹。只有真实动作完成回执才能说已完成。没有 arm.gesture 时 gesture 必须为 null。
 普通聊天可以直接 reply。可用能力：'''+','.join(capabilities)
     backend_label='EvoX' if model.get('backend')=='evox' else '云端 Agent'
     messages=[{'role':'system','content':prompt},{'role':'user','content':text}]
@@ -59,14 +60,18 @@ Start-Process explorer.exe -ArgumentList 'shell:AppsFolder\\实际AppID'; Start-
                 content=(await r.json())['choices'][0]['message']['content']
         plan=json.loads(re.sub(r'^```(?:json)?\s*|\s*```$','',content.strip()))
         if not isinstance(plan,dict):raise ValueError('Invalid model plan')
-        command,url=plan.get('command'),plan.get('url')
-        if command and url:raise ValueError('Only one action per step')
-        if not command and not url:
+        command,url,gesture=plan.get('command'),plan.get('url'),plan.get('gesture')
+        if sum(value is not None for value in (command,url,gesture))>1:raise ValueError('Only one action per step')
+        if command is None and url is None and gesture is None:
             reply=str(plan.get('reply') or '已收到。')[:350]
             if on_event:on_event('agent',reply)
             return reply
         if step==4 or deadline-time.monotonic()<3:break
-        if command:
+        if gesture is not None:
+            if not isinstance(gesture,dict) or set(gesture)!={'name','repeat'} or gesture['name'] not in ('nod','wave','point_left','point_center','point_right') or type(gesture['repeat']) is not int or not 1<=gesture['repeat']<=3:
+                raise ValueError('Invalid arm gesture')
+            cap,args='arm.gesture',gesture
+        elif command:
             if not isinstance(command,str) or not 1<=len(command)<=1000:raise ValueError('Invalid model command')
             cap,args='command.exec',{'command':command}
         else:cap,args='browser.open',{'url':url}
@@ -97,9 +102,13 @@ async def run(config_path,credentials_path):
                 registration_id='reg_'+secrets.token_hex(16)
                 fd=os.open(pending,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
                 with os.fdopen(fd,'w',encoding='ascii') as f:f.write(registration_id)
+            # RegisterAgent permits at most three capabilities. A new opt-in
+            # arm identity gets only the output and gesture tools by default.
+            capabilities=(['display.text','arm.gesture'] if cfg.get('enable_arm_gestures') is True and cfg.get('model')
+                          else ['display.text','browser.open','command.exec'])
             body={'request_id':registration_id,'name':cfg.get('name','唤名 · Passport 语音 Agent'),
                   'bio':cfg.get('bio','Passport 语音入口；未配置模型时仅支持公开列出的有限指令。'),
-                  'capabilities':['display.text','browser.open','command.exec']}
+                  'capabilities':capabilities}
             async with http.post(base+'/v1/agents',json=body) as r:
                 if r.status!=201:raise RuntimeError('Registration HTTP '+str(r.status))
                 registered=await r.json()
@@ -107,6 +116,8 @@ async def run(config_path,credentials_path):
             with os.fdopen(fd,'w') as f:json.dump(registered,f)
             pending.unlink(missing_ok=True)
         auth={'Authorization':'Bearer '+registered['agent_token']}
+        if cfg.get('enable_arm_gestures') is True and 'arm.gesture' not in registered['agent']['capabilities']:
+            raise RuntimeError('Existing Agent identity lacks arm.gesture; use a new credential file and Agent identity')
         async with http.get(base+'/v1/agents/me/nameplate',headers=auth) as r:
             r.raise_for_status();plate=await r.json()
             if plate['agent']['agent_id']!=registered['agent']['agent_id']:raise RuntimeError('Identity mismatch')
@@ -154,7 +165,8 @@ async def run(config_path,credentials_path):
                                     reply='电脑执行完成。'+outcome.get('execution',{}).get('stdout','')[:250] if outcome['status']=='COMPLETED' else '电脑执行失败，请查看日志。'
                                     record(journal,'agent',reply)
                             if cfg.get('model') is None:record(journal,'agent',reply or '已收到。')
-                            await action(s,p['input_id'],'display.text',{'text':reply or '已收到。'})
+                            if 'display.text' in s['permitted_capabilities']:
+                                await action(s,p['input_id'],'display.text',{'text':reply or '已收到。'})
                             if s.get('active'):await send('input.finished',{'session_id':s['session_id'],'input_id':p['input_id'],'status':'COMPLETED'})
                         except asyncio.CancelledError:raise
                         except Exception as exc:

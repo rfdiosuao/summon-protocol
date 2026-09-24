@@ -38,8 +38,11 @@ def main():
             schema=json.loads((ROOT/'protocol/summon.schema.json').read_text(encoding='utf-8'))
             validator=Draft202012Validator({'$defs':schema['$defs'],'$ref':'#/$defs/BridgeMessage'},format_checker=FormatChecker())
             adapter=SerialDisplayAdapter(dict(cfg['adapter'],shell_id=cfg['shell_id']),validator)
+        elif kind=='arm-console':
+            from gateway.arm_console import ArmConsoleAdapter
+            adapter=ArmConsoleAdapter(cfg['adapter'])
         else:
-            raise ValueError('Unknown adapter; implemented kinds: terminal, desktop, serial-display')
+            raise ValueError('Unknown adapter; implemented kinds: terminal, desktop, serial-display, arm-console')
         gateway=Gateway(cfg,token,adapter)
     except (KeyError,OSError,ValueError,TypeError) as exc:
         parser.error(str(exc))

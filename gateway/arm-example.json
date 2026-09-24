@@ -1,0 +1,19 @@
+{
+  "hub_url": "https://summon.entermodetwo.com",
+  "shell_id": "your_arm_shell_id",
+  "token_env": "SUMMON_GATEWAY_TOKEN",
+  "mode": "LIVE",
+  "database": "arm-gateway-state.db",
+  "enabled": true,
+  "experience_upload": true,
+  "profile": {"model": "Seeed reBot B601-DM", "firmware": "MotorBridge DM", "adapter_version": "arm-console-1"},
+  "adapter": {
+    "kind": "arm-console",
+    "url": "http://127.0.0.1:8870",
+    "physical_estop_confirmed": false,
+    "motion_profiles_verified": false,
+    "gestures": {
+      "wave": {"speed_dps": 2, "waypoints": [{"J4": 1}, {"J4": 0}]}
+    }
+  }
+}

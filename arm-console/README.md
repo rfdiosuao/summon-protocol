@@ -1,6 +1,6 @@
 # SUMMON Arm Console
 
-基于 Seeed reBot Arm B601-DM 官方 URDF 的本地三维控制台。它运行在连接机械臂的现场电脑上，作为 SUMMON Shell Gateway 旁边的运维与调试工具。
+基于 Seeed reBot Arm B601-DM 官方 URDF 的本地三维控制台。它运行在连接机械臂的现场电脑上，供本机运维/调试及 [SUMMON Shell Gateway](../docs/GATEWAY.md#笔记本作为-b601-dm-gateway) 适配器调用。
 
 ## Agent CLI（离线可用）
 
@@ -27,7 +27,7 @@
 
 `move` 默认仅预演；`--execute` 才向**已连接实机**下发，并会重新读取反馈、检查故障/采样年龄、验证姿态未漂移和全段模型轨迹。返回的 `targetAccepted: true` 只表示后端接收目标，`motionComplete: false` 表示需继续读取 `status` 确认到位。多轴目标用同一个 `move` 命令给出。`enable` 会先使能 J4 再使能 J3/J2；J2 折叠端和 J6 起身联锁仍由后端执行。大于 10°/s 需在**每次动作**增加 `--confirm-risk`，上限为 25°/s。动作结束后承重轴保持使能，CLI 不自动失能；得到可靠支撑后，`disable J3 J4 --supported --execute` 才可解除保持。`clear-fault J3 --execute` 只调用现有清故障接口。夹爪需先标定 J7 电机角到宽度的映射，才能运行 `gripper 40 --execute`。
 
-模型检查使用与网页相同的 URDF `collision_runtime` STL：每 ≤1° 采样非相邻连杆的实体碰撞及底座上方 6 mm 桌面平面；20 mm 内报告预警，重合/触桌则拒绝下发。它不能识别模型外的人员、物体、线缆和支撑。CLI 是本地工具，直接调用控制台 REST 或 Shell Gateway 的其他写入口并不会自动经过这层 CLI 预演；需要接入远程代理时应将预演/约束纳入统一的执行端校验。
+模型检查使用与网页相同的 URDF `collision_runtime` STL：每 ≤1° 采样非相邻连杆的实体碰撞及底座上方 6 mm 桌面平面；20 mm 内报告预警，重合/触桌则拒绝下发。它不能识别模型外的人员、物体、线缆和支撑。本地 CLI 与 `arm-console` Gateway 适配器分别在写入前执行模型预演；其他直接调用控制台 REST 的写入口不会自动经过它们的预演。
 
 `gravity on` 仅调用现有后端实验重力模式，需要 `--execute --confirm-risk` 且后端以 `--experimental-gravity-feedforward` 启动；状态不可用会拒绝。之前 J3 前馈实机试验曾触发超速保护，所以这不是已经完成现场标定的碰撞保护。日常动作仍使用后端的位置速度控制及其 J4 支撑、目标跟踪、速度、温度和力矩保护。
 

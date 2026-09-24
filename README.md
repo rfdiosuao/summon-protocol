@@ -36,7 +36,7 @@ SUMMON 围绕这段体验设计三个环节：
 
 Agent 保持在原有电脑或服务器上运行，通过 SUMMON Hub 与现场的 Shell Gateway 通信。Gateway 将统一的动作请求转换为设备调用，并返回执行结果。
 
-独立 [SUMMON Gateway](docs/GATEWAY.md) 已提供终端显示与 USB 串口显示桥：在现场电脑运行 `python -m gateway --config <私有配置路径>`。串口设备需要匹配的协议固件，厂商 SDK 可按适配器接口扩展。
+独立 [SUMMON Gateway](docs/GATEWAY.md) 提供终端显示、USB 串口显示桥和 B601-DM 机械臂控制台适配器：在现场电脑运行 `python -m gateway --config <私有配置路径>`。这台电脑作为中转节点，主动连 Hub；远端设备上的 Agent 经 Hub 授权后使用本地设备能力。机械臂需要控制台先显式连接实机并完成现场停止与短动作验收。
 
 **经验上传声明：接入后执行结果会上传配置的云端 Hub，按账号、设备版本和运行模式隔离，用于经验统计与 Agent 检索。** 专用经验表不保存对话、音视频或动作原始参数；普通命令表仍保留协议请求与回执。断网结果本地排队，恢复只补传证据，不重放动作；默认不公开给其他账号。
 
@@ -60,7 +60,7 @@ flowchart LR
 
 ## 开发进展
 
-当前版本为 **契约 v0.1.0**。仓库提供 Hub、Web 控制台、模拟 Agent/设备、SQLite 记忆与设备经验库。可以验证召唤、交接、偏好保存、执行证据入库与执行前检索；当前在线演示为 SIMULATED，尚未接入真实模型和硬件。首个实物方向是 FoloToy AI Passport，机械臂接入作为后续扩展。
+当前版本为 **契约 v0.1.0**。仓库提供 Hub、Web 控制台、模拟 Agent/设备、SQLite 记忆与设备经验库。可以验证召唤、交接、偏好保存、执行证据入库与执行前检索；当前在线演示为 SIMULATED。B601-DM 已有本机控制台与 Gateway 适配代码，实机上线需独立完成现场验收和 Hub 权限配置。
 
 ### B601-DM 机械臂本地工具
 
@@ -73,7 +73,7 @@ flowchart LR
 .\tools\summon_arm.ps1 move J3=-8 --speed 3 --execute
 ```
 
-`describe` 和指定起点的 `preview` 无需连接硬件。实机写入需现场控制台已显式连接，并为每个动作添加 `--execute`；超过 10°/s 还需 `--confirm-risk`。多轴使能会先保持 J4，再依次处理 J3/J2；重力模式通过现有后端实验开关调用。CLI 是 Shell Gateway 旁的本地工具，尚未接入 Hub 的租约/回执链路；直接访问控制台 REST 接口也不会经过 CLI 的模型预演。完整命令、现场限制与验证方法见 [Arm Console Agent CLI](arm-console/README.md#agent-cli离线可用)。
+`describe` 和指定起点的 `preview` 无需连接硬件。实机写入需现场控制台已显式连接，并为每个动作添加 `--execute`；超过 10°/s 还需 `--confirm-risk`。多轴使能会先保持 J4，再依次处理 J3/J2；重力模式通过现有后端实验开关调用。本地 CLI 仍可单独使用；远端 Agent 的 `arm.gesture` 则经 [B601-DM Gateway 适配器](docs/GATEWAY.md#笔记本作为-b601-dm-gateway) 进入同一控制台，并在 Gateway 侧重新做模型轨迹检查、租约校验和实机回执确认。完整命令、现场限制与验证方法见 [Arm Console Agent CLI](arm-console/README.md#agent-cli离线可用)。
 
 设备经验按账号、设备、能力、运行模式和版本匹配，提供历史结果与统计建议；它不代表模型训练或已验证的运动技能。见 [经验库接入](docs/EXPERIENCE.md) 与 [部署说明](docs/DEPLOYMENT.md)。
 
