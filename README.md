@@ -12,13 +12,23 @@
 
 SUMMON 探索一种跨设备的 Agent 体验：让运行在远端的智能体接入身边的设备，带着已保存的偏好继续与你互动。从一块随身屏幕到展台上的机械臂，交互的形态可以改变，陪你完成任务的仍是同一个 Agent。
 
-本项目为 **EvoTavern 进化酒馆黑客松 · 深圳站**（2026-09-21 ~ 09-24）赛道 01「具身与穿戴硬件」的参赛参考实现，当前提供运行平台与模拟联调。
+本项目为 **EvoTavern 进化酒馆黑客松 · 深圳站**（2026-09-21 ~ 09-24）赛道 01「具身与穿戴硬件」的参赛实现，已打通 Passport 语音控制 B601-DM 机械臂的实物演示链路。
 
 <p align="center">
   <a href="docs/PROTOCOL.md">协议文档</a> ·
   <a href="docs/ADAPTER.md">接入指南</a> ·
   <a href="protocol/examples/README.md">消息样例</a>
 </p>
+
+## 重大更新
+
+### 2026-09-24 · Passport 语音控制机械臂
+
+已完成从 **对 Passport 说话** 到 **现场 B601-DM 机械臂执行动作** 的联调：Passport 将语音送入云端，Agent 在授权会话中选择预设手势，SUMMON Hub 把 `arm.gesture` 下发给现场笔记本的 Gateway；本机 Arm Console 通过 MotorBridge 控制机械臂，并将执行回执送回。
+
+**Passport → 云端 Agent → SUMMON Hub → 现场 Gateway → Arm Console / MotorBridge → B601-DM**
+
+当前演示使用现场配置的短手势，如点头、挥手和指向左／中／右；远端 Agent 不直接发送任意关节角度。实现与复现步骤见 [Gateway 接入说明](docs/GATEWAY.md#笔记本作为-b601-dm-gateway) 和 [机械臂控制台](arm-console/README.md)。后续重大进展会按日期记录在本节，最新更新置顶。
 
 ## 同一个 Agent，不同的身体
 
@@ -60,7 +70,7 @@ flowchart LR
 
 ## 开发进展
 
-当前版本为 **契约 v0.1.0**。仓库提供 Hub、Web 控制台、模拟 Agent/设备、SQLite 记忆与设备经验库。可以验证召唤、交接、偏好保存、执行证据入库与执行前检索；当前在线演示为 SIMULATED。B601-DM 已有本机控制台与 Gateway 适配代码，实机上线需独立完成现场验收和 Hub 权限配置。
+当前版本为 **契约 v0.1.0**。仓库提供 Hub、Web 控制台、模拟 Agent/设备、SQLite 记忆与设备经验库。可以验证召唤、交接、偏好保存、执行证据入库与执行前检索。公开网页仍展示 SIMULATED 环境；Passport 到 B601-DM 的语音控制已完成实物联调，复现时需要按现场配置连接机械臂并授权对应设备能力。
 
 ### B601-DM 机械臂本地工具
 
