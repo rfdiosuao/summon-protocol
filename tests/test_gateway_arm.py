@@ -276,6 +276,16 @@ class ArmGatewayTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(self.adapter.healthy())
         self.assertTrue(await self.adapter.stop(None))
 
+    async def test_manual_reposition_requires_local_opt_in(self):
+        await self.adapter.open()
+        self.state["joints"][3]["targetDeg"] = -8
+        self.state["joints"][3]["moving"] = True
+        self.state["joints"][3]["velocityDps"] = 1.5
+        await self.adapter._read()
+        self.assertFalse(self.adapter.healthy())
+        self.adapter.allow_manual_reposition = True
+        self.assertTrue(self.adapter.healthy())
+
     async def test_stop_holds_and_confirms_measured_pose(self):
         await self.adapter.open()
         self.state["joints"][3]["moving"] = True

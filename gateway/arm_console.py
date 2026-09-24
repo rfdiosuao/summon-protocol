@@ -99,6 +99,9 @@ class ArmConsoleAdapter:
                     raise ValueError("Invalid axis speed cap")
                 self.motion_axis_speed_caps_dps[int(name[1:])] = float(value)
         self.capabilities = ["arm.gesture"] + (["arm.observe", "arm.motion"] if self.motion_bounds else [])
+        if type(config.get("allow_manual_reposition", False)) is not bool:
+            raise ValueError("allow_manual_reposition must be a boolean")
+        self.allow_manual_reposition = config.get("allow_manual_reposition", False)
         self.url = address.rstrip("/")
         self.http: aiohttp.ClientSession | None = None
         self.safety: ModelSafety | None = None
@@ -250,7 +253,7 @@ class ArmConsoleAdapter:
                         state.get("fault") if state else None,
                         state.get("sampleAgeMs") if state else None)
             return False
-        if not self.in_motion and self._commanded_motion(state):
+        if not self.in_motion and self._commanded_motion(state) and not self.allow_manual_reposition:
             LOG.warning("Arm adapter saw unleased motion: %s",
                         [(joint["id"], joint.get("actualDeg"), joint.get("targetDeg"))
                          for joint in state["joints"][:6] if joint.get("moving")])

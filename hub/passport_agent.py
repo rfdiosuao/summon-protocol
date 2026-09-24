@@ -36,6 +36,16 @@ def parse_model_plan(content):
     raise ValueError('Model did not return a JSON object')
 
 
+_ARM_ACTION_WORDS = re.compile(
+    r'招手|挥手|摇摇头|摇头|点点头|点头|摆动|抬起|抬臂|起身|转动|旋转|伸展|'
+    r'抓取|抓住|夹取|移动|作动|动一下|转一下|打招呼|挥动|wave|nod|move|rotate', re.I)
+
+
+def requests_arm_motion(text):
+    """Require an explicit movement request before honoring model tool output."""
+    return bool(_ARM_ACTION_WORDS.search(text))
+
+
 async def plan_and_execute(http, model, text, capabilities, execute, budget=38, on_event=None,
                            gesture_catalog=None, motion_policy=None, memory=None):
     """Bounded observe/act loop. Tool results are data, never new authorization."""
@@ -77,6 +87,9 @@ Gateway 会独立检查模型碰撞、现场预设和电机反馈。收到真实
     elif style=='detailed':
         prompt+='\n用户已保存的偏好：需要较详细的解释。此偏好由 SUMMON Hub 在当前会话提供。'
     windows=(motion_policy or {}).get('absolute_joint_windows_deg',{})
+    arm_motion_requested = requests_arm_motion(text)
+    if ('arm.motion' in capabilities or 'arm.gesture' in capabilities) and not arm_motion_requested:
+        prompt+='\n本轮用户没有明确要求肢体动作，只能对话；motion 和 gesture 都必须为 null。'
     if 'arm.motion' in capabilities and {'J1','J4','J5'}.issubset(windows):
         prompt+='\n用户要求明显、有表达力的动作时，可组合开放的六轴；若明确要求六轴协同，应让六轴都在首个路点产生非零运动，J2/J3 承重，速度须遵守各轴上限。当前某轴位于绝对窗口下界时，可以朝窗口上界移动，反之亦然。J1 转向、J4 抬腕和 J5 摆腕提供主要可见幅度，J6 可辅助。大幅动作优先用 2 个路点形成摆动和回位，避免多个路点耗尽执行时间。观测中的约 1.5 mm 模型净空是当前官方网格的静态基线；只要仍高于现场已验证阈值，不能仅因这个基线把整段动作缩成不可见幅度。Gateway 还会独立精确预检每一段。'
         prompt+='\n一次动作含摆出和回位，总预计时间必须小于 6 秒。估算时 J1/J2/J3/J6 有效速度最多 3°/s，J4/J5 最多 10°/s；因此若需六轴协同，肩肘单程约 1–3°、底座约 4–7°、腕俯仰约 3–6°、腕偏航约 8–15°、腕旋转约 1–3°，再回到起点。根据实际姿态调整方向与幅度，不要照抄固定路点。'
@@ -151,6 +164,11 @@ Gateway 会独立检查模型碰撞、现场预设和电机反馈。收到真实
             cap,args='command.exec',{'command':command}
         else:cap,args='browser.open',{'url':url}
         if cap not in capabilities:raise ValueError('Capability unavailable')
+        if cap in ('arm.gesture','arm.motion') and not arm_motion_requested:
+            if on_event:on_event('system','模型提出了用户未要求的机械动作；已拦截，要求模型只回复文字。')
+            messages.append({'role':'assistant','content':content})
+            messages.append({'role':'user','content':'用户本轮没有要求肢体动作。请仅回答原问题，返回 motion:null 和 gesture:null，不要提出任何动作。'})
+            continue
         if cap in ('arm.gesture','arm.motion') and on_event:
             reason=plan.get('reason')
             if isinstance(reason,str) and reason.strip():
@@ -240,8 +258,11 @@ async def run(config_path,credentials_path):
                     async def process(p):
                         s=sessions[p['session_id']]
                         print('Input received:',p['input_id'],'backend:',cfg.get('model',{}).get('backend','model'),flush=True)
-                        record(journal,'user',p['text'])
+                        details={'session_id':s['session_id'],'input_id':p['input_id']}
+                        record(journal,'user',p['text'],**details)
                         try:
+                            if stamp(s['expires_at'])-time.time()<14:
+                                raise RuntimeError('Lease nearly expired')
                             if cfg.get('model'):
                                 async def execute(cap,args):return await action(s,p['input_id'],cap,args)
                                 async with http.get(base+'/v1/sessions/'+s['session_id']+'/memory',headers=auth) as response:
@@ -249,26 +270,37 @@ async def run(config_path,credentials_path):
                                     memory=await response.json()
                                 reply=await plan_and_execute(http,cfg['model'],p['text'],s['permitted_capabilities'],execute,
                                     budget=min(38,stamp(s['expires_at'])-time.time()-14),
-                                    on_event=lambda role,value:record(journal,role,value),
+                                    on_event=lambda role,value:record(journal,role,value,**details) if role!='agent' else None,
                                     gesture_catalog=cfg.get('gesture_catalog'),
                                     motion_policy=cfg.get('motion_policy'),memory=memory)
-                                if reply is None:return
+                                if reply is None:
+                                    record(journal,'system','设备执行结果不确定，本轮已停止；请检查实机状态。',status='FAILED',**details)
+                                    if s.get('active'):
+                                        await send('input.finished',{'session_id':s['session_id'],'input_id':p['input_id'],'status':'FAILED'})
+                                    return
                             else:
                                 plan=builtin_plan(p['text']);reply=plan['reply']
                                 cap='command.exec' if plan.get('command') else 'browser.open' if plan.get('url') else None
                                 if cap:
                                     args={'command':plan['command']} if cap=='command.exec' else {'url':plan['url']}
                                     outcome=await action(s,p['input_id'],cap,args)
-                                    if outcome['status']=='UNKNOWN':return
+                                    if outcome['status']=='UNKNOWN':
+                                        record(journal,'system','设备执行结果不确定，本轮已停止。',status='FAILED',**details)
+                                        if s.get('active'):
+                                            await send('input.finished',{'session_id':s['session_id'],'input_id':p['input_id'],'status':'FAILED'})
+                                        return
                                     reply='电脑执行完成。'+outcome.get('execution',{}).get('stdout','')[:250] if outcome['status']=='COMPLETED' else '电脑执行失败，请查看日志。'
-                                    record(journal,'agent',reply)
-                            if cfg.get('model') is None:record(journal,'agent',reply or '已收到。')
+                            record(journal,'agent',reply or '已收到。',status='GENERATED',**details)
                             if 'display.text' in s['permitted_capabilities']:
                                 await action(s,p['input_id'],'display.text',{'text':reply or '已收到。'})
                             if s.get('active'):await send('input.finished',{'session_id':s['session_id'],'input_id':p['input_id'],'status':'COMPLETED'})
+                            record(journal,'system','本轮已完成。',status='COMPLETED',**details)
                         except asyncio.CancelledError:raise
                         except Exception as exc:
-                            record(journal,'system','处理未完成：'+type(exc).__name__)
+                            detail=('会话即将到期，请重新连接后重试。' if 'Lease nearly expired' in str(exc)
+                                    else '模型服务暂不可用。' if 'Model service unavailable' in str(exc)
+                                    else '请求处理失败（'+type(exc).__name__+'）；未确认设备执行。')
+                            record(journal,'system',detail,status='FAILED',**details)
                             print('Passport input failed:',type(exc).__name__,flush=True)
                             if s.get('active'):
                                 try:await send('input.finished',{'session_id':s['session_id'],'input_id':p['input_id'],'status':'FAILED'})

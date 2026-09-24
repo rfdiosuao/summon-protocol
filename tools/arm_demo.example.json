@@ -10,6 +10,7 @@
     "url": "http://127.0.0.1:8870",
     "physical_estop_confirmed": false,
     "motion_profiles_verified": false,
+    "allow_manual_reposition": false,
     "min_clearance_mm": 20,
     "motion_bounds": {"J4": [-9, -2.5]},
     "max_motion_speed_dps": 8,

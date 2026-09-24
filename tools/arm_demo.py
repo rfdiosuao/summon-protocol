@@ -116,6 +116,9 @@ async def serve(config_path: Path, run_dir: Path, cross_device: bool = False) ->
 
     async def demo_trace(request: web.Request) -> web.Response:
         hub["hub"].operator(request)
+        input_id = request.query.get("input_id")
+        if input_id is not None and (not input_id or len(input_id) > 80):
+            raise web.HTTPBadRequest(reason="Invalid input_id")
         trace = run_dir / "decision-trace.jsonl"
         items = []
         if trace.exists():
@@ -126,6 +129,8 @@ async def serve(config_path: Path, run_dir: Path, cross_device: bool = False) ->
                         items.append(json.loads(raw.decode("utf-8")))
                     except (UnicodeDecodeError, json.JSONDecodeError):
                         pass
+        if input_id is not None:
+            items = [item for item in items if item.get("input_id") == input_id]
         return web.json_response({"items": items})
 
     async def demo_prepare(request: web.Request) -> web.Response:

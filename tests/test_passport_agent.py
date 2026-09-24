@@ -98,6 +98,29 @@ class PassportAgentTests(unittest.IsolatedAsyncioTestCase):
 
 
 class ArmPlannerTests(unittest.IsolatedAsyncioTestCase):
+    async def test_greeting_does_not_authorize_model_suggested_arm_motion(self):
+        replies=iter([
+            '{"motion":{"intent":"招手","speed_dps":2,"waypoints":[{"J4":-2},{"J4":0}]}}',
+            '{"reply":"你好，我在这里。","motion":null}',
+        ])
+        async def model_reply(request):
+            return web.json_response({'choices':[{'message':{'content':next(replies)}}]})
+        server=TestServer(web.Application())
+        server.app.router.add_post('/chat/completions',model_reply)
+        await server.start_server()
+        calls=[]
+        async def execute(cap,args):
+            calls.append(cap)
+            return {'status':'COMPLETED','evidence':'controller_feedback','result':'{}'}
+        try:
+            async with aiohttp.ClientSession() as http:
+                reply=await plan_and_execute(http,{'base_url':str(server.make_url('')).rstrip('/'),
+                    'name':'test','api_key':'test'},'你好',['arm.observe','arm.motion'],execute)
+            self.assertEqual(reply,'你好，我在这里。')
+            self.assertEqual(calls,['arm.observe'])
+        finally:
+            await server.close()
+
     async def test_display_reply_carries_saved_preference_after_handoff(self):
         async def model_reply(request):
             body=await request.json()
