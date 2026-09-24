@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ASSETS } from '../assets';
 import type { AgentDashboardProfile } from '../summonApi';
 import FlowStatusBar from './FlowStatusBar';
+import StarMapScene3D from './StarMapScene3D';
 import '../styles/flow.css';
 
 type Props = {
@@ -17,12 +18,6 @@ export default function AgentDashboardPage({ sceneBg, profile, onHome, onHardwar
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const online = isOnline(profile.agent.status);
   const devices = profile.devices ?? [];
-  const hardwareAngles = [-135, 135, 180, -90, 90, -60, 60];
-  const visible = devices.slice(0, 8).map((device, index) => {
-    const angle = index === 0 ? 0 : hardwareAngles[index - 1];
-    const radians = angle * Math.PI / 180;
-    return { ...device, x: 50 + 33 * Math.cos(radians), y: 50 + 34 * Math.sin(radians) };
-  });
   const selected = devices.find((device) => device.shell_id === selectedId);
 
   return (
@@ -55,29 +50,8 @@ export default function AgentDashboardPage({ sceneBg, profile, onHome, onHardwar
               <strong>{profile.nameplate}</strong>
             </div>
           </header>
-          <div className="flow__starmap-canvas" aria-label={`${profile.agent.name} 已适配 ${Math.max(0, devices.length - 1)} 台其他设备`}>
-            <div className="flow__starmap-orbit flow__starmap-orbit--inner" aria-hidden="true" />
-            <div className="flow__starmap-orbit flow__starmap-orbit--outer" aria-hidden="true" />
-            <svg className="flow__starmap-lines" viewBox="0 0 1000 480" preserveAspectRatio="none" aria-hidden="true">
-              {visible.map((device) => <line key={device.shell_id} x1="500" y1="240"
-                x2={device.x * 10} y2={device.y * 4.8}
-                className={isOnline(device.state) && device.authorized ? 'is-active' : ''} />)}
-            </svg>
-            <div className={online ? 'flow__starmap-core is-online' : 'flow__starmap-core'}>
-              <span className="flow__starmap-core-glow" aria-hidden="true">✦</span>
-              <strong>{profile.agent.name}</strong>
-              <small>AGENT · {online ? 'ONLINE' : 'OFFLINE'}</small>
-            </div>
-            {visible.map((device) => <button key={device.shell_id} type="button"
-              className={`flow__starmap-node ${isOnline(device.state) ? 'is-online' : ''} ${selectedId === device.shell_id ? 'is-selected' : ''}`}
-              style={{ left: `${device.x}%`, top: `${device.y}%` }}
-              onClick={() => setSelectedId(device.shell_id)}
-              aria-label={`${device.label}，${isOnline(device.state) ? '在线' : '离线'}，${device.authorized ? '已授权' : '待授权'}`}>
-              <span className="flow__starmap-node-star" aria-hidden="true">{device.kind === 'computer' ? '⌘' : '✦'}</span>
-              <span className="flow__starmap-node-label">{device.label}</span>
-              <span className="flow__starmap-node-state">{isOnline(device.state) ? '在线' : '离线'} · {device.authorized ? '已授权' : '待授权'}</span>
-            </button>)}
-          </div>
+          <StarMapScene3D agentName={profile.agent.name} devices={devices} online={online}
+            selectedId={selectedId} onSelect={setSelectedId} />
           <footer className="flow__starmap-footer">
             <div className="flow__starmap-detail" aria-live="polite">
               {selected ? <>
