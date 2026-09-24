@@ -22,12 +22,12 @@
   </style>
 </head>
 <body><main>
-  <header><div><h1>SUMMON / B601-DM</h1><p class="sub">大模型选择现场录制预设 · Gateway 检查边界 · 控制器反馈确认</p></div><span class="badge" id="model">LIVE · 连接中</span></header>
+  <header><div><h1>SUMMON / B601-DM</h1><p class="sub">大模型观察实测姿态并规划动作 · Gateway 检查边界 · 控制器反馈确认</p></div><span class="badge" id="model">LIVE · 连接中</span></header>
   <section id="login" class="card"><h2>演示控制台访问码</h2><input id="access" type="password" autocomplete="off" placeholder="从私有 secrets.json 获取"><div class="row"><button id="loginButton">进入演示</button></div><p id="loginMessage" class="hint"></p></section>
   <section id="workspace" hidden class="layout">
     <div class="left">
       <div class="card"><h2>机械臂实机</h2><div class="status"><span id="dot" class="dot off"></span><span id="hardware">读取状态中</span></div><div id="joints"></div><p class="hint">此处显示控制器测量角度。<a href="http://127.0.0.1:8870/" target="_blank" rel="noopener">打开 3D 机械臂控制台</a></p></div>
-      <div class="card"><h2>已录制的动作</h2><div id="presets" class="presets"></div><p class="hint">模型只能从这些现场预设中选择，不能传入任意电机轨迹。</p></div>
+      <div class="card"><h2>已录制的动作</h2><div id="presets" class="presets"></div><p class="hint">预设提供动作效果示例；模型也可在现场开放的角度窗口内规划短动作。</p><p id="windows" class="hint"></p></div>
       <div class="card"><h2>让 Agent 操作</h2><textarea id="prompt" placeholder="例如：我在远处，请明显地向我招手一次"></textarea><div class="row"><button id="send">发送并执行</button><button id="release">结束会话</button></div><p id="notice" class="hint"></p></div>
     </div>
     <div class="card"><h2>决策与实机回执</h2><div id="trace"></div><p class="hint">这里展示动作选择依据和可核对的执行状态，不展示模型内部推理过程。</p></div>

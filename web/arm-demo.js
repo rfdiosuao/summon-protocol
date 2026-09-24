@@ -48,6 +48,10 @@ function renderStatus(value) {
     const description = document.createElement('small'); description.textContent = gesture.description;
     row.append(title, description); $('presets').append(row);
   }
+  const windows = Object.entries(value.motion_windows || {});
+  $('windows').textContent = windows.length ?
+    `当前开放：${windows.map(([axis, [low, high]]) => `${axis} ${low}°～${high}°`).join('，')}` :
+    '当前未开放模型自由规划动作。';
 }
 
 function renderTrace(items) {
