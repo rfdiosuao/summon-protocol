@@ -89,33 +89,49 @@ export default function StarMapScene3D({ agentName, devices, online, selectedId,
       }
       const iconTexture = new T.CanvasTexture(iconCanvas);
       const iconMaterial = new T.MeshBasicMaterial({ map: iconTexture, transparent: true, depthWrite: false });
-      const core = new T.Mesh(
-        new T.IcosahedronGeometry(.82, 5),
-        new T.MeshPhysicalMaterial({ color: 0xc9e3eb, metalness: .28, roughness: .26, clearcoat: .7, emissive: 0x244b53, emissiveIntensity: .32 }),
-      );
-      scene.add(core);
-      const coreGlow = new T.Sprite(glowMaterial);
-      coreGlow.scale.set(2.9, 2.9, 1);
+      const coreGroup = new T.Group();
+      const coreGeometry = new T.IcosahedronGeometry(.48, 0);
+      coreGroup.add(new T.Mesh(coreGeometry, new T.MeshBasicMaterial({ color: 0x6cb8c2, transparent: true, opacity: .055, depthWrite: false })));
+      const coreLines = new T.LineSegments(new T.EdgesGeometry(coreGeometry),
+        new T.LineBasicMaterial({ color: 0xa8dce0, transparent: true, opacity: .64 }));
+      coreGroup.add(coreLines);
+      const uniqueVertices = new Map<string, InstanceType<typeof T.Vector3>>();
+      const corePositions = coreGeometry.getAttribute('position');
+      for (let index = 0; index < corePositions.count; index++) {
+        const vertex = new T.Vector3().fromBufferAttribute(corePositions, index);
+        uniqueVertices.set(`${vertex.x.toFixed(3)},${vertex.y.toFixed(3)},${vertex.z.toFixed(3)}`, vertex);
+      }
+      const coreDots = new T.InstancedMesh(new T.SphereGeometry(.034, 8, 8),
+        new T.MeshBasicMaterial({ color: 0xc9eff0 }), uniqueVertices.size);
+      const dotMatrix = new T.Matrix4();
+      Array.from(uniqueVertices.values()).forEach((vertex, index) => coreDots.setMatrixAt(index, dotMatrix.makeTranslation(vertex.x, vertex.y, vertex.z)));
+      coreGroup.add(coreDots);
+      scene.add(coreGroup);
+      const coreGlowMaterial = new T.SpriteMaterial({ map: glowTexture, transparent: true, opacity: .22, depthWrite: false, blending: T.AdditiveBlending });
+      const coreGlow = new T.Sprite(coreGlowMaterial);
+      coreGlow.scale.set(1.65, 1.65, 1);
       scene.add(coreGlow);
-
-      const ringPoints = Array.from({ length: 145 }, (_, index) => {
-        const angle = index / 144 * Math.PI * 2;
-        return new T.Vector3(Math.cos(angle), Math.sin(angle), Math.sin(angle) * .32);
-      });
-      const rings = [1].map((factor) => {
-        const ring = new T.LineLoop(
-          new T.BufferGeometry().setFromPoints(ringPoints),
-          new T.LineBasicMaterial({ color: 0x9bc0c6, transparent: true, opacity: .13 }),
-        );
-        ring.rotation.x = .35;
-        ring.userData.factor = factor;
-        scene.add(ring);
-        return ring;
-      });
 
       let seed = 163;
       const random = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
-      const particleCount = window.innerWidth < 600 ? 90 : 180;
+      const networkNodes = Array.from({ length: 32 }, () => new T.Vector3((random() - .5) * 14, (random() - .5) * 5.8, -2.6));
+      const networkSegments: number[] = [];
+      networkNodes.forEach((node, index) => {
+        const nearest = networkNodes.map((other, otherIndex) => ({ other, otherIndex, distance: node.distanceTo(other) }))
+          .filter((candidate) => candidate.otherIndex > index && candidate.distance < 2.5)
+          .sort((a, b) => a.distance - b.distance).slice(0, 2);
+        nearest.forEach(({ other }) => networkSegments.push(node.x, node.y, node.z, other.x, other.y, other.z));
+      });
+      const networkGeometry = new T.BufferGeometry();
+      networkGeometry.setAttribute('position', new T.Float32BufferAttribute(networkSegments, 3));
+      const networkLines = new T.LineSegments(networkGeometry,
+        new T.LineBasicMaterial({ color: 0x8bbfc4, transparent: true, opacity: .13, depthWrite: false }));
+      scene.add(networkLines);
+      const networkPointGeometry = new T.BufferGeometry().setFromPoints(networkNodes);
+      const networkPoints = new T.Points(networkPointGeometry,
+        new T.PointsMaterial({ color: 0x9bd0d2, size: .045, transparent: true, opacity: .52 }));
+      scene.add(networkPoints);
+      const particleCount = window.innerWidth < 600 ? 35 : 65;
       const particlePositions = new Float32Array(particleCount * 3);
       for (let index = 0; index < particleCount; index++) {
         particlePositions[index * 3] = (random() - .5) * 16;
@@ -124,7 +140,7 @@ export default function StarMapScene3D({ agentName, devices, online, selectedId,
       }
       const particlesGeometry = new T.BufferGeometry();
       particlesGeometry.setAttribute('position', new T.BufferAttribute(particlePositions, 3));
-      const particles = new T.Points(particlesGeometry, new T.PointsMaterial({ color: 0xc7f0ef, size: .025, transparent: true, opacity: .6, sizeAttenuation: true }));
+      const particles = new T.Points(particlesGeometry, new T.PointsMaterial({ color: 0xc7f0ef, size: .022, transparent: true, opacity: .34, sizeAttenuation: true }));
       scene.add(particles);
 
       const objects = visible.map((device, index) => {
@@ -160,7 +176,6 @@ export default function StarMapScene3D({ agentName, devices, online, selectedId,
         renderer.setSize(width, height, false);
         const worldWidth = 2 * 7 * Math.tan(T.MathUtils.degToRad(45 / 2)) * camera.aspect;
         radiusX = Math.min(3.65, worldWidth * .33);
-        rings.forEach((ring) => ring.scale.set(radiusX * Number(ring.userData.factor), 1.75 * Number(ring.userData.factor), 1));
         objects.forEach(({ id, index }) => {
           const angle = T.MathUtils.degToRad(angles[index]);
           const button = buttonRefs.current.get(id);
@@ -193,11 +208,12 @@ export default function StarMapScene3D({ agentName, devices, online, selectedId,
         camera.position.x += (targetX - camera.position.x) * .035;
         camera.position.y += (targetY - camera.position.y) * .035;
         camera.lookAt(0, 0, 0);
-        core.rotation.y = time * .12;
-        core.rotation.x = time * .055;
-        (core.material as InstanceType<typeof T.MeshPhysicalMaterial>).emissiveIntensity = onlineRef.current ? .32 : .08;
+        coreGroup.rotation.y = time * .16;
+        coreGroup.rotation.x = Math.sin(time * .21) * .13;
+        (coreLines.material as InstanceType<typeof T.LineBasicMaterial>).opacity = onlineRef.current ? .64 : .36;
+        (coreDots.material as InstanceType<typeof T.MeshBasicMaterial>).color.setHex(onlineRef.current ? 0xd4ff88 : 0x9dbdc3);
         particles.rotation.y = time * .002;
-        rings.forEach((ring) => { ring.rotation.z = Math.sin(time * .14) * .025; });
+        (networkLines.material as InstanceType<typeof T.LineBasicMaterial>).opacity = .11 + Math.sin(time * .32) * .02;
         objects.forEach(({ id, index, body, aura, line }) => {
           const device = devicesRef.current.find((item) => item.shell_id === id);
           const base = T.MathUtils.degToRad(angles[index]);
@@ -234,6 +250,7 @@ export default function StarMapScene3D({ agentName, devices, online, selectedId,
           }
         });
         glowMaterial.dispose();
+        coreGlowMaterial.dispose();
         glowTexture.dispose();
         computerMaterial.dispose();
         computerTexture.dispose();
@@ -248,7 +265,13 @@ export default function StarMapScene3D({ agentName, devices, online, selectedId,
 
   return <div className={`flow__starmap-canvas flow__starmap-canvas--3d ${ready ? 'is-ready' : 'is-fallback'}`}
     ref={hostRef} aria-label={`${agentName} 已适配 ${Math.max(0, devices.length - 1)} 台其他设备`}>
-    <div className="flow__starmap-fallback-ring" aria-hidden="true" />
+    <div className="flow__starmap-fallback-core" aria-hidden="true">
+      <svg viewBox="0 0 100 100" fill="none">
+        <path d="M50 8 84 28 84 70 50 92 16 70 16 28 50 8ZM16 28 50 46 84 28M16 70 50 46 84 70M50 8V46M50 46V92" stroke="currentColor" strokeWidth="1.2" />
+        {[['50','8'], ['84','28'], ['84','70'], ['50','92'], ['16','70'], ['16','28'], ['50','46']].map(([cx, cy]) =>
+          <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="2.5" fill="currentColor" />)}
+      </svg>
+    </div>
     <div className="flow__starmap-agent-label"><strong>{agentName}</strong><small>AGENT · {online ? 'ONLINE' : 'OFFLINE'}</small></div>
     {visible.map((device, index) => {
       const angle = TAngle(index);

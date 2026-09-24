@@ -1084,13 +1084,13 @@
 .flow__starmap-more button { padding: 8px 10px; border: 1px solid rgba(55,87,94,.18); border-radius: 8px; background: rgba(255,255,255,.56); color: #40575e; font: 12px/1.2 Inter, 'PingFang SC', sans-serif; cursor: pointer; }
 .flow__starmap-more button.is-selected { border-color: #83a900; background: rgba(185,237,8,.18); }
 .flow__starmap-more button span { color: #83a900; }
-.flow__starmap-canvas--3d { isolation: isolate; background: radial-gradient(circle at 50% 46%, #264c58 0%, #102d38 39%, #071a24 78%, #06131d 100%); box-shadow: inset 0 0 70px rgba(0,0,0,.42); }
-.flow__starmap-canvas--3d::before { background-image: radial-gradient(rgba(224,249,245,.5) .7px, transparent .7px), radial-gradient(rgba(185,237,8,.28) 1px, transparent 1px); background-size: 43px 43px, 97px 97px; background-position: 0 0, 25px 12px; opacity: .38; }
+.flow__starmap-canvas--3d { isolation: isolate; background: radial-gradient(circle at 50% 46%, #1b3943 0%, #102a34 52%, #081b26 100%); box-shadow: inset 0 0 70px rgba(0,0,0,.3); }
+.flow__starmap-canvas--3d::before { background-image: radial-gradient(rgba(224,249,245,.4) .7px, transparent .7px); background-size: 73px 73px; opacity: .14; }
 .flow__starmap-webgl { position: absolute; z-index: 1; inset: 0; display: block; width: 100%; height: 100%; pointer-events: none; }
-.flow__starmap-fallback-ring { position: absolute; z-index: 1; left: 50%; top: 50%; width: 66%; height: 69%; border: 1px solid rgba(151,211,222,.32); border-radius: 50%; transform: translate(-50%,-50%) rotate(-8deg); box-shadow: 0 0 28px rgba(86,180,205,.12); }
-.flow__starmap-fallback-ring::after { content: ''; position: absolute; left: 50%; top: 50%; width: 118px; height: 118px; border-radius: 50%; background: radial-gradient(circle at 30% 25%, #eafaff, #91afbe 44%, #163a49 73%, #06131b); transform: translate(-50%,-50%); box-shadow: 0 0 44px rgba(162,227,244,.54), 0 0 90px rgba(185,237,8,.15); }
-.flow__starmap-canvas--3d.is-ready .flow__starmap-fallback-ring { display: none; }
-.flow__starmap-agent-label { position: absolute; z-index: 3; left: 50%; top: 72%; display: flex; flex-direction: column; align-items: center; gap: 4px; width: min(220px, 44%); color: #e8f7f6; text-align: center; transform: translateX(-50%); text-shadow: 0 2px 15px rgba(0,0,0,.85); pointer-events: none; }
+.flow__starmap-fallback-core { position: absolute; z-index: 1; left: 50%; top: 50%; width: 78px; height: 78px; color: #a8dce0; transform: translate(-50%,-50%); filter: drop-shadow(0 0 12px rgba(168,220,224,.25)); }
+.flow__starmap-fallback-core svg { display: block; width: 100%; height: 100%; }
+.flow__starmap-canvas--3d.is-ready .flow__starmap-fallback-core { display: none; }
+.flow__starmap-agent-label { position: absolute; z-index: 3; left: 50%; top: 62%; display: flex; flex-direction: column; align-items: center; gap: 4px; width: min(220px, 44%); color: #e8f7f6; text-align: center; transform: translateX(-50%); text-shadow: 0 2px 15px rgba(0,0,0,.85); pointer-events: none; }
 .flow__starmap-agent-label strong { max-width: 100%; overflow: hidden; font-size: 14px; font-weight: 600; white-space: nowrap; text-overflow: ellipsis; }
 .flow__starmap-agent-label small { color: #c3e0dc; font: 10px/1.2 'SF Mono', ui-monospace, monospace; letter-spacing: .12em; }
 .flow__starmap-node--3d { color: #e6f9f7; text-shadow: 0 1px 12px rgba(0,0,0,.9); }
@@ -1113,8 +1113,8 @@
   .flow__starmap-node--computer .flow__starmap-node-star, .flow__starmap-node--computer .flow__starmap-node-star img { width: 64px; height: 58px; }
   .flow__starmap-node-label { max-width: 88px; font-size: 10px; }
   .flow__starmap-node-state { font-size: 9px; }
-  .flow__starmap-fallback-ring::after { width: 86px; height: 86px; }
-  .flow__starmap-agent-label { top: auto; bottom: 12px; }
+  .flow__starmap-fallback-core { width: 60px; height: 60px; }
+  .flow__starmap-agent-label { top: 61%; bottom: auto; }
   .flow__starmap-agent-label strong { font-size: 11px; }
   .flow__starmap-canvas--3d.is-ready .flow__starmap-node { transform: translate(-50%, -21px); }
   .flow__starmap-footer { align-items: stretch; flex-direction: column; gap: 12px; }
