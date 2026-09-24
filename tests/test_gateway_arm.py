@@ -286,6 +286,13 @@ class ArmGatewayTests(unittest.IsolatedAsyncioTestCase):
         self.adapter.allow_manual_reposition = True
         self.assertTrue(self.adapter.healthy())
 
+    async def test_idle_poll_gap_does_not_permanently_fault_gateway(self):
+        await self.adapter.open()
+        self.adapter.last_poll -= 1.2
+        self.assertTrue(self.adapter.healthy())
+        self.adapter.in_motion = True
+        self.assertFalse(self.adapter.healthy())
+
     async def test_stop_holds_and_confirms_measured_pose(self):
         await self.adapter.open()
         self.state["joints"][3]["moving"] = True

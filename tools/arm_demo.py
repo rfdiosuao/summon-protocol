@@ -13,6 +13,7 @@ import secrets
 import sys
 from pathlib import Path
 
+import aiohttp
 from aiohttp import web
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -194,7 +195,36 @@ async def serve(config_path: Path, run_dir: Path, cross_device: bool = False) ->
             "conversation_log": str(run_dir / "decision-trace.jsonl"),
         }
         (run_dir / "agent.json").write_text(json.dumps(agent_config, ensure_ascii=False), encoding="utf-8")
-        tasks = [asyncio.create_task(gateway.run(), name=f"gateway-{gateway.shell_id}") for gateway in gateways]
+        async def arm_gateway_with_reconnect() -> None:
+            controller_url = config["adapter"]["url"].rstrip("/") + "/api/state"
+            while True:
+                try:
+                    async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=2), trust_env=False) as probe:
+                        async with probe.get(controller_url) as response:
+                            state = await response.json() if response.status == 200 else None
+                    if state is None or not arm._operational(state) or arm._commanded_motion(state):
+                        await asyncio.sleep(5)
+                        continue
+                except asyncio.CancelledError:
+                    raise
+                except (aiohttp.ClientError, asyncio.TimeoutError, ValueError):
+                    await asyncio.sleep(5)
+                    continue
+                current = gateways[0]
+                try:
+                    await current.run()
+                except asyncio.CancelledError:
+                    raise
+                except Exception as exc:
+                    print(f"Arm Gateway waiting for controller: {type(exc).__name__}", flush=True)
+                finally:
+                    current.close()
+                await asyncio.sleep(5)
+                gateways[0] = Gateway(gateway_config, secrets_value["gateway_token"], arm)
+
+        tasks = [asyncio.create_task(arm_gateway_with_reconnect(), name="gateway-arm")]
+        tasks.extend(asyncio.create_task(gateway.run(), name=f"gateway-{gateway.shell_id}")
+                     for gateway in gateways[1:])
         tasks.append(asyncio.create_task(run_agent(run_dir / "agent.json", run_dir / "agent-credentials.json"), name="agent"))
         print("SUMMON LIVE arm demo: http://127.0.0.1:8840/demo", flush=True)
         if cross_device:

@@ -6,10 +6,15 @@ import aiohttp
 from aiohttp import web
 from aiohttp.test_utils import TestServer
 from tests.test_gateway import GatewayIntegrationTests
-from hub.passport_agent import plan_and_execute,run,parse_model_plan
+from hub.passport_agent import plan_and_execute,run,parse_model_plan,requests_arm_motion
 
 
 class ModelPlanParsingTests(unittest.TestCase):
+    def test_direct_request_to_greet_with_arm_is_motion_intent(self):
+        self.assertTrue(requests_arm_motion('操控机械臂打个招呼'))
+        self.assertFalse(requests_arm_motion('你好'))
+        self.assertFalse(requests_arm_motion('如何用机械臂打个招呼？'))
+
     def test_accepts_fenced_or_prefaced_json_without_moving_on_invalid_text(self):
         self.assertEqual(parse_model_plan('```json\n{"reply":"ok"}\n```'), {'reply':'ok'})
         self.assertEqual(parse_model_plan('计划如下： {"motion":null,"reply":"稍后"}'),

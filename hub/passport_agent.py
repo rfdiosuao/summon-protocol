@@ -38,11 +38,13 @@ def parse_model_plan(content):
 
 _ARM_ACTION_WORDS = re.compile(
     r'招手|挥手|摇摇头|摇头|点点头|点头|摆动|抬起|抬臂|起身|转动|旋转|伸展|'
-    r'抓取|抓住|夹取|移动|作动|动一下|转一下|打招呼|挥动|wave|nod|move|rotate', re.I)
+    r'抓取|抓住|夹取|移动|作动|动一下|转一下|打(?:个)?招呼|挥动|wave|nod|move|rotate', re.I)
 
 
 def requests_arm_motion(text):
     """Require an explicit movement request before honoring model tool output."""
+    if re.match(r'^\s*(?:请)?(?:告诉我|解释|讲解|介绍|说明|如何|怎么|为什么|什么是)', text):
+        return False
     return bool(_ARM_ACTION_WORDS.search(text))
 
 
@@ -118,19 +120,26 @@ Gateway 会独立检查模型碰撞、现场预设和电机反馈。收到真实
                          'max_tokens':900 if 'arm.motion' in capabilities else 650,'temperature':0.1}
                 if model['base_url'].rstrip('/').startswith('https://api.deepseek.com'):
                     payload['thinking']={'type':'disabled'}
-                async with http.post(model['base_url'].rstrip('/')+'/chat/completions',
-                    headers={'Authorization':'Bearer '+model['api_key']},
-                    json=payload,
-                    timeout=aiohttp.ClientTimeout(total=min(20 if 'arm.motion' in capabilities else 12,remaining))) as r:
-                    if r.status!=200:raise RuntimeError('Model service unavailable')
-                    response=await r.json()
-                    choice=response['choices'][0]
-                    content=choice['message'].get('content')
-                    if 'arm.motion' in capabilities:
-                        print('Arm model response: finish=%s content_chars=%d reasoning_tokens=%s' % (
-                            choice.get('finish_reason'),len(content or ''),
-                            response.get('usage',{}).get('completion_tokens_details',{}).get('reasoning_tokens')),
-                            flush=True)
+                try:
+                    async with http.post(model['base_url'].rstrip('/')+'/chat/completions',
+                        headers={'Authorization':'Bearer '+model['api_key']},
+                        json=payload,
+                        timeout=aiohttp.ClientTimeout(total=min(20 if 'arm.motion' in capabilities else 12,remaining))) as r:
+                        if r.status!=200:raise RuntimeError('Model service unavailable')
+                        response=await r.json()
+                        choice=response['choices'][0]
+                        content=choice['message'].get('content')
+                        if 'arm.motion' in capabilities:
+                            print('Arm model response: finish=%s content_chars=%d reasoning_tokens=%s' % (
+                                choice.get('finish_reason'),len(content or ''),
+                                response.get('usage',{}).get('completion_tokens_details',{}).get('reasoning_tokens')),
+                                flush=True)
+                except aiohttp.ClientConnectorError:
+                    if attempt==0 and deadline-time.monotonic()>4:
+                        if on_event:on_event('system','模型连接暂时失败，重试一次。')
+                        await asyncio.sleep(.3)
+                        continue
+                    raise
             try:
                 plan=parse_model_plan(content)
                 break
@@ -299,6 +308,7 @@ async def run(config_path,credentials_path):
                         except Exception as exc:
                             detail=('会话即将到期，请重新连接后重试。' if 'Lease nearly expired' in str(exc)
                                     else '模型服务暂不可用。' if 'Model service unavailable' in str(exc)
+                                    else '模型或 Hub 连接失败，本轮未确认设备执行。' if isinstance(exc,aiohttp.ClientConnectorError)
                                     else '请求处理失败（'+type(exc).__name__+'）；未确认设备执行。')
                             record(journal,'system',detail,status='FAILED',**details)
                             print('Passport input failed:',type(exc).__name__,flush=True)

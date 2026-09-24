@@ -233,10 +233,10 @@ class ArmConsoleAdapter:
     async def open(self) -> None:
         self.http = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=2), trust_env=False)
         try:
-            self.safety = await asyncio.get_running_loop().run_in_executor(None, ModelSafety)
             state = await self._read(refresh=True)
             if not self._operational(state) or self._commanded_motion(state):
                 raise RuntimeError("B601-DM is not connected, idle and fault-free")
+            self.safety = await asyncio.get_running_loop().run_in_executor(None, ModelSafety)
             self.poll_task = asyncio.create_task(self._poll())
         except BaseException:
             await self.close()
@@ -244,8 +244,11 @@ class ArmConsoleAdapter:
 
     def healthy(self) -> bool:
         state = self.state
+        # Model evaluation and Windows scheduling can delay a feedback poll
+        # briefly while the arm is holding still. Motion keeps the 1 s limit.
+        max_poll_gap = 1 if self.in_motion else 2.5
         if (self.http is None or self.poll_task is None or self.poll_task.done() or state is None
-                or time.monotonic() - self.last_poll > 1 or not self._operational(state)):
+                or time.monotonic() - self.last_poll > max_poll_gap or not self._operational(state)):
             LOG.warning("Arm adapter unhealthy: poll_done=%s state=%s age=%s fault=%s sample_age=%s",
                         self.poll_task.done() if self.poll_task else None,
                         state.get("connected") if state else None,

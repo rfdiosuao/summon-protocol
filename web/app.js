@@ -6,6 +6,7 @@ $('copyAgentPrompt').onclick=async()=>{try{await navigator.clipboard.writeText($
 $('copyDevicePrompt').onclick=async()=>{try{await navigator.clipboard.writeText($('devicePrompt').textContent);$('copyDeviceStatus').textContent='已复制。把提示词交给能操作硬件所在电脑的 Agent。'}catch{const selection=window.getSelection(),range=document.createRange();range.selectNodeContents($('devicePrompt'));selection.removeAllRanges();selection.addRange(range);$('copyDeviceStatus').textContent='浏览器未允许复制，已选中提示词，请手动复制。'}};
 let state=null,session=null,stream=null,connected=false,busy=false,memoryVersion=0,taskBusy=false;
 let preferredShellId='display_demo',currentInputId=null,currentInputSessionId=null,currentInputStatus=null,currentInputAt=0;
+function wantsArmAction(prompt){return !/^\s*(请)?(告诉我|解释|讲解|介绍|说明|如何|怎么|为什么|什么是)/.test(prompt)&&/(招手|挥手|打个招呼|摇摇头|摇头|点点头|点头|抬臂|抬起|起身|摆动|旋转|转动|伸展|抓取|夹取|作动)/.test(prompt)}
 const labels={OFFLINE:'离线',IDLE:'就绪',CONNECTING:'正在接入',ACTIVE:'已接入',RELEASING:'正在释放',RELEASED:'已释放',FAILED:'失败',FAULT:'待核对',ESTOP:'已急停',ONLINE:'在线',BUSY:'使用中'};
 const errors={UNAUTHORIZED:'访问码无效或登录已过期',FORBIDDEN:'没有操作权限，请检查入口或访问码',AGENT_BUSY:'Agent 正在使用另一台设备',SHELL_BUSY:'设备正在使用中',SESSION_NOT_ACTIVE:'会话已结束，请重新连接',MEMORY_CONFLICT:'偏好版本已变化，请刷新后再保存',TASK_BUSY:'上一个任务还未结束',SHELL_OFFLINE:'设备离线',AGENT_OFFLINE:'Agent 离线',HANDOFF_BLOCKED:'旧设备尚未确认停止，交接已阻止',RATE_LIMITED:'请求过于频繁，请稍后再试'};
 function notice(text){$('notice').textContent=text}
@@ -14,7 +15,7 @@ function rid(){return crypto.randomUUID().replaceAll('-','')}
 function controls(){const active=connected&&!busy&&session?.state==='ACTIVE';for(const id of ['send','remember','handoff'])$(id).disabled=!active||(id==='send'&&taskBusy);if(demoMode&&!session&&connected&&!busy&&!taskBusy&&state?.shells.some(s=>s.shell_id===preferredShellId&&s.state==='IDLE'))$('send').disabled=false;$('release').disabled=!connected||busy||!session||!['ACTIVE','CONNECTING'].includes(session.state);document.querySelectorAll('[data-connect]').forEach(b=>b.disabled=!connected||busy||Boolean(session)||b.dataset.ready!=='true')}
 function render(){if(!state)return;const chosen=$('agent').value;$('agent').replaceChildren();for(const a of state.agents){const o=document.createElement('option');o.value=a.agent_id;o.textContent=a.name+' · '+(labels[a.status]||a.status);$('agent').append(o)}if(state.agents.some(a=>a.agent_id===chosen))$('agent').value=chosen;$('agentInfo').textContent=state.agents.find(a=>a.agent_id===$('agent').value)?.bio||'还没有 Agent 接入';
 session=[...state.sessions].reverse().find(s=>['ACTIVE','CONNECTING','RELEASING'].includes(s.state))||null;
-if(session)preferredShellId=session.shell_id;
+if(session&&session.state!=='RELEASING')preferredShellId=session.shell_id;
 $('shells').replaceChildren();for(const s of state.shells){const box=document.createElement('div');box.className='shell';const info=document.createElement('div');const title=document.createElement('b');title.textContent=s.label;const detail=document.createElement('small');detail.textContent=(labels[s.state]||s.state)+' · '+s.shell_id;info.append(title,detail);const b=document.createElement('button');b.textContent=session?.shell_id===s.shell_id?'当前设备':'连接';b.dataset.connect=s.shell_id;b.dataset.ready=String(s.state==='IDLE'&&s.enabled);b.onclick=()=>action(async()=>{preferredShellId=s.shell_id;await api('/v1/sessions',{request_id:rid(),agent_id:$('agent').value,shell_id:s.shell_id});notice('正在等待 Agent 和设备确认接入')});box.append(info,b);$('shells').append(box)}
 $('session').textContent=session?(labels[session.state]||session.state)+' · '+(state.shells.find(s=>s.shell_id===session.shell_id)?.label||session.shell_id):'尚未连接设备';
 if(session){memoryVersion=session.memory_version;$('memory').textContent='记忆版本 '+memoryVersion+' · 保存后交接仍然有效'}
@@ -50,7 +51,28 @@ async function snapshot(){state=await api('/v1/state');$('console').hidden=false
 async function connect(){if(stream)stream.close();connected=false;controls();await snapshot();stream=new EventSource('/v1/events?after='+encodeURIComponent(state.cursor));stream.onopen=()=>{connected=true;$('connection').textContent='实时连接';controls()};stream.onmessage=async event=>{const data=JSON.parse(event.data);if(data.type==='stream.reset'){stream.close();setTimeout(()=>connect().catch(e=>notice(e.message)),500);return}const li=document.createElement('li');li.textContent=new Date(data.at).toLocaleTimeString()+' · '+data.type;$('events').prepend(li);while($('events').children.length>40)$('events').lastChild.remove();if(data.type==='input.finished'&&data.payload?.input_id===currentInputId){currentInputStatus=data.payload.status;taskBusy=false;await refreshDemoExchange()}try{await snapshot()}catch(e){notice(e.message)}};stream.onerror=()=>{connected=false;$('connection').textContent='连接中断';controls();stream.close();setTimeout(()=>connect().catch(e=>notice(e.message)),2000)}}
 async function action(fn){if(busy)return;busy=true;controls();try{await fn();await snapshot()}catch(e){notice(e.message)}finally{busy=false;controls()}}
 $('loginForm').onsubmit=e=>{e.preventDefault();action(async()=>{await api('/v1/operator-session',{access_code:$('access').value});$('access').value='';notice('已进入控制台');await connect()})};
-async function sessionForInput(){
+async function waitForActiveShell(shellId, oldSessionId){
+  for(let i=0;i<48;i++){
+    await new Promise(resolve=>setTimeout(resolve,250));
+    state=await api('/v1/state');render();
+    const active=[...state.sessions].reverse().find(s=>s.shell_id===shellId&&s.session_id!==oldSessionId&&s.state==='ACTIVE');
+    if(active)return active;
+    const target=state.shells.find(s=>s.shell_id===shellId);
+    if(!target||['FAULT','ESTOP','OFFLINE'].includes(target.state))throw new Error('机械臂网关不可用：'+(target?.state||'离线'));
+  }
+  throw new Error('机械臂交接超时，请检查网关连接');
+}
+async function sessionForInput(prompt){
+  const requested=demoMode&&wantsArmAction(prompt)?'arm_demo':preferredShellId;
+  if(session?.state==='ACTIVE'&&session.shell_id!==requested){
+    const target=state.shells.find(s=>s.shell_id===requested&&s.state==='IDLE'&&s.enabled);
+    if(!target)throw new Error('机械臂尚未就绪，未发送动作请求');
+    const old=session;
+    preferredShellId=requested;
+    notice('正在将 Agent 从显示屏交接到机械臂…');
+    await api('/v1/sessions/'+old.session_id+'/handoff',{request_id:rid(),target_shell_id:requested});
+    return await waitForActiveShell(requested,old.session_id);
+  }
   if(session?.state==='ACTIVE'&&Date.parse(session.expires_at)-Date.now()>=25000)return session;
   if(session?.state==='ACTIVE'){
     const old=session;
@@ -65,6 +87,7 @@ async function sessionForInput(){
   }
   if(session)throw new Error('上一会话尚未接入完成，请稍候');
   if(!demoMode)throw new Error('请先连接设备');
+  preferredShellId=requested;
   const shell=state.shells.find(s=>s.shell_id===preferredShellId&&s.state==='IDLE');
   if(!shell)throw new Error('目标设备尚未就绪：'+preferredShellId);
   const capability=shell.shell_id==='arm_demo'?'arm.observe':'display.text';
@@ -80,7 +103,7 @@ async function sessionForInput(){
   }
   throw new Error('设备会话接入超时');
 }
-$('inputForm').onsubmit=e=>{e.preventDefault();const prompt=$('input').value.trim();if(!prompt)return;action(async()=>{const target=await sessionForInput();$('modelRequest').textContent=prompt;$('modelReply').textContent='模型正在处理…';$('resultStatus').textContent='等待本次设备回执';$('output').textContent='等待本次设备回执';try{const submitted=await api('/v1/sessions/'+target.session_id+'/inputs',{request_id:rid(),text:prompt});currentInputId=submitted.input_id;currentInputSessionId=target.session_id;currentInputStatus='ACCEPTED';currentInputAt=Date.now();taskBusy=true;notice('已提交给大模型 · 请求 '+currentInputId)}catch(error){currentInputStatus='FAILED';taskBusy=false;$('modelReply').textContent='提交失败：'+error.message;throw error}})};
+$('inputForm').onsubmit=e=>{e.preventDefault();const prompt=$('input').value.trim();if(!prompt)return;action(async()=>{$('modelRequest').textContent=prompt;$('modelReply').textContent='正在连接目标设备…';$('resultStatus').textContent='';$('output').textContent='等待本次设备回执';currentInputId=null;currentInputStatus=null;try{const target=await sessionForInput(prompt);$('modelReply').textContent='模型正在处理…';const submitted=await api('/v1/sessions/'+target.session_id+'/inputs',{request_id:rid(),text:prompt});currentInputId=submitted.input_id;currentInputSessionId=target.session_id;currentInputStatus='ACCEPTED';currentInputAt=Date.now();taskBusy=true;notice('已提交给大模型 · '+target.shell_id+' · 请求 '+currentInputId)}catch(error){currentInputStatus='FAILED';taskBusy=false;$('modelReply').textContent='未发送动作请求：'+error.message;throw error}})};
 $('remember').onclick=()=>action(async()=>{const m=await api('/v1/sessions/'+session.session_id+'/feedback',{request_id:rid(),update_id:rid(),expected_version:memoryVersion,patch:{response_style:$('preference').value}});memoryVersion=m.memory_version;notice('偏好已保存，记忆版本 '+m.memory_version)});
 $('release').onclick=()=>action(async()=>{await api('/v1/sessions/'+session.session_id+'/release',{request_id:rid()});notice('正在等待设备停止确认')});
 $('handoff').onclick=()=>action(async()=>{const target=state.shells.find(s=>s.shell_id!==session.shell_id&&s.state==='IDLE'&&s.enabled);if(!target)throw new Error('没有就绪的目标设备');preferredShellId=target.shell_id;await api('/v1/sessions/'+session.session_id+'/handoff',{request_id:rid(),target_shell_id:target.shell_id});notice('正在停止旧设备，再接入 '+target.label)});
