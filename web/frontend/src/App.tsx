@@ -26,6 +26,18 @@ export default function App() {
   const [profile, setProfile] = useState<AgentDashboardProfile | null>(null);
 
   useEffect(() => {
+    const timer = window.setTimeout(() => {
+      if (document.getElementById('summon-display-fonts')) return;
+      const fonts = document.createElement('link');
+      fonts.id = 'summon-display-fonts';
+      fonts.rel = 'stylesheet';
+      fonts.href = 'https://fonts.googleapis.com/css2?family=Michroma&family=Mina&display=swap';
+      document.head.appendChild(fonts);
+    }, view === 'home' ? 750 : 0);
+    return () => window.clearTimeout(timer);
+  }, [view]);
+
+  useEffect(() => {
     const plate = new URLSearchParams(window.location.search).get('plate');
     if (plate) {
       void fetchPublicNameplate(plate).then((result) => {

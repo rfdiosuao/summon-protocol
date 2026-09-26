@@ -370,6 +370,7 @@ export default function HomePage({ entryMode = 'fresh', onStart }: HomePageProps
     };
 
     intro.addEventListener('timeupdate', onTimeUpdate);
+    intro.addEventListener('ended', handoffToBreath);
 
     let videoFailed = false;
     const bootFresh = () => {
@@ -424,6 +425,7 @@ export default function HomePage({ entryMode = 'fresh', onStart }: HomePageProps
         cancelAnimationFrame(slapRafRef.current);
       }
       intro.removeEventListener('timeupdate', onTimeUpdate);
+      intro.removeEventListener('ended', handoffToBreath);
       intro.removeEventListener('loadedmetadata', bootFresh);
     };
   }, [isReturn]);

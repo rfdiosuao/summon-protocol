@@ -4,8 +4,8 @@
 export const ASSETS = {
   hero: '/assets/hero-bg.png',
   heroHq: '/assets/hero-bg-hq.png',
-  /** 原开场动画（手心出光前交接） */
-  intro: '/assets/intro.mp4',
+  /** 开场可见片段（手心出光前交接） */
+  intro: '/assets/intro-lite.mp4',
   /** 呼吸浮动帧序列（rAF 乒乓，避免视频 loop 卡顿） */
   introBreathManifest: '/assets/intro-breath/manifest.json',
   introBreathBase: '/assets/intro-breath/',
